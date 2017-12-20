@@ -1,0 +1,458 @@
+
+Need a syntax for expressing metaprob programs in clojure.
+
+Need a transformation from 'plain' metaprob-in-clojure to 'expanded'
+metaprob-in-clojure with explicit sequencing of trace and score
+propagation.
+
+
+1. Syntax - need to handle everything that's used in the chapter.
+   (The parser may implement constructs that aren't used.)
+
+2. Primitive functions - similarly.  Many of them come from venture,
+   but not all of those are used.  Bring them in on demand while working
+   through all the examples.
+
+The following (form propose-and-trace-choices.vnts) seems to be the complete set:
+
+  application
+  variable
+  literal
+  program (i.e. lambda)
+  if
+  block (progn)
+  [ ... ]  - tuple - no splicing, static subkeys
+      I don't think this is ever used.
+  definition
+  this
+  with_address
+
+  also: /a/b/c
+
+The grammar lists the following, but I haven't yet seen them in the
+chapter:
+  'letvalues'  (vars) = body
+  assignment   var := expression     - hairy left hand side syntax?
+    handled by trace_set primitive.
+
+(body is any experession, I think, not just {...})
+
+Also: implemented by functions:
+  e := e     including e[e] := e
+  *e
+  x has_value
+  del x  ?
+  e[e]
+  e[x:end]
+  {{ ... }}  - implemented by 6 functions
+
+Many of the main expression types have obvious clojure equivalents:
+
+  application
+  variable
+  literal
+  if
+  block (progn)
+
+Need to examine more carefully:
+
+  program (i.e. arrow, lambda)  (vars) -> body
+    - I think this is just (fn [vars] body).
+  tuple - no splicing, static subkeys
+    - Makes a tuple or 'array'.  Can be done as an application,
+      but be careful about addresses (/0/ must be beginning of array,
+      but in an application /0/ is the function)
+  definition
+    - assigns a variable, as opposed to := which is for traces
+  this
+  with_address /a/b/c/ : body
+    There are ten uses of with_address in the .vnts files.
+    Many involve /$i/ setting the address inside a map or something.
+
+
+Builtins:
+  src/builtin.py:
+    74 occurrences of register_builtin
+      is_vpair
+      vfirst
+      vlist
+      vrest
+      print_py_data
+      render_address
+      add
+      interpret_prim
+      py_match_bind
+      etc. etc.
+      list_to_array
+      etc. etc.
+      discrete_histogram
+
+  builtInSPs from venture: populated by 203 calls to
+  registerBuiltinSP() over 15 source files.
+  grep -r registerBuiltinSP ../Venturecxx >tmp.tmp
+  
+    basic_sps.py
+      eq neq ft fte lt lte real atom atom_index integer probability
+      not xor all_p any_p is_number is_probability is_atom
+      ... dump_data dump_py_data load_py_data
+
+    cmvn.py
+      make_niw_normal
+
+    conditionals.py
+      biplex
+
+    continuous.py
+      multivariate_normal inv_wishart ...
+
+    crp.py
+      make_crp
+
+    dirichlet.py
+      dirichlet
+      symmetric_dirichlet
+      make_dir_cat
+      ...
+
+    discrete.py
+      flip
+      bernoulli
+      log_flip
+      log_bernoulli
+      log_odds_flip
+      log_odds_bernoulli
+      binomial
+      ...
+
+    eval_sps.py
+      get_current_environment
+      get_empty_environment
+      is_environment
+      extend_environment
+      eval
+      address_of
+
+    function.py
+      apply_function
+
+    functional.py
+      apply
+      mapv
+      mapv2
+      imapv
+      fix
+      assess
+
+    gp.py
+      make_gp
+      gp_mean_const
+      gp_cov_const
+      ...
+
+    hmm.py
+      make_lazy_hmm
+
+    msp.py
+      mem
+
+    records.py
+      is_
+
+    scope.py
+      tag
+      tag_exclude
+
+    vectors.py
+      array
+      vector
+      is_array
+      is_vector
+      to_array
+      to_vector
+      matrix
+      is_matrix
+      simplex is_simplex
+      normalize arrange fill
+
+Also 66 definitions in prelude.vnts.
+
+
+grep output, file builtin.py:
+
+       -- venture names collide with metaprob
+      register_builtin("is_vpair", SPFromLite(sp))
+      register_builtin("vfirst", SPFromLite(sp))
+      register_builtin("vlist", SPFromLite(sp))
+      register_builtin("vrest", SPFromLite(sp))
+      register_builtin("inverse_gamma", SPFromLite(sp))
+      register_builtin("dump_py_data", Function2SP(dump_py_data_func))
+  register_builtin("print_py_data", Function1SP(print_py_data_func))
+  register_builtin("render_address", Function1SP(render_address))
+  register_builtin("add", Function2SP(metaprob_plus))
+  register_builtin("interpret_prim", PythonFunctionSP(interpret_prim))
+  register_builtin("py_match_bind", PythonFunctionSP(match_bind_func))
+  register_builtin("is_compound_sp_name", Function1SP(is_compound_name))
+  register_builtin("is_metaprob_array", Function1SP(is_metaprob_array_func))
+  register_builtin("py_propose", PythonFunctionSP(propose_func))
+  register_builtin("propose_application", PythonFunctionSP(propose_application_func))
+  register_builtin("py_make_env", PythonFunctionSP(make_env))
+  register_builtin("is_trace", Function1SP(is_trace))
+  register_builtin("subtrace", Function2SP(subtrace))
+  register_builtin("trace_has", Function1SP(trace_has))    NOT USED
+  register_builtin("trace_get", Function1SP(trace_get))    NOT USED
+  register_builtin("trace_set", Function2SP(trace_set))    NOT USED
+  register_builtin("trace_update", Function2SP(trace_update))
+  register_builtin("trace_clear", Function1SP(trace_clear))
+  register_builtin("trace_has_key", Function2SP(trace_has_key))
+  register_builtin("trace_subkeys", Function1SP(trace_subkeys))
+  register_builtin("trace_sites", Function1SP(trace_sites))
+  register_builtin("trace_empty", Function1SP(trace_empty))
+  register_builtin("trace_copy", Function1SP(copy_trace))
+  register_builtin("set_difference", Function2SP(set_difference))
+  register_builtin("contains", Function2SP(contains))
+  register_builtin("uniform_categorical", UniformCategoricalSP())
+  register_builtin("log_categorical", LogCategoricalSP())
+  register_builtin("categorical", CategoricalSP())
+  register_builtin("normalize", Function1SP(normalize))
+  register_builtin("logsumexp", Function1SP(logsumexp))
+  register_builtin("address_to_venture_list",
+      Function1SP(metaprob_list_to_venture_list))  NOT USED
+  register_builtin("array_to_address", Function1SP(metaprob_array_to_metaprob_list))
+  register_builtin("collection_to_address", Function1SP(metaprob_collection_to_metaprob_list))
+  register_builtin("collection_to_array", Function1SP(metaprob_collection_to_metaprob_array))
+  register_builtin("array_to_list", Function1SP(metaprob_array_to_metaprob_list))
+  register_builtin("list_to_array", Function1SP(metaprob_list_to_metaprob_array))
+  register_builtin("list_to_vlist", Function1SP(metaprob_list_to_venture_list))
+  register_builtin("array_to_vlist", Function1SP(metaprob_array_to_venture_list))
+  register_builtin("vlist_to_array", Function1SP(venture_list_to_metaprob_array))
+  register_builtin("array_to_varray", Function1SP(metaprob_array_to_venture_array))
+  register_builtin("prob_prog_name", Function1SP(prob_prog_name))
+  register_builtin("primitive_backpropagator", Function1SP(primitive_backpropagator))
+  register_builtin("destructure_compound_name", Function1SP(destructure_compound_name))
+  register_builtin("p_p_plot_2samp_to_file", PythonFunctionSP(p_p_plot_2samp_to_file))
+  register_builtin("random_output", Function1SP(random_output))
+  register_builtin("resolve_tag_address", Function1SP(resolve_tag_address))
+  register_builtin("pair", Function2SP(metaprob_pair))
+  register_builtin("list", PythonFunctionSP(metaprob_list))
+  register_builtin("mk_nil", PythonFunctionSP(metaprob_nil))
+  register_builtin("trace_set_subtrace_at", PythonFunctionSP(trace_set_subtrace_at))
+  register_builtin("mk_spl", Function1SP(mk_spl))
+  register_builtin("trace_to_graphviz", PythonFunctionSP(trace_to_graphviz_func))
+  register_builtin("is_builtin_env", Function1SP(is_builtin_env))
+  register_builtin("and", SPFromLite(lite_and_sp))
+  register_builtin("or", SPFromLite(lite_or_sp))
+  register_builtin("lookup", SPFromLite(updated_lookup_sp))
+  register_builtin("pprint", SPFromLite(deterministic_typed(pprint_fun, [t.Data], t.Nil)))
+  register_builtin("assert", SPFromLite(assert_sp))
+  register_builtin("binned_histogram", PythonFunctionSP(binned_histogram_func))
+  register_builtin("log_gamma_function", PythonFunctionSP(log_gamma_function))
+  register_builtin("discrete_histogram", PythonFunctionSP(discrete_histogram_func))
+  register_builtin("discrete_weighted_histogram", PythonFunctionSP(discrete_weighted_histogram_func))
+  register_builtin("toplevel_lookup", Function1SP(toplevel_lookup))
+  register_builtin("write", Function1SP(write_func))
+  register_builtin("string", Function1SP(string_func))
+  register_builtin("dereify_tag", Function1SP(dereify_tag))
+
+basic_sps.py:registerBuiltinSP("eq", binaryPred(lambda x,y: x.equal(y),
+basic_sps.py:registerBuiltinSP("neq", binaryPred(lambda x,y: not x.equal(y),
+basic_sps.py:registerBuiltinSP("gt", binaryPred(lambda x,y: x.compare(y) >  0,
+basic_sps.py:registerBuiltinSP("gte", binaryPred(lambda x,y: x.compare(y) >= 0,
+basic_sps.py:registerBuiltinSP("lt", binaryPred(lambda x,y: x.compare(y) <  0,
+basic_sps.py:registerBuiltinSP("lte", binaryPred(lambda x,y: x.compare(y) <= 0,
+basic_sps.py:registerBuiltinSP("real", deterministic_typed(lambda x:x,
+basic_sps.py:registerBuiltinSP("atom", deterministic_typed(lambda x:x,
+basic_sps.py:registerBuiltinSP("atom_index", deterministic_typed(lambda x:x,
+basic_sps.py:registerBuiltinSP("integer", deterministic_typed(int,
+basic_sps.py:registerBuiltinSP("probability", deterministic_typed(lambda x:x,
+basic_sps.py:registerBuiltinSP("not", deterministic_typed(lambda x: not x,
+basic_sps.py:registerBuiltinSP("xor", deterministic_typed(lambda x, y: x != y,
+basic_sps.py:registerBuiltinSP("all_p", deterministic_typed(all,
+basic_sps.py:registerBuiltinSP("any_p", deterministic_typed(any,
+basic_sps.py:registerBuiltinSP("is_number", type_test(t.NumberType()))
+basic_sps.py:registerBuiltinSP("is_integer", type_test(t.IntegerType()))
+basic_sps.py:registerBuiltinSP("is_probability", type_test(t.ProbabilityType()))
+basic_sps.py:registerBuiltinSP("is_atom", type_test(t.AtomType()))
+basic_sps.py:registerBuiltinSP("is_boolean", type_test(t.BoolType()))
+basic_sps.py:registerBuiltinSP("is_symbol", type_test(t.SymbolType()))
+basic_sps.py:registerBuiltinSP("is_procedure", type_test(SPType([t.AnyType()], t.AnyType(),
+basic_sps.py:registerBuiltinSP("list", deterministic_typed(lambda *args: args,
+basic_sps.py:registerBuiltinSP("pair", deterministic_typed(lambda a,d: (a,d),
+basic_sps.py:registerBuiltinSP("is_pair", type_test(t.PairType()))
+basic_sps.py:registerBuiltinSP("first", deterministic_typed(lambda p: p[0],
+basic_sps.py:registerBuiltinSP("rest", deterministic_typed(lambda p: p[1],
+basic_sps.py:registerBuiltinSP("second", deterministic_typed(lambda p: p[1][0],
+basic_sps.py:registerBuiltinSP("to_list",
+basic_sps.py:registerBuiltinSP("zip", deterministic_typed(zip,    NOT USED
+basic_sps.py:registerBuiltinSP("reverse", deterministic_typed(lambda l: list(reversed(l)),
+basic_sps.py:registerBuiltinSP("set_difference", deterministic_typed(lambda l1, l2: [v for v in l1 if v not in l2],
+basic_sps.py:registerBuiltinSP("dict",
+basic_sps.py:registerBuiltinSP("is_dict", type_test(t.DictType()))
+basic_sps.py:registerBuiltinSP("to_dict",
+basic_sps.py:registerBuiltinSP("keys",
+basic_sps.py:registerBuiltinSP("values",
+basic_sps.py:registerBuiltinSP("lookup", deterministic_typed(lambda xs, x: xs.lookup(x),
+basic_sps.py:registerBuiltinSP("contains", deterministic_typed(lambda xs, x: xs.contains(x),
+basic_sps.py:registerBuiltinSP("size", deterministic_typed(lambda xs: xs.size(),
+basic_sps.py:registerBuiltinSP("is_empty", deterministic_typed(lambda xs: xs.size() == 0,
+basic_sps.py:registerBuiltinSP("take", deterministic_typed(lambda ind, xs: xs.take(ind),
+basic_sps.py:registerBuiltinSP("debug", deterministic_typed(debug_print,
+basic_sps.py:registerBuiltinSP("value_error",
+basic_sps.py:registerBuiltinSP("name", deterministic_typed(make_name,
+basic_sps.py:registerBuiltinSP("dump_data", deterministic_typed(
+basic_sps.py:registerBuiltinSP("load_data", deterministic_typed(
+basic_sps.py:registerBuiltinSP("dump_py_data", deterministic_typed(
+basic_sps.py:registerBuiltinSP("load_py_data", deterministic_typed(
+cmvn.py:registerBuiltinSP("make_niw_normal",
+conditionals.py:registerBuiltinSP("biplex", no_request(generic_biplex))
+continuous.py:registerBuiltinSP("multivariate_normal", typed_nr(MVNormalOutputPSP(),
+continuous.py:registerBuiltinSP("inv_wishart", typed_nr(InverseWishartOutputPSP(),
+continuous.py:registerBuiltinSP("wishart", typed_nr(WishartOutputPSP(),
+continuous.py:registerBuiltinSP("normalss", typed_nr(NormalOutputPSP(),
+continuous.py:registerBuiltinSP("normalsv", typed_nr(NormalsvOutputPSP(),
+continuous.py:registerBuiltinSP("normalvs", typed_nr(NormalvsOutputPSP(),
+continuous.py:registerBuiltinSP("normalvv", typed_nr(NormalvvOutputPSP(),
+continuous.py:registerBuiltinSP("normal", no_request(generic_normal))
+continuous.py:registerBuiltinSP('lognormal', typed_nr(LogNormalOutputPSP(),
+continuous.py:registerBuiltinSP("vonmises", typed_nr(VonMisesOutputPSP(),
+continuous.py:registerBuiltinSP("uniform_continuous",typed_nr(UniformOutputPSP(),
+continuous.py:registerBuiltinSP("log_odds_uniform", typed_nr(LogOddsUniformOutputPSP(),
+continuous.py:registerBuiltinSP("beta", typed_nr(BetaOutputPSP(),
+continuous.py:registerBuiltinSP("log_beta", typed_nr(LogBetaOutputPSP(),
+continuous.py:registerBuiltinSP("log_odds_beta", typed_nr(LogOddsBetaOutputPSP(),
+continuous.py:registerBuiltinSP("expon", typed_nr(ExponOutputPSP(),
+continuous.py:registerBuiltinSP("gamma", typed_nr(GammaOutputPSP(),
+continuous.py:registerBuiltinSP("student_t", typed_nr(StudentTOutputPSP(),
+continuous.py:registerBuiltinSP("inv_gamma", typed_nr(InvGammaOutputPSP(),
+continuous.py:registerBuiltinSP("laplace", typed_nr(LaplaceOutputPSP(),
+continuous.py:registerBuiltinSP("make_nig_normal", typed_nr(MakerCNigNormalOutputPSP(),
+continuous.py:registerBuiltinSP("make_uc_nig_normal", typed_nr(MakerUNigNormalOutputPSP(),
+continuous.py:registerBuiltinSP("make_suff_stat_normal", typed_nr(MakerSuffNormalOutputPSP(),
+crp.py:registerBuiltinSP('make_crp', typed_nr(MakeCRPOutputPSP(),
+csp.py:registerBuiltinSP("make_csp", typed_nr(MakeCSPOutputPSP(),
+dirichlet.py:registerBuiltinSP("dirichlet", \
+dirichlet.py:registerBuiltinSP("symmetric_dirichlet", \
+dirichlet.py:registerBuiltinSP("make_dir_cat", \
+dirichlet.py:registerBuiltinSP("make_uc_dir_cat", \
+dirichlet.py:registerBuiltinSP("make_sym_dir_cat", \
+dirichlet.py:registerBuiltinSP("make_uc_sym_dir_cat",
+discrete.py:registerBuiltinSP("flip", typed_nr(BernoulliOutputPSP(),
+discrete.py:registerBuiltinSP("bernoulli", typed_nr(BernoulliOutputPSP(),
+discrete.py:registerBuiltinSP("log_flip", typed_nr(LogBernoulliOutputPSP(),
+discrete.py:registerBuiltinSP("log_bernoulli", typed_nr(LogBernoulliOutputPSP(),
+discrete.py:registerBuiltinSP("log_odds_flip", typed_nr(LogOddsBernoulliOutputPSP(),
+discrete.py:registerBuiltinSP("log_odds_bernoulli", typed_nr(LogOddsBernoulliOutputPSP(),
+discrete.py:registerBuiltinSP("binomial", typed_nr(BinomialOutputPSP(),
+discrete.py:registerBuiltinSP("categorical", typed_nr(CategoricalOutputPSP(),
+discrete.py:registerBuiltinSP("log_categorical", typed_nr(LogCategoricalOutputPSP(),
+discrete.py:registerBuiltinSP("uniform_categorical", typed_nr(UniformCategoricalOutputPSP(),
+discrete.py:registerBuiltinSP("uniform_discrete", typed_nr(UniformDiscreteOutputPSP(),
+discrete.py:registerBuiltinSP("poisson", typed_nr(PoissonOutputPSP(),
+discrete.py:registerBuiltinSP("make_beta_bernoulli", typed_nr(MakerCBetaBernoulliOutputPSP(),
+discrete.py:registerBuiltinSP("make_uc_beta_bernoulli",
+discrete.py:registerBuiltinSP("make_suff_stat_bernoulli",
+discrete.py:registerBuiltinSP("exactly", typed_nr(ExactlyOutputPSP(),
+discrete.py:registerBuiltinSP("make_gamma_poisson", typed_nr(MakerCGammaPoissonOutputPSP(),
+discrete.py:registerBuiltinSP("make_uc_gamma_poisson",
+discrete.py:registerBuiltinSP("make_suff_stat_poisson",
+eval_sps.py:registerBuiltinSP("get_current_environment",
+eval_sps.py:registerBuiltinSP("get_empty_environment",
+eval_sps.py:registerBuiltinSP("is_environment", type_test(env.EnvironmentType()))
+eval_sps.py:registerBuiltinSP("extend_environment",
+eval_sps.py:registerBuiltinSP("eval",
+eval_sps.py:registerBuiltinSP("address_of",
+function.py:registerBuiltinSP("apply_function", applyFunctionSP)
+functional.py:registerBuiltinSP(
+functional.py:registerBuiltinSP(
+functional.py:registerBuiltinSP(
+functional.py:registerBuiltinSP(
+functional.py:registerBuiltinSP(
+functional.py:registerBuiltinSP(
+gp.py:registerBuiltinSP('make_gp', makeGPSP)
+gp.py:registerBuiltinSP('gp_mean_const',
+gp.py:registerBuiltinSP('gp_cov_const',
+gp.py:registerBuiltinSP('gp_cov_delta',
+gp.py:registerBuiltinSP('gp_cov_deltoid',
+gp.py:registerBuiltinSP('gp_cov_bump',
+gp.py:registerBuiltinSP('gp_cov_se',
+gp.py:registerBuiltinSP('gp_cov_periodic',
+gp.py:registerBuiltinSP('gp_cov_rq',
+gp.py:registerBuiltinSP('gp_cov_matern',
+gp.py:registerBuiltinSP('gp_cov_matern_32',
+gp.py:registerBuiltinSP('gp_cov_matern_52',
+gp.py:registerBuiltinSP('gp_cov_linear',
+gp.py:registerBuiltinSP('gp_cov_bias',
+gp.py:registerBuiltinSP('gp_cov_scale',
+gp.py:registerBuiltinSP('gp_cov_sum',
+gp.py:registerBuiltinSP('gp_cov_product',
+hmm.py:registerBuiltinSP("make_lazy_hmm", typed_nr(MakeUncollapsedHMMOutputPSP(),
+msp.py:registerBuiltinSP("mem",typed_nr(MakeMSPOutputPSP(),
+records.py:  registerBuiltinSP(name, constructor)
+records.py:  registerBuiltinSP("is_" + name, tester)
+records.py:    registerBuiltinSP(f, a)
+scope.py:registerBuiltinSP("tag",
+scope.py:registerBuiltinSP("tag_exclude",
+sp_registry.py:def registerBuiltinSP(name, sp):
+vectors.py:registerBuiltinSP("array",
+vectors.py:registerBuiltinSP("vector",
+vectors.py:registerBuiltinSP("is_array", type_test(t.ArrayType()))
+vectors.py:registerBuiltinSP("is_vector", type_test(t.ArrayUnboxedType(t.NumberType())))
+vectors.py:registerBuiltinSP("to_array",
+vectors.py:registerBuiltinSP("to_vector",
+vectors.py:registerBuiltinSP("matrix",
+vectors.py:registerBuiltinSP("is_matrix", type_test(t.MatrixType()))
+vectors.py:registerBuiltinSP("simplex",
+vectors.py:registerBuiltinSP("is_simplex", type_test(t.SimplexType()))
+vectors.py:registerBuiltinSP("normalize",
+vectors.py:registerBuiltinSP("arange",
+vectors.py:registerBuiltinSP("fill",
+vectors.py:registerBuiltinSP("linspace",
+vectors.py:registerBuiltinSP("zero_matrix",
+vectors.py:registerBuiltinSP("id_matrix",
+vectors.py:registerBuiltinSP("diag_matrix",
+vectors.py:registerBuiltinSP("ravel",
+vectors.py:registerBuiltinSP("transpose",
+vectors.py:registerBuiltinSP("vector_add",
+vectors.py:registerBuiltinSP("hadamard",
+vectors.py:registerBuiltinSP("matrix_add",
+vectors.py:registerBuiltinSP("scale_vector",
+vectors.py:registerBuiltinSP("scale_matrix",
+vectors.py:registerBuiltinSP("vector_dot",
+vectors.py:registerBuiltinSP("matrix_mul",
+vectors.py:registerBuiltinSP("matrix_times_vector",
+vectors.py:registerBuiltinSP("vector_times_matrix",
+vectors.py:registerBuiltinSP("matrix_inverse",
+vectors.py:registerBuiltinSP("matrix_solve",
+vectors.py:registerBuiltinSP("matrix_trace",
+vectors.py:registerBuiltinSP("row",
+vectors.py:registerBuiltinSP("col",
+vectors.py:registerBuiltinSP("sum",
+vectors.py:registerBuiltinSP("append",
+venmath.py:registerBuiltinSP("add", no_request(generic_add))
+venmath.py:registerBuiltinSP("sub", no_request(generic_sub))
+venmath.py:registerBuiltinSP("mul", no_request(generic_times))
+venmath.py:registerBuiltinSP("div", binaryNum(divide,
+venmath.py:registerBuiltinSP("int_div", binaryNumInt(integer_divide,
+venmath.py:registerBuiltinSP("int_mod", binaryNumInt(integer_mod,
+venmath.py:registerBuiltinSP("min",
+venmath.py:registerBuiltinSP("max",
+venmath.py:registerBuiltinSP("floor", unaryNum(math.floor,
+venmath.py:registerBuiltinSP("sin", unaryNum(math.sin, sim_grad=grad_sin,
+venmath.py:registerBuiltinSP("cos", unaryNum(math.cos, sim_grad=grad_cos,
+venmath.py:registerBuiltinSP("tan", unaryNum(math.tan, sim_grad=grad_tan,
+venmath.py:registerBuiltinSP("hypot", binaryNum(math.hypot,
+venmath.py:registerBuiltinSP("exp", unaryNum(exp,
+venmath.py:registerBuiltinSP("expm1", unaryNum(expm1,
+venmath.py:registerBuiltinSP("log", unaryNum(log,
+venmath.py:registerBuiltinSP("log1p", unaryNum(log1p,
+venmath.py:registerBuiltinSP("pow", binaryNum(math.pow, sim_grad=grad_pow,
+venmath.py:registerBuiltinSP("sqrt", unaryNum(math.sqrt, sim_grad=grad_sqrt,
+venmath.py:registerBuiltinSP("atan2", binaryNum(math.atan2,
+venmath.py:registerBuiltinSP("negate", unaryNum(lambda x: -x, sim_grad=grad_negate,
+venmath.py:registerBuiltinSP("abs", unaryNum(abs, sim_grad=grad_abs,
+venmath.py:registerBuiltinSP("signum", unaryNum(signum,
+venmath.py:registerBuiltinSP("logistic", unaryNum(logistic, sim_grad=grad_logistic,
+venmath.py:registerBuiltinSP("logisticv", deterministic_typed(logistic,
+venmath.py:registerBuiltinSP("logit", unaryNum(logit,
+venmath.py:registerBuiltinSP("log_logistic", unaryNum(log_logistic,
+venmath.py:registerBuiltinSP("logit_exp", unaryNum(logit_exp,
+venmath.py:registerBuiltinSP("logsumexp", deterministic_typed(logsumexp,
