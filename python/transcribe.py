@@ -14,6 +14,7 @@
 import sys, argparse
 
 from metaprob.parser import parse
+import metaprob.sp 
 
 from metaprob.trace import ITrace
 from metaprob.trace import NullTrace
@@ -46,31 +47,49 @@ def clojurefy(exp):
     # metaprob call written f(...) => python tuple (f ...) => clojure list (f ...)
     return tuple(subs)
   elif isinstance(exp, Lit):
-    # Convert metaprob literal (a venture value) to a python value
-    if isinstance(exp.val, vv.VentureInteger):
-      return exp.val.number
-    elif isinstance(exp.val, vv.VentureNumber):
-      return exp.val.number
-    elif isinstance(exp.val, vv.VentureString):
-      return exp.val.strng
-    else:
-      print '1 #%s %s#' % (repr(exp.val), type(exp.val))
-      return exp.val
+    return clojurefy_literal(exp.val)
   elif isinstance(exp, Var):
     return {'symbol': exp.name}
   elif isinstance(exp, Lam):
-    return 0
+    return (sym('fn'), clojurefy(exp.pat), clojurefy(exp.body))
+  elif isinstance(exp, Alt):
+    return (sym('if'), clojurefy(exp.pred), clojurefy(exp.cons), clojurefy(exp.alt))
   elif isinstance(exp, Seq):
     subs = tuple((clojurefy(e) for e in exp.subs))
     if len(subs) == 1:
       return subs[0]
     else:
-      return cons('do', subs)
+      return cons(sym('do'), subs)
+  elif isinstance(exp, Ths):
+    return (sym('this'))
+  elif isinstance(exp, WAdr):
+    return (sym('with-address'), clojurefy(exp.tag), clojurefy(exp.expr))
   elif isinstance(exp, Tup):
     # metaprob tuple written [...] => python list [...] => clojure vector [...]
     return list((clojurefy(e) for e in exp.subs))
+  elif isinstance(exp, Def):
+    return (sym('def'), clojurefy(exp.pat), clojurefy(exp.expr))
+  elif isinstance(exp, Unq):
+    print sys.stderr, "Found unquote outside quoted context"
+    return '*error*'
+  assert False, "Unknown expression type %s" % (repr(exp),)
+
+def sym(name):
+  return {'symbol': name}
+
+def clojurefy_literal(val):
+  # Convert metaprob literal (a venture value) to a python value
+  if isinstance(val, vv.VentureInteger):
+    return val.number
+  elif isinstance(val, vv.VentureNumber):
+    return val.number
+  elif isinstance(val, vv.VentureString):
+    return val.strng
+  elif isinstance(val, vv.VentureBool):
+    return val.boolean
   else:
-    return '?' + repr(exp)
+    print '1 #%s %s#' % (repr(val), type(val))
+    return val
 
 def cons(thing, tup):
   return (thing,) + tuple(tup)
