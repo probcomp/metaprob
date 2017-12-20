@@ -16,6 +16,7 @@ import sys, argparse
 from metaprob.parser import parse
 import metaprob.sp 
 
+import metaprob.types
 from metaprob.trace import ITrace
 from metaprob.trace import NullTrace
 from metaprob.trace import metaprob_collection_to_python_list
@@ -39,6 +40,8 @@ from metaprob.types import WAdr
 
 import venture.lite.value as vv
 
+symbol_marker = '__symbol__'
+
 # Step 1. Convert metaprob parse tree to s-expression
 
 def clojurefy(exp):
@@ -47,9 +50,10 @@ def clojurefy(exp):
     # metaprob call written f(...) => python tuple (f ...) => clojure list (f ...)
     return tuple(subs)
   elif isinstance(exp, Lit):
-    return clojurefy_literal(exp.val)
+    # exp.val is a VentureValue
+    return venture_to_python(exp.val)
   elif isinstance(exp, Var):
-    return {'symbol': exp.name}
+    return sym(exp.name)
   elif isinstance(exp, Lam):
     return (sym('fn'), clojurefy(exp.pat), clojurefy(exp.body))
   elif isinstance(exp, Alt):
@@ -75,21 +79,21 @@ def clojurefy(exp):
   assert False, "Unknown expression type %s" % (repr(exp),)
 
 def sym(name):
-  return {'symbol': name}
+  return {symbol_marker: name}
 
-def clojurefy_literal(val):
+def venture_to_python(vval):
   # Convert metaprob literal (a venture value) to a python value
-  if isinstance(val, vv.VentureInteger):
-    return val.number
-  elif isinstance(val, vv.VentureNumber):
-    return val.number
-  elif isinstance(val, vv.VentureString):
-    return val.strng
-  elif isinstance(val, vv.VentureBool):
-    return val.boolean
+  if isinstance(vval, vv.VentureInteger):
+    return vval.number
+  elif isinstance(vval, vv.VentureNumber):
+    return vval.number
+  elif isinstance(vval, vv.VentureString):
+    return vval.strng
+  elif isinstance(vval, vv.VentureBool):
+    return vval.getBool()
   else:
-    print '1 #%s %s#' % (repr(val), type(val))
-    return val
+    print '[#1 %s %s#]' % (repr(vval), type(vval))
+    return vval
 
 def cons(thing, tup):
   return (thing,) + tuple(tup)
@@ -99,8 +103,13 @@ def cons(thing, tup):
 # Python representation of clojure list (...): python tuple ?
 # Python representation of clojure vector [...]: python list
 
-def pprint(sexp, outfile):
-  if isinstance(sexp, tuple):
+def print_as_clojure(sexp, outfile):
+  if isinstance(sexp, bool):
+    if sexp:
+      outfile.write('true')
+    else:
+      outfile.write('false')
+  elif isinstance(sexp, tuple):
     outfile.write('(')
     firstp = True
     for s in sexp:
@@ -108,7 +117,7 @@ def pprint(sexp, outfile):
         firstp = False
       else:
         outfile.write(' ')
-      pprint(s, outfile)
+      print_as_clojure(s, outfile)
     outfile.write(')')
   elif isinstance(sexp, list):
     outfile.write('[')
@@ -118,54 +127,105 @@ def pprint(sexp, outfile):
         firstp = False
       else:
         outfile.write(' ')
-      pprint(s, outfile)
+      print_as_clojure(s, outfile)
     outfile.write(']')
   elif isinstance(sexp, dict):
-    if 'symbol' in sexp:
-      outfile.write(sexp['symbol'])
+    #print '[dict %s]' % sexp
+    if symbol_marker in sexp:
+      outfile.write(sexp[symbol_marker])
     else:
-      outfile.write(repr(sexp))
+      outfile.write('{')
+      firstp = True
+      if value_marker in sexp:
+        outfile.write(':v')
+        outfile.write(' ' )
+        print_as_clojure(sexp[value_marker], outfile)
+        firstp = False
+      for (key, val) in sexp.items():
+        if key != value_marker:
+          if firstp:
+            firstp = False
+          else:
+            outfile.write(' ' )
+          print_as_clojure(key, outfile)
+          outfile.write(' ' )
+          print_as_clojure(val, outfile)
+      outfile.write('}')
   elif isinstance(sexp, str):
-    pprint_string(unicode(sexp), outfile)
+    print_as_clojure_string(unicode(sexp), outfile)
   elif isinstance(sexp, unicode):
-    pprint_string(sexp, outfile)
+    print_as_clojure_string(sexp, outfile)
   elif isinstance(sexp, int):
     outfile.write(str(sexp))
+  elif isinstance(sexp, float):
+    outfile.write(str(sexp))
   else:
-    print '2 #%s %s#' % (repr(sexp), type(sexp))
+    print '[#2 %s %s#]' % (repr(sexp), type(sexp))
     outfile.write(repr(sexp))
 
-def pprint_string(u, outfile):
+def print_as_clojure_string(u, outfile):
   outfile.write('"')
   if '"' in u:
     u = u.replace('"', '\\"')
   outfile.write(u)
   outfile.write('"')
 
+value_marker = '__v__'
+
+def convert_trace(exp):
+  return convert_trace_1(metaprob.types.reify_exp_to_venture(exp))
+
+def convert_trace_1(tr):
+  nontrivial = False
+  d = {}
+  if tr.has():
+    # .get() returns a VentureValue, according to comment in trace.py.
+    #print 'vv %s %s' % (tr.get(), type(tr.get()))
+    d[value_marker] = venture_to_python(tr.get())
+  else:
+    nontrival = True
+  for key in tr.subkeys():    # List[vv.VentureValue]
+    #print 'vk %s %s' % (key, type(key))
+    with tr.subtrace(key) as sub:
+      k = venture_to_python(key)
+      d[k] = convert_trace_1(sub)
+      nontrivial = True
+  if nontrivial:
+    return d
+  else:
+    return d[value_marker]
 
 #-----------------------------------------------------------------------------
 
-def process_file(fname):
+def process_file(fname, converter):
   with open(fname, 'r') as f:
     form = f.read()
-  process_expression(form)
+  process_expression(form, converter)
 
-def process_expression(exp):
+def process_expression(exp, converter):
   exp = parse.parse_string(exp)
   outfile = sys.stdout
-  pprint(clojurefy(exp), outfile)
+  print_as_clojure(converter(exp), outfile)
   outfile.write('\n')
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
+  parser.add_argument('-t', '--trace', action='store_true',
+                      help="print trace version of code")
+  parser.add_argument('-c', '--clojure', action='store_true',
+                      help="print clojure version of code (default)")
   parser.add_argument('-e', '--eval', action='append',
     help="execute the given expression")
   parser.add_argument('-f', '--file', action='append',
     help="execute the given file")
   args = parser.parse_args()
+  if args.trace:
+    converter = convert_trace
+  else:
+    converter = clojurefy
   if args.file != None:
     for fname in args.file:
-      process_file(fname)
+      process_file(fname, converter)
   if args.eval != None:
     for exp in args.eval:
-      process_expression(exp)
+      process_expression(exp, converter)
