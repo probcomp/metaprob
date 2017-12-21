@@ -219,9 +219,8 @@ if __name__ == '__main__':
   parser.add_argument('-f', '--file', action='append',
     help="execute the given file")
   args = parser.parse_args()
-  if args.trace:
-    converter = convert_trace
-  else:
+  converter = convert_trace
+  if args.clojure:
     converter = clojurefy
   if args.file != None:
     for fname in args.file:
