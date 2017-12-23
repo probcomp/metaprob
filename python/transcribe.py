@@ -151,17 +151,26 @@ def print_as_clojure(sexp, outfile):
           outfile.write(' ' )
           print_as_clojure(val, outfile)
       outfile.write('}')
-  elif isinstance(sexp, str):
-    print_as_clojure_string(unicode(sexp), outfile)
-  elif isinstance(sexp, unicode):
-    print_as_clojure_string(sexp, outfile)
-  elif isinstance(sexp, int):
-    outfile.write(str(sexp))
-  elif isinstance(sexp, float):
-    outfile.write(str(sexp))
   else:
-    print '[#2 %s %s#]' % (repr(sexp), type(sexp))
-    outfile.write(repr(sexp))
+    emit_value(sexp, outfile)
+
+def emit_value(val, outfile):
+  if isinstance(val, bool):
+    if val:
+      outfile.write('true')
+    else:
+      outfile.write('false')
+  elif isinstance(val, str):
+    print_as_clojure_string(unicode(val), outfile)
+  elif isinstance(val, unicode):
+    print_as_clojure_string(val, outfile)
+  elif isinstance(val, int):
+    outfile.write(str(val))
+  elif isinstance(val, float):
+    outfile.write(str(val))
+  else:
+    print '[odd value %s %s#]' % (repr(val), type(val))
+    outfile.write(repr(val))
 
 def print_as_clojure_string(u, outfile):
   outfile.write('"')
@@ -170,43 +179,45 @@ def print_as_clojure_string(u, outfile):
   outfile.write(u)
   outfile.write('"')
 
+# Convert trace to clojure syntax, allowing the trace to be
+# reconstructed when read into clojure.
+
 value_marker = '__v__'
 
-def convert_trace(exp):
-  return convert_trace_1(metaprob.types.reify_exp_to_venture(exp))
+def emit_exp_as_trace(exp, outfile):
+  emit_trace(metaprob.types.reify_exp_to_venture(exp), outfile)
+  outfile.write('\n')
 
-def convert_trace_1(tr):
-  nontrivial = False
-  d = {}
-  if tr.has():
-    # .get() returns a VentureValue, according to comment in trace.py.
-    #print 'vv %s %s' % (tr.get(), type(tr.get()))
-    d[value_marker] = venture_to_python(tr.get())
+abbreviate_trivial = False
+
+def emit_trace(tr, outfile):
+  keylist = tr.subkeys()
+  if abbreviate_trivial and len(keylist) == 0 and tr.has():
+    emit_value(venture_to_python(tr.get()), outfile)
   else:
-    nontrival = True
-  for key in tr.subkeys():    # List[vv.VentureValue]
-    #print 'vk %s %s' % (key, type(key))
-    with tr.subtrace(key) as sub:
-      k = venture_to_python(key)
-      d[k] = convert_trace_1(sub)
-      nontrivial = True
-  if nontrivial:
-    return d
-  else:
-    return d[value_marker]
+    outfile.write('(')
+    if tr.has():
+      emit_value(venture_to_python(tr.get()), outfile)
+    else:
+      outfile.write(':none')
+    for key in keylist:    # List[vv.VentureValue]
+      with tr.subtrace(key) as sub:
+        outfile.write(' ')
+        k = venture_to_python(key)
+        emit_value(k, outfile)
+        outfile.write(' ')
+        emit_trace(sub, outfile)
+    outfile.write(')')
 
 #-----------------------------------------------------------------------------
 
-def process_file(fname, converter):
+def process_file(fname, emitter):
   with open(fname, 'r') as f:
-    form = f.read()
-  process_expression(form, converter)
+    strng = f.read()
+    process_expression(strng, emitter)
 
-def process_expression(exp, converter):
-  exp = parse.parse_string(exp)
-  outfile = sys.stdout
-  print_as_clojure(converter(exp), outfile)
-  outfile.write('\n')
+def process_expression(strng, emitter):
+  emitter(parse.parse_string(strng))
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
@@ -215,16 +226,20 @@ if __name__ == '__main__':
   parser.add_argument('-c', '--clojure', action='store_true',
                       help="print clojure version of code (default)")
   parser.add_argument('-e', '--eval', action='append',
-    help="execute the given expression")
+                      help="execute the given expression")
   parser.add_argument('-f', '--file', action='append',
-    help="execute the given file")
+                      help="execute the given file")
   args = parser.parse_args()
-  converter = convert_trace
+  outfile = sys.stdout
+  emitter = lambda tr: \
+            emit_exp_as_trace(tr, outfile); outfile.write('\n')
   if args.clojure:
-    converter = clojurefy
+    emitter = lambda tr: \
+              print_as_clojure(clojurefy(tr), outfile); outfile.write('\n')
   if args.file != None:
     for fname in args.file:
-      process_file(fname, converter)
+      process_file(fname, emitter)
   if args.eval != None:
     for exp in args.eval:
-      process_expression(exp, converter)
+      process_expression(exp, emitter)
+  outfile.flush()
