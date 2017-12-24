@@ -18,7 +18,10 @@
 
   (has-subtrie-at? [_ addr])
   (subtrie-at [_ addr] "(python: subtrace_at ??)")
-  (set-subtrie-at! [_ addr subtrie] "(python: set_subtrace_at)"))
+  (set-subtrie-at! [_ addr subtrie] "(python: set_subtrace_at)")
+
+  (trie-keys [_])
+  (trie-count [_]))
 
 ; Concrete implementation of the above interface
 
@@ -26,27 +29,29 @@
 (declare new-trie)
 
 (deftype Trie
-  [^:volatile-mutable the_value
+  [^:volatile-mutable the-value
    ^:volatile-mutable subtries]    ; hash-map
 
   ; Implements the ITrie interface
   ITrie
 
   (has-value? [_]
-    (not (= value no-value)))
+    (not (= the-value no-value)))
   (value [_]
-    (assert (not (= value no-value)))
-    the_value)
+    (assert (not (= the-value no-value)) "no value")
+    the-value)
   (set-value! [_ val]
-    (assert (not (= val no-value)))
-    (set! the_value val))
+    (assert (not (= val no-value)) "storing no value")
+    (set! the-value val))
 
   ;; Direct children
   (has-subtrie? [_ key]
     ;; python has_key, trace_has_key
     (contains? subtries key))
   (subtrie [_ key]
-    (get subtries key))
+    (let [sub (get subtries key)]
+      (assert (trie? sub) (list "no such subtrie" key (trie-keys _)))
+      sub))
   (set-subtrie! [_ key subtrie]
     (set! subtries (assoc subtries key subtrie)))
 
@@ -72,7 +77,7 @@
   (subtrie-at [_ addr]
     ;; Assert: addr is a list (of symbols?)
     ;; Returns subtrie at address if it's there.
-    ;; Fails if no such subtree??  Maybe should soft-fail (return nil).
+    ;; Fails (or nil) if no such subtree??  Maybe should soft-fail (return nil).
     (if (empty? addr)
       _
       (let [[head & tail] addr]
@@ -84,7 +89,15 @@
         (set-subtrie-at! (subtrie _ head) tail subtrie)
         (let [novo (new-trie)]
           (set-subtrie! _ head novo)
-          (set-subtrie-at! novo tail subtrie))))))
+          (set-subtrie-at! novo tail subtrie)))))
+
+  (trie-keys [_] 
+    (let [ks (keys subtries)]
+      (if (= ks nil)
+        '()
+        ks)))
+  (trie-count [_]
+    (count subtries)))
 
 ; Not clear whether this is the most idiomatic / best approach.
 (defn trie? [x]
@@ -97,13 +110,13 @@
    (Trie. val (hash-map))))
 
 ; thanks https://stuartsierra.com/2015/06/01/clojure-donts-optional-arguments-with-varargs
-(defn trie-from-hash-map
+(defn trie-from-map
   ([hm]
    (assert (every? trie? (for [[k v] hm] v)))
    (Trie. no-value hm))
   ([hm val]
    (assert (every? trie? (for [[k v] hm] v)))
-   (Trie. no-value val)))
+   (Trie. val hm)))
 
 (defn ensure-subtrie-at [_ addr]
     ;; Assert: addr is a list (of symbols?)

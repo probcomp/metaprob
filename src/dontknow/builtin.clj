@@ -1,6 +1,40 @@
 (ns dontknow.builtin
   (:require [dontknow.trie :refer :all]))
 
+; Builtins used in trace-choices.vnts and other extant metaprob sources:
+;   trace_has_key
+;   trace_get
+;   trace_has
+;   trace_set
+;   trace_set_subtrace_at
+;   lookup
+;   mk_nil
+;
+;   pprint  [clojure conflict - takes a trace]
+;   error
+;   first rest   [clojure conflict]
+;   last    [clojure conflict]
+;   range   [clojure conflict]
+;   length
+;   map   [clojure conflict]
+;   list_to_array
+;   add (from metaprob '+')
+;   add (from =)
+;   eq
+;   neq
+
+;   name_for_definiens
+;   make_env
+;   match_bind      - extends an environment (implemented as trace).
+;   env_lookup
+;   capture_tag_address   - for 'this'
+;   resolve_tag_address   - for with_address
+
+;   interpret    -- what is this?
+;   interpret_prim
+
+; Other builtins
+
 (defn flip [weight] (<= (rand) weight))
 
 (defn uniform [a b] (+ (rand (- b a)) a))
@@ -14,11 +48,11 @@
 ; Size of a metaprob array
 
 (defn mp*size [trie]
-  (defn size-from [trie i]
-    (if (has-subtrie? trie i)
-      (+ 1 (size-from trie (+ i 1)))
-      0))
-  (size-from trie 0))
+  (letfn [(size-from [trie i]
+            (if (has-subtrie? trie i)
+              (+ 1 (size-from trie (+ i 1)))
+              0))]
+    (size-from trie 0)))
 
 (defn seq-from-mp*array [mp*array]
   (for [i (range (mp*size mp*array))]
