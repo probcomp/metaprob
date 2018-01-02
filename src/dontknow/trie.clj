@@ -27,6 +27,7 @@
 
 (declare ensure-subtrie-at)
 (declare new-trie)
+(declare trie?)
 
 (deftype Trie
   [^:volatile-mutable the-value
