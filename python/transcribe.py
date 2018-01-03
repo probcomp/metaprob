@@ -222,9 +222,9 @@ def process_expression(strng, emitter):
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument('-t', '--trace', action='store_true',
-                      help="print trace version of code")
+                      help="print trace version of code (default)")
   parser.add_argument('-c', '--clojure', action='store_true',
-                      help="print clojure version of code (default)")
+                      help="print clojure version of code (deprecated)")
   parser.add_argument('-e', '--eval', action='append',
                       help="execute the given expression")
   parser.add_argument('-f', '--file', action='append',
