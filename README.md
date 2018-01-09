@@ -66,10 +66,11 @@ This only has to be done once.
 
     java -cp `cat .lein_classpath` dontknow.main {inpath}.trace {outpath}.clj
 
-This can also be done at the Clojure read-eval-print loop, something like:
+This can also be done at the Clojure read-eval-print loop or in a
+Clojure program, something like:
 
     (in-ns 'dontknow.to_clojure)
-    (convert "{inpath}.clj" "{outpath}.clj")
+    (convert "{inpath}.trace" "{outpath}.clj")
 
 ## Test
 
