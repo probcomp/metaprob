@@ -2,6 +2,7 @@
 all:
 	bash parse-all.sh
 
+# this target is referenced in README.md
 lein:
 	wget "https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein"
 	chmod +x lein
