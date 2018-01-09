@@ -78,6 +78,8 @@
 (defn mp-empty? [mp-list]
   (not (has-subtrie? mp-list "rest")))
 
+(defn mk_nil [] (new-trie))                 ; {{ }}
+
 (defn list_to_array [mp-list]
   (let [arr (mk_nil)]
     (letfn [(r [mp-list n]
@@ -91,6 +93,9 @@
 (defn mp-map [mp-fn mp-seq]
   ;; Do something - need to thread the trace through
   0)
+
+(defn pair [thing mp*list]
+  (trie-from-map {:rest mp*list} thing))
 
 ; Copied from prelude.clj
 (def _range
@@ -111,7 +116,6 @@
   ;; for assignment purposes... how are those to be represented?
   ;; Or should (trace_set ... (lookup ...) ...) be processed specially?
   (value-at tr addr))  ; e[e]
-(defn mk_nil [] (new-trie))                 ; {{ }}
 
 (defn make_env [parent]
   (cons (ref {}) parent))
@@ -184,9 +188,6 @@
 
 (def mp*nil (new-trie 'nil))
 
-(defn mp*cons [thing mp*list]
-  (trie-from-map {:rest mp*list} thing))
-
 ; Predicates for metaprob-list type
 
 (defn mp*null? [thing]
@@ -237,8 +238,8 @@
 (defn mp*list-map [mp*fn mp*list]
   (if (mp*null? mp*list)
     []
-    (mp*cons (mp*apply mp*fn (mp*first mp*list))
-             (mp*map mp*fn (mp*rest mp*list)))))
+    (pair (mp*apply mp*fn (mp*first mp*list))
+          (mp*map mp*fn (mp*rest mp*list)))))
 
 (defn mp*array-map [mp*fn mp*array]
   (let [n (mp*size mp*array)
