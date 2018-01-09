@@ -14,19 +14,23 @@ This script assumes that `~/bin` is on your `PATH`.
 ## Parsing metaprob
 
 Currently if you use the native metaprob syntax you have to use the
-parser written in python.  This requires install metaprob, which in
-turn requires Venture.
+metaprob parser written in python and write a file to be read by
+clojure.  This requires installing metaprob, which in turn requires
+Venture.
 
 ### Installing metaprob
 
 Install metaprob if you want to be able to parse metaprob code expressed in
 original metaprob syntax.
 
- * Clone to ../metaprob
- * Follow instructions in [../metaprob/README.md](../metaprob/README.md) (install venture, graphviz, etc)
+ * Clone the metaprob repository to `../metaprob`.
+ * Follow instructions in [`../metaprob/README.md`](../metaprob/README.md), including 
+   installation of dependencies such as Venture, graphviz, etc).
+ * The binary distribution of Venture might be easier to deal with than the source distribution.
 
 Note:
- * Venture depends on the packages listed in
+
+ * Building Venture depends on the packages listed in
    `../Venturecxx/install_requires.txt` .  Typically one would install these with `pip install`.
  * Metaprob will need Plex, but it should be able to get it from a copy
    found in Venture.
@@ -65,11 +69,13 @@ This only has to be done once.
 This can also be done at the Clojure read-eval-print loop, something like:
 
     (in-ns 'dontknow.to_clojure)
-    (convert _inpath_.clj _outpath_.clj)
+    (convert "{inpath}.clj" "{outpath}.clj")
 
 ## Test
 
-`lein test`
+There are some tests of the Clojure code.  To run them all:
 
-It seems that the `lein` command automagically compiles clojure to
-java, as needed, placing the `.class` files in the `target` directory.
+    lein test
+
+(Apparently the `lein` command automagically compiles clojure to
+java, as needed, placing the `.class` files in the `target` directory.)
