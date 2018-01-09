@@ -8,6 +8,14 @@ lein:
 	mv lein ~/bin
 	lein
 
+# Create directory of .trace files from .vnts files
+parse: ../metaprob/pythenv.sh
+	./parse-all.sh
+
+# Create directory of .clj files from .trace files
+convert:
+	./convert-all.sh
+
 # General rule for converting a .vnts (metaprob) file to a .trace file
 %.trace: %.vnts
 	../metaprob/pythenv.sh python python/transcribe.py -f $< $@.new
