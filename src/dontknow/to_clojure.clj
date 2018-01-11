@@ -2,8 +2,17 @@
   (:require [dontknow.trie :refer :all])
   (:require [clojure.pprint :as pp]))
 
-; Read a source code trie (i.e. trace) in ("a-value" "prop" "val") form.
-; tr is a trie.
+; Read a source code trie (i.e. trace) in ("a-value" "prop" "val") form
+; and translate it into Clojure.
+
+; In emacs you will want this:
+;  (put 'program 'clojure-indent-function ':defn)
+
+; A 'form' is an expression or a definition or a block of forms.
+
+; *using-program?* - if true: generate (program ...), if false: generate (fn ...)
+
+(def ^:dynamic *using-program?* true)
 
 (declare to-clojure)
 (declare subexpression-to-clojure)
@@ -15,6 +24,8 @@
   (if (list? y)
     (conj y x)
     (conj (concat (list) y) x)))
+
+; tr is a trie / trace.
 
 (defn get-value [tr key]
   (value (subtrie tr key)))
@@ -53,53 +64,50 @@
        (let [rhs (subtrie tr (definition-name tr))]
          (= (value rhs) "program"))))
 
-(declare form-to-formlist pattern-to-pattern)
+(declare pattern-to-pattern form-to-clojure)
+
+(defn expr-to-clojure [tr]
+  (form-to-clojure tr false))
+
+; Allow generation of (program [x] (foo) (bar)) instead of
+; (program [x] (block (foo) (bar)))
+
+(defn form-to-formlist [form]
+  (if (and (list? form) (= (first form) 'block))
+    (rest form)
+    (list form)))
 
 ; Returns (name pattern . body), for use with (defn ...) or (letfn [...] ...)
 (defn process-definition [tr]
   (assert program-definition? tr)
   (let [name (definition-name tr)
         rhs (subtrie tr name)           ;a program-expression
-        prog-body (form-to-formlist (to-clojure (subtrie rhs "body")))]
+        prog-body (form-to-formlist (expr-to-clojure (subtrie rhs "body")))]
     (qons (to-symbol name)
           (qons (pattern-to-pattern (subtrie rhs "pattern"))
                 prog-body))))
 
-; Top-level definition
+; Top-level definition.  Formerly this condensed def + fn to defn, but
+; that doesn't work if we're going to support metaprob reification.
+
 (defn definition-to-clojure [tr]
-  (if (program-definition? tr)
+  (if (and (not *using-program?*) (program-definition? tr))
     (qons 'defn
           (process-definition tr))
     (let [name (definition-name tr)
           rhs (subtrie tr name)]
       (list 'def
             (to-symbol name)
-            (to-clojure rhs)))))
+            (expr-to-clojure rhs)))))
 
 (defn pattern-to-pattern [tr]
   (case (value tr)
     "variable" (to-symbol (get-value tr "name"))
-    "tuple" (vec (for [sub (sequential-subtries tr)]
-                   (pattern-to-pattern sub)))
+    "tuple" (vec (map pattern-to-pattern
+                      (sequential-subtries tr)))
     (do 
       (print ["invalid pattern" (value tr)]) (newline)
       (list "invalid pattern" (value tr)))))
-
-; list of trie -> list of clojure forms
-
-(defn body-to-clojure [trs]
-  (if (empty? trs)
-      '()
-      ; (if (definition? (first trs))
-      ;   (if (program? (subtrie trs ...))
-      ;     ...
-      (qons (to-clojure (first trs))
-            (body-to-clojure (rest trs)))))
-
-(defn form-to-formlist [form]
-  (if (and (list? form) (= (first form) 'do))
-    (rest form)
-    (list form)))
 
 (defn formlist-to-form [forms]
   (assert (seq? forms))
@@ -107,104 +115,66 @@
     'nil
     (if (empty? (rest forms))
       (first forms)
-      (if (list? forms)
-        (qons 'do forms)
-        (qons 'do (concat (list) forms))))))
+      (qons 'block forms))))
 
-; list of trie -> list of clojure form
-
-(defn block-to-body [trs]
-  (if (empty? trs)
-    '()
-    (let [more (block-to-body (rest trs))]    ; list of forms
-      (if (definition? (first trs))
-        (let [name (definition-name (first trs))
-              rhs (subtrie (first trs) name)]
-          ;; A definition must not be last expression in a block
-          (assert (not (empty? (rest trs)))
-                  "Definition occurs at end of block")
-          (if (program-definition? (first trs))
-            (let [spec (process-definition (first trs))
-                  more1 (first more)]
-              (if (and (list? more1)
-                       (= (first more1) 'letfn))
-                (do (assert (empty? (rest more)))
-                    ;; more1 = (letfn [...] ...)
-                    ;;    (letfn [...] & body)
-                    ;; => (letfn [(name pattern & prog-body) ...] & body)
-                    (let [[_ specs & body] more1]
-                      (list             ;Single form
-                       (qons 'letfn
-                             (qons (vec (cons spec specs))
-                                   body)))))
-                ;; more1 = something else
-                (list                   ;Single form
-                 (qons 'letfn
-                       (qons [spec]
-                             more)))))
-            ;; Definition, but not of a function
-            (let [sym (pattern-to-pattern (subtrie (first trs) "pattern"))
-                  more1 (first more)]
-              (if (and (list? more1)
-                       (= (first more1) 'let))
-                ;; Combine two lets into one
-                (do (assert (empty? (rest more)))
-                    (let [[_ specs & body] more1]
-                      (list             ;Single form
-                       (qons 'let
-                             (qons (vec (cons sym (cons (to-clojure rhs) specs)))
-                                   body)))))
-                (list                   ;Single form
-                 (qons 'let
-                       (qons [sym (to-clojure rhs)]
-                             more)))))))
-        ;; Not a definition
-        (qons (to-clojure (first trs)) more)))))
-
-(defn block-to-clojure [trs]
-  (formlist-to-form (block-to-body trs)))
+; VKM has requested (trace_set (lookup ...) ...)
+; i.e. trace_set maybe a macro, lookup is lvalue-like
 
 (defn peep [app]
-  (let [arg1 (first (rest app))]
-    ;; Look for (trace_set (lookup t arg1) v)
-    (if (and (= (first app) 'trace_set)
-             (seq? arg1)
-             (do (assert (= (first arg1) 'lookup)
-                         "Troublesome trace_set")
-                 (print (format "Peep: %s %s \n" (first app) arg1))
-                 (= (first arg1) 'lookup)))
-      (qons 'trace_set_at (concat (rest arg1) (rest (rest app))))
-      app)))
+  (if (= (first app) 'trace_set)
+    (let [arg1 (first (rest app))]
+      ;; Look for (trace_set (lookup t arg1) v)
+      (if (and (seq? arg1)
+               (do (assert (= (first arg1) 'lookup)
+                           "Troublesome trace_set")
+                   (print (format "Peep: %s %s \n" (first app) arg1))
+                   (= (first arg1) 'lookup)))
+        (qons 'trace_set_at (concat (rest arg1) (rest (rest app))))
+        app))
+    app))
+
+(defn subexpressions-to-clojure [tr]
+  (to-list
+   (map expr-to-clojure
+        (sequential-subtries tr))))
 
 (defn to-clojure [tr]
+  (form-to-clojure tr true))
+
+(defn form-to-clojure [tr def-ok?]
   (let [tr (if (trie? tr) tr (new-trie tr))]
     (case (value tr)
       "application" (peep
                      (to-list
-                      (for [i (range (trie-count tr))]
-                        (subexpression-to-clojure tr i))))
+                      (subexpressions-to-clojure tr)))
       "variable" (to-symbol (get-value tr "name"))
       "literal" (get-value tr "value")
-      "program" (list 'fn
-                      (pattern-to-pattern (subtrie tr "pattern"))
-                      (subexpression-to-clojure tr "body"))
+      "program" (qons (if *using-program?* 'program 'fn)
+                      (qons (pattern-to-pattern (subtrie tr "pattern"))
+                            (form-to-formlist
+                             (subexpression-to-clojure tr "body"))))
       "if" (list 'if
                  (subexpression-to-clojure tr "predicate")
                  (subexpression-to-clojure tr "then")
                  (subexpression-to-clojure tr "else"))
-      "block" (block-to-clojure (for [i (range (trie-count tr))] (subtrie tr i)))
-      "definition" (definition-to-clojure tr)
+      "block" (cons 'block
+                    ;; should complain if not def-ok? and last
+                    ;; subform is a definition
+                    (subexpressions-to-clojure tr))
       "splice" (list 'splice
                      (subexpression-to-clojure tr "expression"))
       "this" 'this
-      "tuple" (vec (for [i (range (trie-count tr))]
-                     (subexpression-to-clojure tr i)))
+      "tuple" (vec (subexpressions-to-clojure tr))
       "unquote" (list 'unquote
                       (subexpression-to-clojure tr "expression"))
       "with_address" (list 'with-address
                            ;; Not directly executable in clojure
                            (subexpression-to-clojure tr "tag")
                            (subexpression-to-clojure tr "expression"))
+      "definition" (if def-ok?
+                     (definition-to-clojure tr)
+                     (list "definition not allowed here"
+                           (definition-name tr)))
       (list "unrecognized expression type" (value tr)))))
 
 ; Convert the top-level expression in a file to top-level
@@ -225,15 +195,13 @@
       (formlist-to-form
          (concat (declarations subs)
                  (for [sub subs]
-                   (if (definition? sub)
-                     (definition-to-clojure sub)
-                     (to-clojure sub))))))
+                   (to-clojure sub)))))
     (to-clojure tr)))
 
 (defn subexpression-to-clojure [tr key]
   (let [sub (subtrie tr key)]
     (assert (trie? sub) (list "missing" key))
-    (to-clojure sub)))
+    (expr-to-clojure sub)))
 
 ; Create a trie from a file containing a representation of a
 ; trie (written by the python script).
@@ -275,11 +243,9 @@
        (list 'ns
              'dontknow.metaprob
              '(:require [dontknow.builtin :refer :all])))
-      (if (= (first obj) 'do)
-        (doseq [form (rest obj)]
-          ; Add forward declarations??
-          (write-one-form form))
-        (write-one-form obj)))))
+      (doseq [form (form-to-formlist (rest obj))]
+        ;; Add forward declarations??
+        (write-one-form form)))))
 
 (defn convert [inpath outpath]
   (write-to-file (top-level-to-clojure (reconstruct-trace (read-from-file inpath))) outpath))

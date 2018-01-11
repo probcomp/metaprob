@@ -10,11 +10,11 @@ lein:
 	lein
 
 # Create directory of .trace files from .vnts files
-parse: ../metaprob/pythenv.sh
+parse: ../metaprob/pythenv.sh python/transcribe.py
 	./parse-all.sh
 
 # Create directory of .clj files from .trace files
-convert:
+convert: src/dontknow/to_clojure.clj .lein_classpath
 	./convert-all.sh
 
 # General rule for converting a .vnts (metaprob) file to a .trace file

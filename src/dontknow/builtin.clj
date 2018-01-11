@@ -33,6 +33,118 @@
 ;   interpret    -- what is this?
 ;   interpret_prim
 
+(defn make-program [fun params body]
+  (with-meta fun {:program true :params params :body body}))
+
+(defmacro program
+  "like fn, but for metaprob programs"
+  [params & body]
+  `(make-program (fn ~params (block ~@(body))
+                 '~params
+                 '~body)))
+
+(defmacro block
+  "like do, but for metaprob - supports local definitions"
+  [& forms]
+  (letfn [(definition? [form]
+            (and (list? form)
+                 (= (first form) 'def)))
+          (definition-name [form]
+            (let [pattern (second form)]
+              (if (symbol? pattern)
+                (if (= pattern '_)
+                  'definiens
+                  pattern)
+                'definiens)))
+          (definition-rhs [form]
+            (nth form 2))
+          (program-definition? [form]
+            (and (definition? form)
+                 (let [rhs (definition-rhs form)]
+                   (and (list? rhs)
+                        (= (first rhs) 'program)))))
+          (qons [x y]
+            (if (list? y)
+              (conj y x)
+              (conj (concat (list) y) x)))
+          (process-definition [form]
+            (assert program-definition? form)
+            (let [name (definition-name form)
+                  rhs (definition-rhs form)       ;a program-expression
+                  prog-pattern (second rhs)
+                  prog-body (rest (rest rhs))]
+              (qons name
+                    (qons prog-pattern
+                          prog-body))))
+
+          (block-to-body [forms]
+            (if (empty? forms)
+              '()
+              (let [more (block-to-body (rest forms))]    ; list of forms
+                (if (definition? (first forms))
+                  (let [name (definition-name (first forms))
+                        rhs (definition-rhs (first forms))]
+                    ;; A definition must not be last expression in a block
+                    (if (empty? (rest forms))
+                      (print (format "** Warning: Definition of ~s occurs at end of block\n" name)))
+                    (if (program-definition? (first forms))
+                      (let [spec (process-definition (first forms))
+                            more1 (first more)]
+                        (if (and (list? more1)
+                                 (= (first more1) 'letfn))
+                          (do (assert (empty? (rest more)))
+                              ;; more1 = (letfn [...] ...)
+                              ;;    (letfn [...] & body)
+                              ;; => (letfn [(name pattern & prog-body) ...] & body)
+                              (let [[_ specs & body] more1]
+                                (list             ;Single form
+                                 (qons 'letfn
+                                       (qons (vec (cons spec specs))
+                                             body)))))
+                          ;; more1 = something else
+                          (list                   ;Single form
+                           (qons 'letfn
+                                 (qons [spec]
+                                       more)))))
+                      ;; Definition, but not of a function
+                      ;; (first forms) has the form (def name rhs)
+                      (let [more1 (first more)]
+                        (if (and (list? more1)
+                                 (= (first more1) 'let))
+                          ;; Combine two lets into one
+                          (do (assert (empty? (rest more)))
+                              (let [[_ specs & body] more1]
+                                (list             ;Single form
+                                 (qons 'let
+                                       (qons (vec (cons name (cons rhs specs)))
+                                             body)))))
+                          (list                   ;Single form
+                           (qons 'let
+                                 (qons [name rhs]
+                                       more)))))))
+                  ;; Not a definition
+                  (qons (first forms) more)))))
+
+          (formlist-to-form [forms]
+            (assert (seq? forms))
+            (if (empty? forms)
+              'nil
+              (if (empty? (rest forms))
+                (first forms)
+                (if (list? forms)
+                  (qons 'do forms)
+                  (qons 'do (concat (list) forms))))))]
+    (formlist-to-form (block-to-body forms))))
+
+
+(defn tracify [x]
+  (if (trie? x)
+    x
+    (let [m (meta x)]
+      (if (map? m)
+        (get m :trace)
+        nil))))
+
 (defn eq [x y] (= x y))
 (defn neq [x y] (not (= x y)))
 (defn add [x y]

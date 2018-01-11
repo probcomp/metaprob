@@ -2,16 +2,18 @@
   (:require [clojure.test :refer :all]
             [dontknow.trie :refer :all]))
 
+; Have to use 'is' for some reason
+
 (deftest empty-has-no-keys
   (testing "Does an empty trie have keys?"
-    (not (has-subtrie? (new-trie) 'foo))))
+    (is (not (has-subtrie? (new-trie) 'foo)))))
 
 ; fetch value at trie
 
 (deftest fetch-value
   (testing "Can we get the trie's value?"
-    (let [trie (new-trie 'value)]
-      (= (value trie) 'value))))
+    (is (let [trie (new-trie 'value)]
+          (= (value trie) 'value)))))
 
 ; store/fetch value at trie
 

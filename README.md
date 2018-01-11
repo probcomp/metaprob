@@ -1,21 +1,28 @@
 # metaprob-clojure
 Metaprob implemented in Clojure
 
-## Installing Leinigen
+## Install Java
 
-It is not necessary to install Clojure if Leinigen is installed.
-Usually you would just install Leinigen and let it take care of
-getting Clojure.
+You will of course need Java to run Leinigen and Clojure, e.g. OpenJDK
+version 8.  You need full Java, not just the VM.
+
+## Installing Leinigen and Clojure
+
+It is not necessary to separately install Clojure if Leinigen is
+installed.  Just install Leinigen, and let it take care of installing
+Clojure.
 
 Instructions for installing Leinigen are [here](https://leiningen.org/#install), but for a quick install use
 the short script in the Makefile: `make lein`.
 This script assumes that `~/bin` is on your `PATH`.
 
+Leinigen keeps some state in the `~/.lein` directory.
+
 ## Parsing metaprob
 
-Currently if you use the native metaprob syntax you have to use the
-metaprob parser written in python and write a file to be read by
-clojure.  This requires installing metaprob, which in turn requires
+Currently if you want to use the native metaprob syntax, you will have to use the
+metaprob parser written in python to write a file that can be read by
+Clojure.  This requires installing metaprob, which in turn requires
 Venture.
 
 ### Installing metaprob

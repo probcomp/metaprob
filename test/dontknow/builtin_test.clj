@@ -3,6 +3,34 @@
             [dontknow.trie :refer :all]
             [dontknow.builtin :refer :all]))
 
+(deftest program-1
+  (testing "Smoke test for program macro"
+    (= ((program [x] x) 1) 1)))
+
+(deftest block-1
+  (testing "Smoke test for block macro"
+    (= (block 1) 1)))
+
+(deftest block-2
+  (testing "Smoke test for block macro"
+    (= (block 1 2) 2)))
+
+(deftest block-let-1
+  (testing "Smoke test for block macro"
+    (= (block (def foo 3) foo) 3)))
+
+(deftest block-let-2
+  (testing "Smoke test for block macro"
+    (= (block (def foo 3) (def bar (+ foo 1)) bar) 4)))
+
+(deftest block-letfn-1
+  (testing "Smoke test for block macro"
+    (= (block (def foo (program [x] x)) (foo 7)) 7)))
+
+(deftest block-mixed-1
+  (testing "Smoke test for block macro"
+    (= (block (def foo (program [x] x)) (def bar 7) (foo bar)) 7)))
+
 (deftest array-size-empty
   (testing "Does an empty array have size zero?"
     (= (mp*size (mp*array-from-seq [])) 0)))
