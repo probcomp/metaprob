@@ -12,8 +12,8 @@
 
 (deftest fetch-value
   (testing "Can we get the trie's value?"
-    (is (let [trie (new-trie 'value)]
-          (= (value trie) 'value)))))
+    (let [trie (new-trie 'value)]
+      (is (= (value trie) 'value)))))
 
 ; store/fetch value at trie
 
@@ -21,7 +21,7 @@
   (testing "Can we get a value that we put in?"
     (let [trie (new-trie)]
       (set-value! trie 'value)
-      (= (value trie) 'value))))
+      (is (= (value trie) 'value)))))
 
 ; store/fetch an immediate subtrie
 
@@ -31,7 +31,7 @@
           sub (new-trie)]
       (set-value! sub 'value)
       (set-subtrie! trie 'key sub)
-      (= (subtrie trie 'key) sub))))
+      (is (= (subtrie trie 'key) sub)))))
 
 ; store/fetch a value
 
@@ -39,4 +39,4 @@
   (testing "If you store a value at some address, is it there?"
     (let [trie (new-trie)]
       (set-value-at! trie '[a b c] 17)
-      (= (value-at trie '[a b c]) 17))))
+      (is (= (value-at trie '[a b c]) 17)))))

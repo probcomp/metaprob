@@ -39,9 +39,9 @@
 (defmacro program
   "like fn, but for metaprob programs"
   [params & body]
-  `(make-program (fn ~params (block ~@(body))
+  `(make-program (fn ~params (block ~@body))
                  '~params
-                 '~body)))
+                 '~body))
 
 (defmacro block
   "like do, but for metaprob - supports local definitions"

@@ -6,6 +6,6 @@
 
 (deftest biased-coin-flips
   (testing "So what happend?"
-    (= (count (flip-coins 10)) 10)))
+    (is (= (count (flip-coins 10)) 10))))
 
 
