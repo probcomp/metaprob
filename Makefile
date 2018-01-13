@@ -14,7 +14,8 @@ parse: ../metaprob/pythenv.sh python/transcribe.py
 	./parse-all.sh
 
 # Create directory of .clj files from .trace files
-convert: src/dontknow/to_clojure.clj .lein_classpath
+convert: src/dontknow/main.clj src/dontknow/to_clojure.clj .lein_classpath
+	lein compile :all
 	./convert-all.sh
 
 # General rule for converting a .vnts (metaprob) file to a .trace file

@@ -52,11 +52,12 @@
       "definiens")))
 
 (def colliding-names
-  #{"first" "rest" "last" "range" "pprint" "map" "replicate"})
+  #{"first" "rest" "last" "range" "pprint" "map" "replicate"
+    "program" "block"})
 
 (defn to-symbol [strng]
   (symbol (if (contains? colliding-names strng)
-            (str "mp-" strng)
+            (str strng '-noncolliding)
             strng)))
 
 (defn program-definition? [tr]
@@ -109,6 +110,8 @@
       (print ["invalid pattern" (value tr)]) (newline)
       (list "invalid pattern" (value tr)))))
 
+; Returns a single clojure expression
+
 (defn formlist-to-form [forms]
   (assert (seq? forms))
   (if (empty? forms)
@@ -138,6 +141,19 @@
    (map expr-to-clojure
         (sequential-subtries tr))))
 
+(defn block-to-clojure [trs]
+  (if (empty? trs)
+    'nil
+    (if (empty? (rest trs))
+      (expr-to-clojure (first trs))
+      (qons 'block
+            (letfn [(foo [trs]
+                      (if (empty? (rest trs))
+                        (qons (expr-to-clojure (first trs)) nil)
+                        (qons (to-clojure (first trs))
+                              (foo (rest trs)))))]
+              (foo trs))))))
+
 (defn to-clojure [tr]
   (form-to-clojure tr true))
 
@@ -157,10 +173,7 @@
                  (subexpression-to-clojure tr "predicate")
                  (subexpression-to-clojure tr "then")
                  (subexpression-to-clojure tr "else"))
-      "block" (cons 'block
-                    ;; should complain if not def-ok? and last
-                    ;; subform is a definition
-                    (subexpressions-to-clojure tr))
+      "block" (block-to-clojure (sequential-subtries tr))
       "splice" (list 'splice
                      (subexpression-to-clojure tr "expression"))
       "this" 'this
@@ -173,8 +186,9 @@
                            (subexpression-to-clojure tr "expression"))
       "definition" (if def-ok?
                      (definition-to-clojure tr)
-                     (list "definition not allowed here"
-                           (definition-name tr)))
+                     (do (print (format "** definition not allowed here: ~s\n"
+                                        (definition-name tr)))
+                         ''definition-not-allowed-here))
       (list "unrecognized expression type" (value tr)))))
 
 ; Convert the top-level expression in a file to top-level
@@ -189,14 +203,15 @@
       (list (qons 'declare (for [d defs]
                              (to-symbol (definition-name d)))))))))
 
+; Returns a list of clojure expressions
+
 (defn top-level-to-clojure [tr]
   (if (= (value tr) "block")
     (let [subs (sequential-subtries tr)]
-      (formlist-to-form
+      (to-list
          (concat (declarations subs)
-                 (for [sub subs]
-                   (to-clojure sub)))))
-    (to-clojure tr)))
+                 (map to-clojure subs))))
+    (qons (to-clojure tr) nil)))
 
 (defn subexpression-to-clojure [tr key]
   (let [sub (subtrie tr key)]
@@ -230,7 +245,9 @@
                     (clojure.java.io/input-stream inpath)))]
       (read r))))
 
-(defn write-to-file [obj outpath]
+; exprs is list of clojure expressions, as returned by top-level-to-clojure
+
+(defn write-to-file [exprs outpath]
   (with-open [w (clojure.java.io/writer
                  (clojure.java.io/output-stream outpath))]
     (letfn [(write-one-form [form]
@@ -243,10 +260,11 @@
        (list 'ns
              'dontknow.metaprob
              '(:require [dontknow.builtin :refer :all])))
-      (doseq [form (form-to-formlist (rest obj))]
+      (doseq [form exprs]
         ;; Add forward declarations??
         (write-one-form form)))))
 
 (defn convert [inpath outpath]
-  (write-to-file (top-level-to-clojure (reconstruct-trace (read-from-file inpath))) outpath))
+  (write-to-file (top-level-to-clojure (reconstruct-trace (read-from-file inpath)))
+                 outpath))
 
