@@ -11,6 +11,7 @@
   (has-subtrie? [_ key] "True iff this trie has a direct subtrie under the given key (python: has_key)")
   (subtrie [_ key] "The subtrie of this trie specified by the given key (python: _subtrace, sort of)")
   (set-subtrie! [_ key subtrie] "Splice a subtree as a child of this trie")
+  (subtrace [_ key])
 
   (has-value-at? [_ addr])
   (value-at [_ addr])
@@ -19,15 +20,20 @@
   (has-subtrie-at? [_ addr])
   (subtrie-at [_ addr] "(python: subtrace_at ??)")
   (set-subtrie-at! [_ addr subtrie] "(python: set_subtrace_at)")
+  (subtrace-at [_ addr] "returns locative or trie as appropriate")
 
   (trie-keys [_])
-  (trie-count [_]))
+  (trie-count [_])  ;Number of subtries
+
+  (narrow [_])    ;If there's a already trie corresponding to this trace, return it
+  (blaze [_]))
 
 ; Concrete implementation of the above interface
 
 (declare ensure-subtrie-at)
 (declare new-trie)
 (declare trie?)
+(declare new-locative)
 
 (deftype Trie
   [^:volatile-mutable the-value
@@ -55,6 +61,11 @@
       sub))
   (set-subtrie! [_ key subtrie]
     (set! subtries (assoc subtries key subtrie)))
+
+  (subtrace [_ key]
+    (if (has-subtrie? _ key)
+      (subtrie _ key)
+      (new-locative _ key)))
 
   ;; Value at address
   (has-value-at? [_ addr]
@@ -92,13 +103,24 @@
           (set-subtrie! _ head novo)
           (set-subtrie-at! novo tail subtrie)))))
 
+  (subtrace-at [_ addr]
+    (if (empty? addr)
+      _
+      (let [[head & tail] addr]
+        (subtrace-at (subtrace _ head) tail))))
+
   (trie-keys [_] 
     (let [ks (keys subtries)]
       (if (= ks nil)
         '()
         ks)))
   (trie-count [_]
-    (count subtries)))
+    (count subtries))
+
+  (narrow [_] _)
+
+  (blaze [_] _))
+
 
 ; Not clear whether this is the most idiomatic / best approach.
 (defn trie? [x]
@@ -119,19 +141,24 @@
    (assert (every? trie? (for [[k v] hm] v)))
    (Trie. val hm)))
 
-(defn ensure-subtrie-at [_ addr]
-    ;; Assert: addr is a list (of symbols?)
-    ;; Similar to python subtrace_at or lookup ?
-    ;; This should be called immediately before storing a value or subtrace.
-    (if (empty? addr)
-      _
-      (let [[head & tail] addr]
-        (if (has-subtrie? _ head)
-          (subtrie _ head)
-          (let [novo (new-trie)]
-            (set-subtrie! _ head novo)
-            (ensure-subtrie-at novo tail))))))
+(defn ensure-subtrie [_ key]
+  (if (has-subtrie? _ key)
+    (subtrie _ key)
+    (let [novo (new-trie)]
+      (set-subtrie! _ key novo)
+      novo)))
 
+(defn ensure-subtrie-at [_ addr]
+  ;; Assert: addr is a list (of strings, typically)
+  ;; Similar to python subtrace_at or lookup ?
+  ;; This should be called immediately before storing a value or subtrace.
+  (if (empty? addr)
+    _
+    (let [[head & tail] addr]
+      (if (has-subtrie? _ head)
+        (subtrie _ head)
+        (ensure-subtrie-at (ensure-subtrie _ head)
+                           tail)))))
 
 
 ;; From python trace.py
@@ -153,3 +180,111 @@
   ;; def equalSameType(self, other): return self is other
   ;; def asData(self): return (None, [])
   ;; def subtrace_at(self, _keys): yield self
+
+(deftype Locative
+  [trie-or-locative this-key]
+
+  ; Implements the ITrie interface
+  ITrie
+
+  (has-value? [_]
+    (let [n (narrow _)]
+      (if (trie? n)
+        (has-value? n)
+        false)))
+  (value [_]
+    (let [n (narrow _)]
+      (assert (trie? n) "unrealized locatives don't have values")
+      (value n)))
+  (set-value! [_ val]
+    (set-value! (blaze _) val))
+
+  ;; Direct children
+  (has-subtrie? [_ key]
+    (let [n (narrow _)]
+      (if (trie? n)
+        (has-value? n)
+        false)))
+  (subtrie [_ key]
+    (let [n (narrow _)]
+      (assert (trie? n) "unresolved locatives don't have subtries")
+      (subtrie n key)))
+  (set-subtrie! [_ key subtrie]
+    (set-subtrie! (blaze _) key subtrie))
+
+  (subtrace [_ key]
+    (let [n (narrow _)]
+      (if (trie? n)
+        (subtrace n key)
+        (new-locative _ key))))
+
+  ;; Value at address
+  (has-value-at? [_ addr]
+    (let [n (narrow _)]
+      (if (trie? n)
+        (has-value-at? n addr)
+        false)))
+  (value-at [_ addr]
+    (let [n (narrow _)]
+      (assert (trie? n) "unresolved locatives don't have subtries")
+      (value-at n addr)))
+  (set-value-at! [_ addr val]
+    (set-value-at! (blaze _) addr val))
+
+  ;; Descendant subtrie at address
+  (has-subtrie-at? [_ addr]
+    (let [n (narrow _)]
+      (if (trie? n)
+        (has-subtrie-at? n addr)
+        false)))
+  (subtrie-at [_ addr]
+    (let [n (narrow _)]
+      (assert (trie? n) "unresolved locatives don't have subtries")
+      (subtrie-at _ addr)))
+  (set-subtrie-at! [_ addr subtrie]
+    (set-subtrie-at! (blaze _) addr subtrie))
+
+  (subtrace-at [_ addr]
+    (let [n (narrow _)]
+      (if (trie? n)
+        (subtrie-at n addr)
+        (if (empty? addr)
+          _
+          (let [[head & tail] addr]
+            (new-locative (subtrace-at _ tail) head))))))
+
+
+  (trie-keys [_] 
+    (let [n (narrow _)]
+      (if (trie? n)
+        (trie-keys n)
+        '())))
+  (trie-count [_]
+    (let [n (narrow _)]
+      (if (trie? n)
+        (trie-count n)
+        0)))
+
+  (narrow [_]
+    (if (trie? trie-or-locative)
+      (if (has-subtrie? trie-or-locative this-key)
+        (subtrie trie-or-locative this-key)
+        _)
+      (let [n (narrow trie-or-locative)]
+        (if (trie? n)
+          (new-locative n this-key)
+          _))))
+
+  ;; Force the creation of a trie corresponding to this locative.
+  (blaze [_]
+    (let [tr (blaze trie-or-locative)]    ;Up one level
+      (ensure-subtrie tr this-key))))
+
+(defn new-locative [tl key]
+  (Locative. tl key))
+
+(defn locative? [x]
+  (= (type x) Locative))
+
+(defn trace? [x]
+  (or (trie? x) (locative? x)))

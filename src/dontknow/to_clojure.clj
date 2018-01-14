@@ -41,8 +41,10 @@
        (has-value? tr)
        (= (value tr) "definition")))
 
+(defn definition-pattern [tr] (subtrie tr "pattern"))
+
 (defn definition-name [tr]
-  (let [pattern (subtrie tr "pattern")]    ;trie
+  (let [pattern (definition-pattern tr)]    ;trie
     (if (and (has-value? pattern)
              (= (value pattern) "variable"))
       (let [name (get-value pattern "name")]
@@ -50,6 +52,9 @@
           "definiens"
           name))
       "definiens")))
+
+(defn definition-rhs [tr]
+  (subtrie tr (definition-name tr)))
 
 (def colliding-names
   #{"first" "rest" "last" "range" "pprint" "map" "replicate"
@@ -62,10 +67,11 @@
 
 (defn program-definition? [tr]
   (and (definition? tr)
-       (let [rhs (subtrie tr (definition-name tr))]
-         (= (value rhs) "program"))))
+       (= (value (definition-rhs tr)) "program")))
 
-(declare pattern-to-pattern form-to-clojure)
+(declare form-to-clojure)
+
+; Convert a metaprob expression (not a definition) to clojure
 
 (defn expr-to-clojure [tr]
   (form-to-clojure tr false))
@@ -74,32 +80,11 @@
 ; (program [x] (block (foo) (bar)))
 
 (defn form-to-formlist [form]
-  (if (and (list? form) (= (first form) 'block))
+  (if (and (list? form)
+           (= (first form) 'block)
+           (>= (count form) 3))
     (rest form)
     (list form)))
-
-; Returns (name pattern . body), for use with (defn ...) or (letfn [...] ...)
-(defn process-definition [tr]
-  (assert program-definition? tr)
-  (let [name (definition-name tr)
-        rhs (subtrie tr name)           ;a program-expression
-        prog-body (form-to-formlist (expr-to-clojure (subtrie rhs "body")))]
-    (qons (to-symbol name)
-          (qons (pattern-to-pattern (subtrie rhs "pattern"))
-                prog-body))))
-
-; Top-level definition.  Formerly this condensed def + fn to defn, but
-; that doesn't work if we're going to support metaprob reification.
-
-(defn definition-to-clojure [tr]
-  (if (and (not *using-program?*) (program-definition? tr))
-    (qons 'defn
-          (process-definition tr))
-    (let [name (definition-name tr)
-          rhs (subtrie tr name)]
-      (list 'def
-            (to-symbol name)
-            (expr-to-clojure rhs)))))
 
 (defn pattern-to-pattern [tr]
   (case (value tr)
@@ -109,6 +94,15 @@
     (do 
       (print ["invalid pattern" (value tr)]) (newline)
       (list "invalid pattern" (value tr)))))
+
+; Top-level definition.  Formerly this condensed def + fn to defn, but
+; that doesn't work if we're going to support metaprob reification - 
+; we always need def + program.
+
+(defn definition-to-clojure [tr]
+  (list 'def
+        (pattern-to-pattern (definition-pattern tr))
+        (expr-to-clojure (definition-rhs tr))))
 
 ; Returns a single clojure expression
 
@@ -160,9 +154,8 @@
 (defn form-to-clojure [tr def-ok?]
   (let [tr (if (trie? tr) tr (new-trie tr))]
     (case (value tr)
-      "application" (peep
-                     (to-list
-                      (subexpressions-to-clojure tr)))
+      "application" (to-list
+                     (subexpressions-to-clojure tr))
       "variable" (to-symbol (get-value tr "name"))
       "literal" (get-value tr "value")
       "program" (qons (if *using-program?* 'program 'fn)

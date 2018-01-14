@@ -168,26 +168,26 @@
   ;; if x is a trie do something special?
   (count x))
 
-(defn mp-first [mp-list]
-  (if (trie? mp-list)
+(defn first-noncolliding [mp-list]
+  (if (trace? mp-list)
     (value mp-list)
     (first mp-list)))
 
-(defn mp-rest [mp-list]
-  (if (trie? mp-list)
+(defn rest-noncolliding [mp-list]
+  (if (trace? mp-list)
     (subtrie mp-list "rest")
     (rest mp-list)))
 
-(defn mp-last [mp-list]
-  (if (trie? mp-list)
+(defn last-noncolliding [mp-list]
+  (if (trace? mp-list)
     (if (has-subtrie? mp-list "rest")
       (if (not (has-subtrie? (subtrie mp-list "rest") "rest"))
          mp-list
-         (mp-last (subtrie mp-list "rest")))
+         (last-noncolliding (subtrie mp-list "rest")))
       mp-list)
     (last mp-list)))
 
-(defn mp-empty? [mp-list]
+(defn empty?-noncolliding [mp-list]
   (not (has-subtrie? mp-list "rest")))
 
 (defn mk_nil [] (new-trie))                 ; {{ }}
@@ -195,14 +195,14 @@
 (defn list_to_array [mp-list]
   (let [arr (mk_nil)]
     (letfn [(r [mp-list n]
-              (if (mp-empty? mp-list)
+              (if (empty?-noncolliding mp-list)
                 arr
-                (do (set-value-at! arr n (mp-first mp-list))
-                    (r (mp-rest mp-list)
+                (do (set-value-at! arr n (first-noncolliding mp-list))
+                    (r (rest-noncolliding mp-list)
                        (+ n 1)))))]
       (r mp-list 0))))
 
-(defn mp-map [mp-fn mp-seq]
+(defn map-noncolliding [mp-fn mp-seq]
   ;; Do something - need to thread the trace through
   0)
 
@@ -210,10 +210,11 @@
   (trie-from-map {:rest mp*list} thing))
 
 ; Copied from prelude.clj
-(def _range
- (fn [n k] (if (gte k n) (mk_nil) (pair k (_range n (add k 1))))))
+(defn _range [n k]
+  (if (gte k n) (mk_nil) (pair k (_range n (add k 1)))))
 
-(def mp-range (fn [n] (_range n 0)))
+(defn range-noncolliding [n]
+  (_range n 0))
 
 (defn trace_get [tr] (value tr))        ; *e
 (defn trace_has [tr] (has-value? tr))
@@ -224,10 +225,7 @@
 (defn trace_has_key [tr key] (has-subtrie? tr key))
 (defn trace_subkeys [tr] (trie-keys tr))
 (defn lookup [tr addr]
-  ;; This isn't right - it also needs to be able to create 'locatives'
-  ;; for assignment purposes... how are those to be represented?
-  ;; Or should (trace_set ... (lookup ...) ...) be processed specially?
-  (value-at tr addr))  ; e[e]
+  (subtrace-at tr addr))  ; e[e]
 
 (defn make_env [parent]
   (cons (ref {}) parent))
@@ -252,7 +250,7 @@
   ;; Not sure what this is supposed to do
   0)
 
-(defn mp-pprint [x]
+(defn pprint-noncolliding [x]
   ;; x is a trie.  need to prettyprint it somehow.
   0)
 
