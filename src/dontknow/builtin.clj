@@ -49,17 +49,13 @@
   (letfn [(definition? [form]
             (and (list? form)
                  (= (first form) 'def)))
-          (definition-name [form]
-            (let [pattern (second form)]
-              (if (symbol? pattern)
-                (if (= pattern '_)
-                  'definiens
-                  pattern)
-                'definiens)))
+          (definition-pattern [form]
+            (second form))
           (definition-rhs [form]
             (nth form 2))
           (program-definition? [form]
             (and (definition? form)
+                 (symbol? (definition-pattern form))
                  (let [rhs (definition-rhs form)]
                    (and (list? rhs)
                         (= (first rhs) 'program)))))
@@ -69,11 +65,10 @@
               (conj (concat (list) y) x)))
           (process-definition [form]
             (assert program-definition? form)
-            (let [name (definition-name form)
-                  rhs (definition-rhs form)       ;a program-expression
-                  prog-pattern (second rhs)
+            (let [rhs (definition-rhs form)       ;a program-expression
+                  prog-pattern (definition-pattern rhs)
                   prog-body (rest (rest rhs))]
-              (qons name
+              (qons (definition-pattern form)
                     (qons prog-pattern
                           prog-body))))
 
@@ -82,11 +77,12 @@
               '()
               (let [more (block-to-body (rest forms))]    ; list of forms
                 (if (definition? (first forms))
-                  (let [name (definition-name (first forms))
+                  (let [pattern (definition-pattern (first forms))
                         rhs (definition-rhs (first forms))]
                     ;; A definition must not be last expression in a block
                     (if (empty? (rest forms))
-                      (print (format "** Warning: Definition of ~s occurs at end of block\n" name)))
+                      (print (format "** Warning: Definition of ~s occurs at end of block\n"
+                                     pattern)))
                     (if (program-definition? (first forms))
                       (let [spec (process-definition (first forms))
                             more1 (first more)]
@@ -107,7 +103,7 @@
                                  (qons [spec]
                                        more)))))
                       ;; Definition, but not of a function
-                      ;; (first forms) has the form (def name rhs)
+                      ;; (first forms) has the form (def pattern rhs)
                       (let [more1 (first more)]
                         (if (and (list? more1)
                                  (= (first more1) 'let))
@@ -116,11 +112,11 @@
                               (let [[_ specs & body] more1]
                                 (list             ;Single form
                                  (qons 'let
-                                       (qons (vec (cons name (cons rhs specs)))
+                                       (qons (vec (cons pattern (cons rhs specs)))
                                              body)))))
                           (list                   ;Single form
                            (qons 'let
-                                 (qons [name rhs]
+                                 (qons [pattern rhs]
                                        more)))))))
                   ;; Not a definition
                   (qons (first forms) more)))))
@@ -366,3 +362,9 @@
 
 
 
+(defn name-for-definiens [pattern]
+  (if (symbol? pattern)
+    (if (= pattern '_)
+      'definiens
+      pattern)
+    'definiens))
