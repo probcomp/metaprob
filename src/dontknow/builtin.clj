@@ -36,6 +36,12 @@
 (defn make-program [fun params body]
   (with-meta fun {:program true :params params :body body}))
 
+(defmacro define
+  "like def, but allows patterns"
+  [pattern rhs]
+  ;; FIX ME - pattern might be of the form [pat pat ...]
+  `(def ~pattern ~rhs))
+
 (defmacro program
   "like fn, but for metaprob programs"
   [params & body]

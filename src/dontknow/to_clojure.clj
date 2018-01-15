@@ -1,5 +1,6 @@
 (ns dontknow.to-clojure
   (:require [dontknow.trie :refer :all])
+  (:require [dontknow.builtin :refer :all])
   (:require [clojure.pprint :as pp]))
 
 ; Read a source code trie (i.e. trace) in ("a-value" "prop" "val") form
@@ -7,6 +8,7 @@
 
 ; In emacs you will want this:
 ;  (put 'program 'clojure-indent-function ':defn)
+;  (put 'define 'clojure-indent-function ':defn)
 
 ; A 'form' is an expression or a definition or a block of forms.
 
@@ -18,23 +20,26 @@
 (declare subexpression-to-clojure)
 
 (defn to-list [x]
-  (if (list? x) x (concat (list) x)))
+  ;; Surely there has to be a better way to do this
+  (if (list? x)
+    x
+    (let [z (apply list x)]
+      (assert (list? z) "qons malfunction")
+      z)))
 
 (defn qons [x y]
-  (if (list? y)
-    (conj y x)
-    (conj (concat (list) y) x)))
+  (to-list (conj y x)))
 
 ; tr is a trie / trace.
 
-(defn get-value [tr key]
+(defn subvalue [tr key]
   (value (subtrie tr key)))
 
 (defn sequential-subtries [tr]
   (for [i (range (trie-count tr))]
     (subtrie tr i)))
 
-; cf. metaprob/src/propose.py
+; Definitions
 
 (defn definition? [tr]
   (and (trie? tr)
@@ -47,7 +52,7 @@
   (let [pattern (definition-pattern tr)]    ;trie
     (if (and (has-value? pattern)
              (= (value pattern) "variable"))
-      (let [name (get-value pattern "name")]
+      (let [name (subvalue pattern "name")]
         (if (= name "_")
           "definiens"
           name))
@@ -55,6 +60,12 @@
 
 (defn definition-rhs [tr]
   (subtrie tr (definition-name tr)))
+
+(defn program-definition? [tr]
+  (and (definition? tr)
+       (= (value (definition-rhs tr)) "program")))
+
+; Metaprob names vs. clojure names
 
 (def colliding-names
   #{"first" "rest" "last" "range" "pprint" "map" "replicate"
@@ -65,13 +76,18 @@
             (str strng '-noncolliding)
             strng)))
 
-(defn program-definition? [tr]
-  (and (definition? tr)
-       (= (value (definition-rhs tr)) "program")))
+(defn ensure-list [z noise]
+  (assert (not (trie? z))
+          ["answer should be an s-expression" noise z])
+  (assert (if (seq? z) (list? z) true)
+          ["answer should be a list" noise z])
+  z)
+
+
+; -----------------------------------------------------------------------------
+; Convert a metaprob expression (not a definition) to clojure
 
 (declare form-to-clojure)
-
-; Convert a metaprob expression (not a definition) to clojure
 
 (defn expr-to-clojure [tr]
   (form-to-clojure tr false))
@@ -80,93 +96,76 @@
 ; (program [x] (block (foo) (bar)))
 
 (defn form-to-formlist [form]
-  (if (and (list? form)
+  (if (and (seq? form)
            (= (first form) 'block)
-           (>= (count form) 3))
+           (not (= (count form) 2)))
     (rest form)
     (list form)))
 
+; Convert a metaprob pattern, used in a definition pat = val, to
+; a clojure form that can be used with the define macro
+
 (defn pattern-to-pattern [tr]
   (case (value tr)
-    "variable" (to-symbol (get-value tr "name"))
+    "variable" (to-symbol (subvalue tr "name"))
     "tuple" (vec (map pattern-to-pattern
                       (sequential-subtries tr)))
     (do 
       (print ["invalid pattern" (value tr)]) (newline)
       (list "invalid pattern" (value tr)))))
 
-; Top-level definition.  Formerly this condensed def + fn to defn, but
+; Top-level definition.  Formerly, this condensed def + fn to defn, but
 ; that doesn't work if we're going to support metaprob reification - 
 ; we always need def + program.
 
 (defn definition-to-clojure [tr]
-  (list 'def
+  (list 'define
         (pattern-to-pattern (definition-pattern tr))
         (expr-to-clojure (definition-rhs tr))))
 
-; Returns a single clojure expression
-
-(defn formlist-to-form [forms]
-  (assert (seq? forms))
-  (if (empty? forms)
-    'nil
-    (if (empty? (rest forms))
-      (first forms)
-      (qons 'block forms))))
-
-; VKM has requested (trace_set (lookup ...) ...)
-; i.e. trace_set maybe a macro, lookup is lvalue-like
-
-(defn peep [app]
-  (if (= (first app) 'trace_set)
-    (let [arg1 (first (rest app))]
-      ;; Look for (trace_set (lookup t arg1) v)
-      (if (and (seq? arg1)
-               (do (assert (= (first arg1) 'lookup)
-                           "Troublesome trace_set")
-                   (print (format "Peep: %s %s \n" (first app) arg1))
-                   (= (first arg1) 'lookup)))
-        (qons 'trace_set_at (concat (rest arg1) (rest (rest app))))
-        app))
-    app))
-
 (defn subexpressions-to-clojure [tr]
-  (to-list
-   (map expr-to-clojure
-        (sequential-subtries tr))))
+  (map expr-to-clojure
+       (sequential-subtries tr)))
 
-(defn block-to-clojure [trs]
+(defn block-to-clojure-1 [trs def-ok?]
   (if (empty? trs)
-    'nil
-    (if (empty? (rest trs))
-      (expr-to-clojure (first trs))
-      (qons 'block
-            (letfn [(foo [trs]
-                      (if (empty? (rest trs))
-                        (qons (expr-to-clojure (first trs)) nil)
-                        (qons (to-clojure (first trs))
-                              (foo (rest trs)))))]
-              (foo trs))))))
+    (qons 'block nil)
+    (qons 'block
+          (letfn [(dive [trs]
+                    (if (empty? (rest trs))
+                      (qons (form-to-clojure (first trs) def-ok?) nil)
+                      (qons (to-clojure (first trs))
+                            (dive (rest trs)))))]
+            (dive trs)))))
+
+(defn block-to-clojure [trs def-ok?]
+  (ensure-list (block-to-clojure-1 trs def-ok?)
+               "block"))
+
+; Convert a top level form (expression or definition)
 
 (defn to-clojure [tr]
   (form-to-clojure tr true))
 
-(defn form-to-clojure [tr def-ok?]
+(defn form-to-clojure-1 [tr def-ok?]
   (let [tr (if (trie? tr) tr (new-trie tr))]
     (case (value tr)
       "application" (to-list
                      (subexpressions-to-clojure tr))
-      "variable" (to-symbol (get-value tr "name"))
-      "literal" (get-value tr "value")
-      "program" (qons (if *using-program?* 'program 'fn)
+      "variable" (to-symbol (subvalue tr "name"))
+      "literal" (subvalue tr "value")
+      "program" (qons 'program
                       (qons (pattern-to-pattern (subtrie tr "pattern"))
+                            ;; For readability, allow x y instead of (block x y)
                             (form-to-formlist
-                             (subexpression-to-clojure tr "body"))))
+                             (ensure-list
+                             (subexpression-to-clojure tr "body") "blah 2"))))
       "if" (list 'if
                  (subexpression-to-clojure tr "predicate")
                  (subexpression-to-clojure tr "then")
                  (subexpression-to-clojure tr "else"))
-      "block" (block-to-clojure (sequential-subtries tr))
+      "block" (ensure-list
+              (block-to-clojure (sequential-subtries tr) def-ok?) "blah")
       "splice" (list 'splice
                      (subexpression-to-clojure tr "expression"))
       "this" 'this
@@ -177,15 +176,14 @@
                            ;; Not directly executable in clojure
                            (subexpression-to-clojure tr "tag")
                            (subexpression-to-clojure tr "expression"))
-      "definition" (if def-ok?
-                     (definition-to-clojure tr)
-                     (do (print (format "** definition not allowed here: ~s\n"
-                                        (definition-name tr)))
-                         ''definition-not-allowed-here))
+      "definition" (do (if (not def-ok?)
+                         (print (format "** definition not allowed here: ~s\n"
+                                        (definition-pattern tr))))
+                       (definition-to-clojure tr))
       (list "unrecognized expression type" (value tr)))))
 
-; Convert the top-level expression in a file to top-level
-; clojure (using def for definitions).
+(defn form-to-clojure [tr def-ok?]
+  (ensure-list (form-to-clojure-1 tr def-ok?) ["form-to-clojure" (value tr)]))
 
 (defn declarations [subs]
   (assert (seq? subs))
@@ -194,6 +192,8 @@
     (if (empty? defs)
       (list)
       (list (qons 'declare (for [d defs]
+                             ;; This is wrong - we need to collect all
+                             ;; the variables in the pattern.
                              (to-symbol (definition-name d)))))))))
 
 ; Returns a list of clojure expressions
@@ -215,7 +215,7 @@
 ; trie (written by the python script).
 
 (defn reconstruct-trace [form]
-  (if (list? form)
+  (if (seq? form)
     (let [val (first form)]
       (letfn [(mapify [things]
                 (if (empty? things)

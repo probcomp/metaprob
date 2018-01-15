@@ -10,6 +10,7 @@ lein:
 	lein
 
 # Create directory of .trace files from .vnts files
+# NOTE: This must run with the metaprob virtualenv active!
 parse: ../metaprob/pythenv.sh python/transcribe.py
 	./parse-all.sh
 
@@ -19,6 +20,7 @@ convert: src/dontknow/main.clj src/dontknow/to_clojure.clj .lein_classpath
 	./convert-all.sh
 
 # General rule for converting a .vnts (metaprob) file to a .trace file
+# NOTE: This must run with the metaprob virtualenv active!
 %.trace: %.vnts
 	../metaprob/pythenv.sh python python/transcribe.py -f $< $@.new
 	mv -f $@.new $@
@@ -28,9 +30,10 @@ convert: src/dontknow/main.clj src/dontknow/to_clojure.clj .lein_classpath
 	java -cp `cat .lein_classpath` dontknow.main $< $@.new
 	mv -f $@.new $@
 
-# This is a trick for running a clojure program directly, without
-# lein, thus cutting the number of Java VM startups in half.
-# I probably got this from stackoverflow.
+# By setting java's classpath explicitly, instead of relying on 'lein'
+# to do it for us, we cut the number of Java VM startups in half.
+# This is a significant speedup.
+# I got this hack from stackoverflow.
 .lein_classpath:
 	lein classpath > $@
 

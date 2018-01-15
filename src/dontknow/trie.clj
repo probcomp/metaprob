@@ -130,6 +130,7 @@
   ([]
    (Trie. no-value (hash-map)))
   ([val]
+   (assert (not (= val no-value)) "no value")
    (Trie. val (hash-map))))
 
 ; thanks https://stuartsierra.com/2015/06/01/clojure-donts-optional-arguments-with-varargs
@@ -139,7 +140,14 @@
    (Trie. no-value hm))
   ([hm val]
    (assert (every? trie? (for [[k v] hm] v)))
+   (assert (not (= val no-value)) "no value")
    (Trie. val hm)))
+
+(defn trie-from-seq [tlist val]
+  (assert (every? trie? tlist))
+  (trie-from-map (zipmap (range (count tlist))
+                         tlist)
+                 val))
 
 (defn ensure-subtrie [_ key]
   (if (has-subtrie? _ key)

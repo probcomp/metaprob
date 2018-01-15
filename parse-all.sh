@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# NOTE: This must run with the metaprob virtualenv active!
+
+
 set -e
 
 mkdir -p parsings
@@ -27,3 +30,6 @@ function doit {
 doit src
 doit metacirc
 doit examples
+
+ 
+-from metaprob.parse
