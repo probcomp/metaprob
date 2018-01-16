@@ -16,7 +16,7 @@
 
 import sys, argparse
 
-from metaprob.parser import parse_string
+from metaprob.parser.parse import parse_string
 from metaprob.types import reify_exp_to_venture
 
 import venture.lite.value as vv
@@ -45,6 +45,31 @@ def emit_trace(tr, outfile):
         outfile.write(' ')
         emit_trace(sub, outfile)
     outfile.write(')')
+
+def emit_value(val, outfile):
+  if isinstance(val, bool):
+    if val:
+      outfile.write('true')
+    else:
+      outfile.write('false')
+  elif isinstance(val, str):
+    print_as_clojure_string(unicode(val), outfile)
+  elif isinstance(val, unicode):
+    print_as_clojure_string(val, outfile)
+  elif isinstance(val, int):
+    outfile.write(str(val))
+  elif isinstance(val, float):
+    outfile.write(str(val))
+  else:
+    print '[odd value %s %s#]' % (repr(val), type(val))
+    outfile.write(repr(val))
+
+def print_as_clojure_string(u, outfile):
+  outfile.write('"')
+  if '"' in u:
+    u = u.replace('"', '\\"')
+  outfile.write(u)
+  outfile.write('"')
 
 # Convert metaprob literal to s-expression
 

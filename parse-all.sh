@@ -30,6 +30,3 @@ function doit {
 doit src
 doit metacirc
 doit examples
-
- 
--from metaprob.parse
