@@ -33,13 +33,13 @@
 ;   interpret    -- what is this?
 ;   interpret_prim
 
-(defn make-program [fun params body]
-  (with-meta fun {:program true :params params :body body}))
+(declare from-clojure)
 
 (defmacro define
   "like def, but allows patterns"
   [pattern rhs]
   ;; FIX ME - pattern might be of the form [pat pat ...]
+  (assert (symbol? pattern) "definition by pattern not yet implemented")
   `(def ~pattern ~rhs))
 
 (defmacro program
@@ -48,6 +48,14 @@
   `(make-program (fn ~params (block ~@body))
                  '~params
                  '~body))
+
+(defn make-program [fun params body]
+  (let [exp (from-clojure `(program ~params ~@body))
+        env nil]
+    (with-meta fun {:trace (trie-from-map {"name" (new-trie exp)
+                                           "source" exp
+                                           "environment" (new-trie env)}
+                                          "prob prog")})))
 
 (defmacro block
   "like do, but for metaprob - supports local definitions"
@@ -138,14 +146,18 @@
                   (qons 'do (concat (list) forms))))))]
     (formlist-to-form (block-to-body forms))))
 
+; If an object has a :trace meta-property, then return that
+; meta-property value.  Otherwise, just return the object.
 
 (defn tracify [x]
   (if (trie? x)
     x
     (let [m (meta x)]
       (if (map? m)
-        (get m :trace)
-        nil))))
+        (if (contains? m :trace)
+          (get m :trace)
+          x)
+        x))))
 
 (defn eq [x y] (= x y))
 (defn neq [x y] (not (= x y)))
@@ -167,8 +179,9 @@
 ;     Hmm.
 
 (defn length [x]
-  ;; if x is a trie do something special?
-  (count x))
+  (if (trie? x)
+    (trie-count x)
+    (count x)))
 
 (defn first-noncolliding [mp-list]
   (if (trace? mp-list)
@@ -218,16 +231,16 @@
 (defn range-noncolliding [n]
   (_range n 0))
 
-(defn trace_get [tr] (value tr))        ; *e
-(defn trace_has [tr] (has-value? tr))
+(defn trace_get [tr] (value (tracify tr)))        ; *e
+(defn trace_has [tr] (has-value? (tracify tr)))
 (defn trace_set [tr val]            ; e[e] := e
-  (set-value! tr val))
-(defn trace_set_at [tr addr val] (set-value-at! tr addr val))
-(defn trace_set_subtrace_at [tr addr sub] (set-subtrie-at! tr addr sub))
-(defn trace_has_key [tr key] (has-subtrie? tr key))
-(defn trace_subkeys [tr] (trie-keys tr))
+  (set-value! (tracify tr) val))
+(defn trace_set_at [tr addr val] (set-value-at! (tracify tr) addr val))
+(defn trace_set_subtrace_at [tr addr sub] (set-subtrie-at! (tracify tr) addr sub))
+(defn trace_has_key [tr key] (has-subtrie? (tracify tr) key))
+(defn trace_subkeys [tr] (trie-keys (tracify tr)))
 (defn lookup [tr addr]
-  (subtrace-at tr addr))  ; e[e]
+  (subtrace-at (tracify tr) addr))  ; e[e]
 
 (defn make_env [parent]
   (cons (ref {}) parent))
@@ -374,3 +387,79 @@
       'definiens
       pattern)
     'definiens))
+
+; -----------------------------------------------------------------------------
+
+; Convert a clojure expression to a metaprob parse tree / trie.
+; Assumes that the input is in the image of the to_clojure converter.
+
+(defn from-clojure-seq [seq val]
+  (trie-from-seq (map from-clojure seq) val))
+
+(defn from-clojure-program [exp]
+  (let [[_ pattern & body] exp]
+    (let [body-exp (if (= (count body) 1)
+                     (first body)
+                     (cons 'block body))]
+      (trie-from-map {"pattern" (from-clojure pattern)
+                      "body" (from-clojure body-exp)}
+                     "program"))))
+
+(defn from-clojure-if [exp]
+  (let [[_ pred thn els] exp]
+    (trie-from-map {"predicate" (from-clojure pred)
+                    "then" (from-clojure thn)
+                    "else" (from-clojure els)}
+                   "if")))
+
+(defn from-clojure-block [exp]
+  (from-clojure-seq (rest exp) "block"))
+
+(defn from-clojure-with-address [exp]
+  (let [[_ tag ex] exp]
+    (trie-from-map {"tag" (from-clojure tag)
+                    "expression" (from-clojure ex)}
+                   "with_address")))
+
+; This doesn't handle _ properly.  Fix later.
+
+(defn from-clojure-definition [exp]
+  (let [[_ pattern rhs] exp
+        key (if (symbol? pattern) (str pattern) "definiens")]
+    (trie-from-map {"pattern" (from-clojure pattern)
+                    key (from-clojure rhs)}
+                   "definition")))
+
+(defn from-clojure-application [exp]
+  (from-clojure-seq exp "application"))
+
+(defn from-clojure-tuple [exp]
+  (from-clojure-seq exp "tuple"))
+
+(defn from-clojure-1 [exp]
+  (cond (vector? exp) (from-clojure-tuple exp)
+        ;; I don't know why this is sometimes a non-list seq.
+        (seq? exp) (case (first exp)
+                     program (from-clojure-program exp)
+                     if (from-clojure-if exp)
+                     block (from-clojure-block exp)
+                     splice (trie-from-map {"expression" (from-clojure exp)} "splice")
+                     unquote (trie-from-map {"expression" (from-clojure exp)} "unquote")
+                     with-address (from-clojure-with-address exp)
+                     define (from-clojure-definition exp)
+                     ;; else
+                     (from-clojure-application exp))
+        (= exp 'this) (trie-from-map {} "this")
+        (symbol? exp) (trie-from-map {"name" (new-trie (str exp))} "variable")
+        ;; Literal
+        true (do (assert (or (number? exp)
+                             (string? exp)
+                             (boolean? exp))
+                         ["bogus expression" exp])
+                 (trie-from-map {"value" (new-trie exp)} "literal"))))
+        
+
+(defn from-clojure [exp]
+  (let [answer (from-clojure-1 exp)]
+    (assert (trie? answer) ["bad answer" answer])
+    answer))

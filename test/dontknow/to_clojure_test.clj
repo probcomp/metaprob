@@ -1,5 +1,6 @@
 (ns dontknow.to-clojure-test
   (:require [clojure.test :refer :all]
+            [dontknow.builtin :refer :all]
             [dontknow.to-clojure :refer :all]))
 
 (deftest convert-1
@@ -24,3 +25,12 @@
                                             1 ("literal" "value" (2)))))
            '(block 1 2)))))
 
+(deftest invert-1
+  (testing "Smoke test 1 for from/to-clojure"
+    (let [sample '(f x y)]
+      (is (= sample (to-clojure (from-clojure sample)))))))
+
+(deftest invert-2
+  (testing "Smoke test 2 for from/to-clojure"
+    (let [sample '(program [x] 7 x)]
+      (is (= sample (to-clojure (from-clojure sample)))))))
