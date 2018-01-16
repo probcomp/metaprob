@@ -35,10 +35,6 @@
 (defn subvalue [tr key]
   (value (subtrie tr key)))
 
-(defn sequential-subtries [tr]
-  (for [i (range (trie-count tr))]
-    (subtrie tr i)))
-
 ; Definitions
 
 (defn definition? [tr]
@@ -109,7 +105,7 @@
   (case (value tr)
     "variable" (to-symbol (subvalue tr "name"))
     "tuple" (vec (map pattern-to-pattern
-                      (sequential-subtries tr)))
+                      (subtries-to-seq tr)))
     (do 
       (print ["invalid pattern" (value tr)]) (newline)
       (list "invalid pattern" (value tr)))))
@@ -125,7 +121,7 @@
 
 (defn subexpressions-to-clojure [tr]
   (map expr-to-clojure
-       (sequential-subtries tr)))
+       (subtries-to-seq tr)))
 
 (defn block-to-clojure-1 [trs def-ok?]
   (if (empty? trs)
@@ -165,7 +161,7 @@
                  (subexpression-to-clojure tr "then")
                  (subexpression-to-clojure tr "else"))
       "block" (ensure-list
-              (block-to-clojure (sequential-subtries tr) def-ok?) "blah")
+              (block-to-clojure (subtries-to-seq tr) def-ok?) "blah")
       "splice" (list 'splice
                      (subexpression-to-clojure tr "expression"))
       "this" 'this
@@ -177,7 +173,7 @@
                            (subexpression-to-clojure tr "tag")
                            (subexpression-to-clojure tr "expression"))
       "definition" (do (if (not def-ok?)
-                         (print (format "** definition not allowed here: ~s\n"
+                         (print (format "** definition not allowed here: %s\n"
                                         (definition-pattern tr))))
                        (definition-to-clojure tr))
       (list "unrecognized expression type" (value tr)))))
@@ -200,7 +196,7 @@
 
 (defn top-level-to-clojure [tr]
   (if (= (value tr) "block")
-    (let [subs (sequential-subtries tr)]
+    (let [subs (subtries-to-seq tr)]
       (to-list
          (concat (declarations subs)
                  (map to-clojure subs))))

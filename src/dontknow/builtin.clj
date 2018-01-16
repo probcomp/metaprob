@@ -1,5 +1,6 @@
 (ns dontknow.builtin
-  (:require [dontknow.trie :refer :all]))
+  (:require [clojure.string]
+            [dontknow.trie :refer :all]))
 
 ; Builtins used in trace-choices.vnts and other extant metaprob sources:
 ;   trace_has_key
@@ -38,9 +39,29 @@
 (defmacro define
   "like def, but allows patterns"
   [pattern rhs]
-  ;; FIX ME - pattern might be of the form [pat pat ...]
-  (assert (symbol? pattern) "definition by pattern not yet implemented")
-  `(def ~pattern ~rhs))
+
+  (letfn [(var-for-pattern [pat]
+            (if (symbol? pat)
+              pat
+              (symbol (clojure.string/join "|" (map var-for-pattern pat)))))
+
+          ;; Returns a list [[var val] ...]
+          ;; to be turned into, say, (block (define var val) ...)
+          ;; or into (let [var val ...] ...)
+
+          (explode-pattern [pattern rhs]
+            (if (symbol? pattern)
+              (list (list pattern rhs))
+              (let [var (var-for-pattern pattern)]
+                (cons (list var rhs)
+                      (mapcat (fn [subpattern i]
+                                (if (= subpattern '_)
+                                  (list)
+                                  (explode-pattern subpattern `(nth ~var ~i))))
+                              pattern
+                              (range (count pattern)))))))]
+
+    `(do ~@(map (fn [[var val]] `(def ~var ~val)) (explode-pattern pattern rhs)))))
 
 (defmacro program
   "like fn, but for metaprob programs"
@@ -95,7 +116,7 @@
                         rhs (definition-rhs (first forms))]
                     ;; A definition must not be last expression in a block
                     (if (empty? (rest forms))
-                      (print (format "** Warning: Definition of ~s occurs at end of block\n"
+                      (print (format "** Warning: Definition of %s occurs at end of block\n"
                                      pattern)))
                     (if (program-definition? (first forms))
                       (let [spec (process-definition (first forms))
@@ -261,9 +282,16 @@
   (or (get (deref (first env)) name)
       (env_lookup (rest env) name)))
 
+;; def interpret_prim(f, args, intervention_trace):
+;;   if intervention_trace.has():
+;;     return intervention_trace.get()
+;;   else:
+;;     return f(metaprob_collection_to_python_list(args))
+
 (defn interpret_prim [executable inputs intervention-trace]
-  ;; Not sure what this is supposed to do
-  0)
+  (if (has-value? intervention-trace)
+    (value intervention-trace)
+    (apply executable (subtrie-values-to-seq inputs))))
 
 (defn pprint-noncolliding [x]
   ;; x is a trie.  need to prettyprint it somehow.

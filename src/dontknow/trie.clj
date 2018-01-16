@@ -143,11 +143,25 @@
    (assert (not (= val no-value)) "no value")
    (Trie. val hm)))
 
+; Returns a trie whose subtries are the members of tlist
+
 (defn trie-from-seq [tlist val]
   (assert (every? trie? tlist))
   (trie-from-map (zipmap (range (count tlist))
                          tlist)
                  val))
+
+; Returns a seq of the numbered subtries of tr
+
+(defn subtries-to-seq [tr]
+  (for [i (range (trie-count tr))]
+    (subtrie tr i)))
+
+; Returns a seq of the values of the numbered subtries of tr
+
+(defn subtrie-values-to-seq [tr]
+  (for [i (range (trie-count tr))]
+    (value (subtrie tr i))))
 
 (defn ensure-subtrie [_ key]
   (if (has-subtrie? _ key)
