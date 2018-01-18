@@ -61,22 +61,54 @@
                               pattern
                               (range (count pattern)))))))]
 
-    `(do ~@(map (fn [[var val]] `(def ~var ~val)) (explode-pattern pattern rhs)))))
+    `(do ~@(map (fn [[var val]] `(def ~var ~val))
+                (explode-pattern pattern rhs)))))
+
+(defn make-program [fun params body ns]
+  (let [exp (from-clojure `(program ~params ~@body))
+        env ns]
+    (with-meta fun {:trace (trie-from-map {"name" (new-trie exp)
+                                           "source" exp
+                                           "environment" (new-trie env)}
+                                          "prob prog")})))
 
 (defmacro program
   "like fn, but for metaprob programs"
   [params & body]
   `(make-program (fn ~params (block ~@body))
                  '~params
-                 '~body))
+                 '~body
+                 ;; *ns* will be ok at top level as a file is loaded,
+                 ;; but will be nonsense at other times.  Fix somehow.
+                 ;; (should be lexical, not dynamic.)
+                 *ns*))
 
-(defn make-program [fun params body]
-  (let [exp (from-clojure `(program ~params ~@body))
-        env nil]
-    (with-meta fun {:trace (trie-from-map {"name" (new-trie exp)
-                                           "source" exp
-                                           "environment" (new-trie env)}
+; Similar to sp_to_prob_prog
+;  return make_prob_prog(
+;    name=name,
+;    simulator=sp.simulate,
+;    interpreter=python_interpreter_prob_prog(sp.py_propose),
+;    tracer=python_tracer_prob_prog(sp.py_propose),
+;    proposer=python_proposer_prob_prog(sp.py_propose),
+;    ptc=python_ptc_prob_prog(sp.py_propose))
+
+(defn make-primitive [name fun]
+  (letfn [(simulate [args]          ;sp.simulate
+            (apply fun args))
+          (py-propose [args _intervention _target _output] ;sp.py_propose
+            [(apply fun args) 0])]
+    (with-meta fun {:trace (trie-from-map {"name" (new-trie name)
+                                           "executable" (new-trie simulate)
+                                           "custom_interpreter" (new-trie py-propose)
+                                           "custom_choice_trace" (new-trie py-propose)
+                                           "custom_proposer" (new-trie py-propose)
+                                           "custom_choice_tracing_proposer" (new-trie py-propose)}
                                           "prob prog")})))
+
+(defmacro define-primitive [name params & body]
+  `(def ~name
+     (make-primitive '~name
+                     (fn ~params ~@body))))
 
 (defmacro block
   "like do, but for metaprob - supports local definitions"
@@ -180,41 +212,41 @@
           x)
         x))))
 
-(defn eq [x y] (= x y))
-(defn neq [x y] (not (= x y)))
-(defn add [x y]
+(define-primitive eq [x y] (= x y))
+(define-primitive neq [x y] (not (= x y)))
+(define-primitive add [x y]
   (if (and (number? x) (number? y))
     (+ x y)
     (if (and (seq? x) (seq? y))
       (concat x y)
       (assert false "bad place to be"))))
 
-(defn gt [x y] (> x y))
-(defn gte [x y] (>= x y))
-(defn lt [x y] (< x y))
-(defn lte [x y] (<= x y))
+(define-primitive gt [x y] (> x y))
+(define-primitive gte [x y] (>= x y))
+(define-primitive lt [x y] (< x y))
+(define-primitive lte [x y] (<= x y))
 
 ; Used in prelude.vnts:
 ;   is_metaprob_array
 ;     The null array has no value and no subtraces; same as metaprob nil.
 ;     Hmm.
 
-(defn length [x]
+(define-primitive length [x]
   (if (trie? x)
     (trie-count x)
     (count x)))
 
-(defn first-noncolliding [mp-list]
+(define-primitive first-noncolliding [mp-list]
   (if (trace? mp-list)
     (value mp-list)
     (first mp-list)))
 
-(defn rest-noncolliding [mp-list]
+(define-primitive rest-noncolliding [mp-list]
   (if (trace? mp-list)
     (subtrie mp-list "rest")
     (rest mp-list)))
 
-(defn last-noncolliding [mp-list]
+(define-primitive last-noncolliding [mp-list]
   (if (trace? mp-list)
     (if (has-subtrie? mp-list "rest")
       (if (not (has-subtrie? (subtrie mp-list "rest") "rest"))
@@ -226,9 +258,9 @@
 (defn empty?-noncolliding [mp-list]
   (not (has-subtrie? mp-list "rest")))
 
-(defn mk_nil [] (new-trie))                 ; {{ }}
+(define-primitive mk_nil [] (new-trie))                 ; {{ }}
 
-(defn list_to_array [mp-list]
+(define-primitive list_to_array [mp-list]
   (let [arr (mk_nil)]
     (letfn [(r [mp-list n]
               (if (empty?-noncolliding mp-list)
@@ -238,35 +270,35 @@
                        (+ n 1)))))]
       (r mp-list 0))))
 
-(defn map-noncolliding [mp-fn mp-seq]
+(define-primitive map-noncolliding [mp-fn mp-seq]
   ;; Do something - need to thread the trace through
   0)
 
-(defn pair [thing mp*list]
+(define-primitive pair [thing mp*list]
   (trie-from-map {:rest mp*list} thing))
 
 ; Copied from prelude.clj
-(defn _range [n k]
+(define-primitive _range [n k]
   (if (gte k n) (mk_nil) (pair k (_range n (add k 1)))))
 
-(defn range-noncolliding [n]
+(define-primitive range-noncolliding [n]
   (_range n 0))
 
-(defn trace_get [tr] (value (tracify tr)))        ; *e
-(defn trace_has [tr] (has-value? (tracify tr)))
-(defn trace_set [tr val]            ; e[e] := e
+(define-primitive trace_get [tr] (value (tracify tr)))        ; *e
+(define-primitive trace_has [tr] (has-value? (tracify tr)))
+(define-primitive trace_set [tr val]            ; e[e] := e
   (set-value! (tracify tr) val))
-(defn trace_set_at [tr addr val] (set-value-at! (tracify tr) addr val))
-(defn trace_set_subtrace_at [tr addr sub] (set-subtrie-at! (tracify tr) addr sub))
-(defn trace_has_key [tr key] (has-subtrie? (tracify tr) key))
-(defn trace_subkeys [tr] (trie-keys (tracify tr)))
-(defn lookup [tr addr]
+(define-primitive trace_set_at [tr addr val] (set-value-at! (tracify tr) addr val))
+(define-primitive trace_set_subtrace_at [tr addr sub] (set-subtrie-at! (tracify tr) addr sub))
+(define-primitive trace_has_key [tr key] (has-subtrie? (tracify tr) key))
+(define-primitive trace_subkeys [tr] (trie-keys (tracify tr)))
+(define-primitive lookup [tr addr]
   (subtrace-at (tracify tr) addr))  ; e[e]
 
-(defn make_env [parent]
+(define-primitive make_env [parent]
   (cons (ref {}) parent))
 
-(defn match_bind [pattern inputs env]
+(define-primitive match_bind [pattern inputs env]
   (dosync
    (letfn [(mb [pattern inputs]
              (if (not (seq? pattern))
@@ -277,10 +309,23 @@
      (mb pattern inputs))
    env))
 
-(defn env_lookup [env name]
+(define-primitive env_lookup [env name]
   (assert (not (empty? env)))
   (or (get (deref (first env)) name)
       (env_lookup (rest env) name)))
+
+;; Called 'apply' in lisp
+;; Same as in metacirc-stub.vnts
+
+(define-primitive interpret [proposer inputs intervention-trace]
+  ;; proposer is (fn [args _intervention _target _output] ...)
+  (if (has-value? intervention-trace)
+    (value intervention-trace)
+    (proposer (subtrie-values-to-seq inputs)
+              intervention-trace
+              (new-trie)
+              (new-trie))))
+  
 
 ;; def interpret_prim(f, args, intervention_trace):
 ;;   if intervention_trace.has():
@@ -288,29 +333,29 @@
 ;;   else:
 ;;     return f(metaprob_collection_to_python_list(args))
 
-(defn interpret_prim [executable inputs intervention-trace]
-  (if (has-value? intervention-trace)
-    (value intervention-trace)
-    (apply executable (subtrie-values-to-seq inputs))))
+;; This one isn't used.
 
-(defn pprint-noncolliding [x]
+(define-primitive interpret_prim [proposer inputs intervention-trace]
+  0)
+
+(define-primitive pprint-noncolliding [x]
   ;; x is a trie.  need to prettyprint it somehow.
   0)
 
-(defn error [x]
+(define-primitive error [x]
   (assert (string? x))
   (Exception. x))
 
 ; Other builtins
 
-(defn flip [weight] (<= (rand) weight))
+(define-primitive flip [weight] (<= (rand) weight))
 
-(defn uniform [a b] (+ (rand (- b a)) a))
+(define-primitive uniform [a b] (+ (rand (- b a)) a))
 
-(defn capture_tag_address [& stuff]
+(define-primitive capture_tag_address [& stuff]
   stuff)
 
-(defn resolve_tag_address [stuff]
+(define-primitive resolve_tag_address [stuff]
   stuff)
 
 ; Metaprob arrays (node with children 0 ... size-1)
@@ -409,7 +454,7 @@
 
 
 
-(defn name-for-definiens [pattern]
+(define-primitive name-for-definiens [pattern]
   (if (symbol? pattern)
     (if (= pattern '_)
       'definiens

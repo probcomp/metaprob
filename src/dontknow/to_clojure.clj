@@ -59,6 +59,7 @@
 
 (defn program-definition? [tr]
   (and (definition? tr)
+       (= (value (definition-pattern tr)) "variable")
        (= (value (definition-rhs tr)) "program")))
 
 ; Metaprob names vs. clojure names
