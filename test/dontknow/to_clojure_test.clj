@@ -1,6 +1,6 @@
 (ns dontknow.to-clojure-test
   (:require [clojure.test :refer :all]
-            [dontknow.builtin :refer :all]
+            [dontknow.library :refer :all]
             [dontknow.to-clojure :refer :all]))
 
 (deftest convert-1

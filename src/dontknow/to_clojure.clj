@@ -1,6 +1,6 @@
 (ns dontknow.to-clojure
   (:require [dontknow.trie :refer :all])
-  (:require [dontknow.builtin :refer :all])
+  (:require [dontknow.library :refer :all])
   (:require [clojure.pprint :as pp]))
 
 ; Read a source code trie (i.e. trace) in ("a-value" "prop" "val") form
@@ -62,10 +62,11 @@
        (= (value (definition-pattern tr)) "variable")
        (= (value (definition-rhs tr)) "program")))
 
-; Metaprob names vs. clojure names
+; Metaprob code sometimes has local variables that collide with
+; important special forms / macros.
 
 (def colliding-names
-  #{"first" "rest" "last" "range" "pprint" "map" "replicate"
+  #{;; "first" "rest" "last" "range" "pprint" "map" "replicate"
     "program" "block"})
 
 (defn to-symbol [strng]
@@ -249,6 +250,7 @@
       (write-one-form
        (list 'ns
              'dontknow.metaprob
+             '(:refer-clojure)       ; Don't import clojure core!
              '(:require [dontknow.builtin :refer :all])))
       (doseq [form exprs]
         ;; Add forward declarations??
