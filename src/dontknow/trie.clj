@@ -35,6 +35,8 @@
 (declare trie?)
 (declare new-locative)
 
+(defn address? [x] (seqable? x))
+
 (deftype Trie
   [^:volatile-mutable the-value
    ^:volatile-mutable subtries]    ; hash-map
@@ -69,18 +71,22 @@
 
   ;; Value at address
   (has-value-at? [_ addr]
+    (assert (address? addr) addr)
     (if (empty? addr)
       (has-value? _)
       (let [[head & tail] addr]
         (and (has-subtrie? _ head)
              (has-value-at? (subtrie _ head) tail)))))
   (value-at [_ addr]
+    (assert (address? addr) addr)
     (value (subtrie-at _ addr)))
   (set-value-at! [_ addr val]
+    (assert (address? addr) addr)
     (set-value! (ensure-subtrie-at _ addr) val))
 
   ;; Descendant subtrie at address
   (has-subtrie-at? [_ addr]
+    (assert (address? addr) addr)
     (if (empty? addr)
       true
       (let [[head & tail] addr]
@@ -90,20 +96,24 @@
     ;; Assert: addr is a list (of symbols?)
     ;; Returns subtrie at address if it's there.
     ;; Fails (or nil) if no such subtree??  Maybe should soft-fail (return nil).
+    (assert (address? addr) addr)
     (if (empty? addr)
       _
       (let [[head & tail] addr]
         (subtrie-at (subtrie _ head) tail))))
-  (set-subtrie-at! [_ [head & tail] subtrie]
-    (if (empty? tail)
-      (set-subtrie! _ head subtrie)
-      (if (has-subtrie? _ head)
-        (set-subtrie-at! (subtrie _ head) tail subtrie)
-        (let [novo (new-trie)]
-          (set-subtrie! _ head novo)
-          (set-subtrie-at! novo tail subtrie)))))
+  (set-subtrie-at! [_ addr subtrie]
+    (assert (address? addr) addr)
+    (let [[head & tail] addr]
+      (if (empty? tail)
+        (set-subtrie! _ head subtrie)
+        (if (has-subtrie? _ head)
+          (set-subtrie-at! (subtrie _ head) tail subtrie)
+          (let [novo (new-trie)]
+            (set-subtrie! _ head novo)
+            (set-subtrie-at! novo tail subtrie))))))
 
   (subtrace-at [_ addr]
+    (assert (address? addr) addr)
     (if (empty? addr)
       _
       (let [[head & tail] addr]
@@ -135,15 +145,15 @@
 
 ; thanks https://stuartsierra.com/2015/06/01/clojure-donts-optional-arguments-with-varargs
 (defn trie-from-map
-  ([hm]
-   (assert (every? trie? (for [[k v] hm] v)))
-   (Trie. no-value hm))
-  ([hm val]
-   (assert (every? trie? (for [[k v] hm] v)))
+  ([maap]
+   (assert (every? trie? (vals maap)) ["x1" maap])
+   (Trie. no-value maap))
+  ([maap val]
+   (assert (every? trie? (vals maap)) ["xs" maap])
    (assert (not (= val no-value)) "no value")
-   (Trie. val hm)))
+   (Trie. val maap)))
 
-; Returns a trie whose subtries are the members of tlist
+; Returns a trie whose subtries are the members of the clojure sequence tlist
 
 (defn trie-from-seq [tlist val]
   (assert (every? trie? tlist))
@@ -151,35 +161,40 @@
                          tlist)
                  val))
 
-; Returns a seq of the numbered subtries of tr
+; Returns a clojure seq of the numbered subtries of the trie tr
 
 (defn subtries-to-seq [tr]
+  (assert trie? tr)
   (for [i (range (trie-count tr))]
     (subtrie tr i)))
 
 ; Returns a seq of the values of the numbered subtries of tr
 
 (defn subtrie-values-to-seq [tr]
+  (assert trie? tr)
   (for [i (range (trie-count tr))]
     (value (subtrie tr i))))
 
-(defn ensure-subtrie [_ key]
-  (if (has-subtrie? _ key)
-    (subtrie _ key)
+(defn ensure-subtrie [tr key]
+  (assert trie? tr)
+  (if (has-subtrie? tr key)
+    (subtrie tr key)
     (let [novo (new-trie)]
-      (set-subtrie! _ key novo)
+      (set-subtrie! tr key novo)
       novo)))
 
-(defn ensure-subtrie-at [_ addr]
+(defn ensure-subtrie-at [tr addr]
   ;; Assert: addr is a list (of strings, typically)
   ;; Similar to python subtrace_at or lookup ?
   ;; This should be called immediately before storing a value or subtrace.
+  (assert trie? tr)
+  (assert (address? addr) addr)
   (if (empty? addr)
-    _
+    tr
     (let [[head & tail] addr]
-      (if (has-subtrie? _ head)
-        (subtrie _ head)
-        (ensure-subtrie-at (ensure-subtrie _ head)
+      (if (has-subtrie? tr head)
+        (subtrie tr head)
+        (ensure-subtrie-at (ensure-subtrie tr head)
                            tail)))))
 
 

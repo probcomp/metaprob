@@ -38,8 +38,8 @@
 (deftest store-fetch-value-at
   (testing "If you store a value at some address, is it there?"
     (let [trie (new-trie)]
-      (set-value-at! trie '[a b c] 17)
-      (is (= (value-at trie '[a b c]) 17)))))
+      (set-value-at! trie '(a b c) 17)
+      (is (= (value-at trie '(a b c)) 17)))))
 
 ; store/fetch a value using locative
 
@@ -47,8 +47,8 @@
   (testing "If you store a value at some address, is it there?"
     (let [trie (new-trie)
           place (subtrace trie 'a)]
-      (set-value-at! place '[b] 17)
-      (is (= (value-at trie '[a b]) 17)))))
+      (set-value-at! place '(b) 17)
+      (is (= (value-at trie '(a b)) 17)))))
 
 (deftest narrow-1
   (testing "If you store the value of a locative, is it there?"
@@ -60,18 +60,18 @@
 (deftest store-fetch-value-at-2a
   (testing "If you store a value at some address, is it there?"
     (let [trie (new-trie)
-          place (subtrace-at trie '[a])]
-      (set-value-at! place '[b] 17)
-      (is (= (value-at trie '[a b]) 17)))))
+          place (subtrace-at trie '(a))]
+      (set-value-at! place '(b) 17)
+      (is (= (value-at trie '(a b)) 17)))))
 
 (def suppress? true)
 
 (deftest store-fetch-value-at-2b
   (testing "If you store a value at some address, is it there?"
     (let [trie (new-trie)
-          place (subtrace-at trie '[a b])]
+          place (subtrace-at trie '(a b))]
       (set-value! place 17)
-      (is (= (value-at trie '[a b]) 17)))))
+      (is (= (value-at trie '(a b)) 17)))))
 
 (deftest store-fetch-value-at-3
   (testing "If you store a value at some address, is it there?"
@@ -83,20 +83,20 @@
 (deftest store-fetch-value-at-3a
   (testing "If you store a value at some address, is it there?"
     (let [trie (new-trie)
-          place (subtrace-at trie '[a])]
+          place (subtrace-at trie '(a))]
       (set-value! place 17)
       (is (= (value place) 17)))))
 
 (deftest store-fetch-value-at-4
   (testing "If you store a value at some address, is it there?"
     (let [trie (new-trie)
-          place (subtrace-at trie '[a b])]
+          place (subtrace-at trie '(a b))]
       (set-value! place 17)
-      (is (= (value-at trie '[a b]) 17)))))
+      (is (= (value-at trie '(a b)) 17)))))
 
 (deftest store-fetch-value-at-5
   (testing "If you store a value at some address, is it there?"
     (let [trie (new-trie)
-          place (subtrace-at trie '[a b])]
-      (set-value-at! place '[c d] 17)
-      (is (= (value-at trie '[a b c d]) 17)))))
+          place (subtrace-at trie '(a b))]
+      (set-value-at! place '(c d) 17)
+      (is (= (value-at trie '(a b c d)) 17)))))
