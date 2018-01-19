@@ -1,4 +1,4 @@
-(ns dontknow.builtin
+(ns dontknow.metaprob
   (:refer-clojure :only [defmacro])
   (:require [dontknow.library]))
 
@@ -27,17 +27,6 @@
 ; independent of anything you can do:
 ;
 ;  def do if
-
-; Re-export clojure macros
-
-(defmacro declare [& rest]
-  `(clojure.core/declare ~@rest))
-
-(defmacro and [& rest]
-  `(clojure.core/and ~@rest))
-
-(defmacro or [& rest]
-  `(clojure.core/or ~@rest))
 
 ; This isn't part of metaprob but boy is it useful
 

@@ -1,6 +1,6 @@
 (ns dontknow.biased-coin
   (:refer-clojure :only [])
-  (:require [dontknow.builtin :refer :all]))
+  (:require [dontknow.metaprob :refer :all]))
 
 (define flip-coins
   (program [n]
