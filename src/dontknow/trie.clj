@@ -2,7 +2,7 @@
 
 (def no-value '**no-value**)
 
-(defprotocol ITrie
+(defprotocol ITrace
   "A prefix tree"
   (has-value? [_])
   (value [_] "The value stored for this trie (python: get)")
@@ -41,8 +41,8 @@
   [^:volatile-mutable the-value
    ^:volatile-mutable subtries]    ; hash-map
 
-  ; Implements the ITrie interface
-  ITrie
+  ; Implements the ITrace interface
+  ITrace
 
   (has-value? [_]
     (not (= the-value no-value)))
@@ -221,8 +221,8 @@
 (deftype Locative
   [trie-or-locative this-key]
 
-  ; Implements the ITrie interface
-  ITrie
+  ; Implements the ITrace interface
+  ITrace
 
   (has-value? [_]
     (let [n (narrow _)]

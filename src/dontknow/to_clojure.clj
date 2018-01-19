@@ -242,23 +242,27 @@
 (defn write-to-file [exprs outpath]
   (with-open [w (clojure.java.io/writer
                  (clojure.java.io/output-stream outpath))]
-    (letfn [(write-one-form [form]
-              ;; (print form) (newline) (flush)
-              (pp/with-pprint-dispatch pp/code-dispatch
-                (pp/write form :pretty true :stream w))
-              (binding [*out* w]
-                (println)
-                (println)))]
-      (write-one-form
-       (list 'ns
-             'dontknow.metaprob-user
-             ;; We tickle a clojure bug if the :only list is []
-             '(:refer-clojure :only [and or declare])  ; Don't import clojure core!
-             '(:require [dontknow.metaprob :refer :all])))
-      (binding [*ns* (find-ns 'dontknow.metaprob-user)]
-        (doseq [form exprs]
-          ;; Add forward declarations??
-          (write-one-form form))))))
+    (let [user-ns
+          (binding [*ns* *ns*]
+            (ns dontknow.metaprob-user
+              (:refer-clojure :only [and or declare])  ; Don't import clojure core!
+              (:require [dontknow.metaprob :refer :all])))]
+      (letfn [(write-one-form [form]
+                ;; (print form) (newline) (flush)
+                (pp/with-pprint-dispatch pp/code-dispatch
+                  (pp/write form :pretty true :stream w))
+                (binding [*out* w]
+                  (println)
+                  (println)))]
+        (write-one-form
+         '(ns dontknow.metaprob-user
+            ;; We tickle a clojure pprint bug if the :only list is []
+            (:refer-clojure :only [and or declare])
+            (:require [dontknow.metaprob :refer :all])))
+        (binding [*ns* user-ns]
+          (doseq [form exprs]
+            ;; Add forward declarations??
+            (write-one-form form)))))))
 
 (defn convert [inpath outpath]
   (write-to-file (top-level-to-clojure (reconstruct-trace (read-from-file inpath)))
