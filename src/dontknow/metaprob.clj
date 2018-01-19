@@ -33,7 +33,8 @@
 (defmacro let [& rest]
   `(clojure.core/let ~@rest))
 
-; Re-export library macros
+;; ----------------------------------------------------------------------
+;; Re-export library macros
 
 (defmacro define [& rest]
   `(dontknow.library/define ~@rest))
@@ -44,7 +45,8 @@
 (defmacro block [& rest]
   `(dontknow.library/block ~@rest))
 
-; Re-expore library functions
+;; ----------------------------------------------------------------------
+;; Re-expore builtin functions
 
 (def not dontknow.library/mp-not)
 
@@ -61,19 +63,7 @@
 (def div dontknow.library/div)
 ; etc. etc.
 
-(def pair dontknow.library/pair)
-(def list dontknow.library/mp-list)
-(def first dontknow.library/mp-first)
-(def rest dontknow.library/mp-rest)
-(def last dontknow.library/mp-last)
-(def map dontknow.library/mp-map)
-(def range dontknow.library/mp-range)
-
-(def pprint dontknow.library/mp-pprint)
-
-(def length dontknow.library/length)
 (def mk_nil dontknow.library/mk_nil)
-(def list_to_array dontknow.library/list_to_array)
 
 (def trace_get dontknow.library/trace_get)
 (def trace_has dontknow.library/trace_has)
@@ -84,15 +74,38 @@
 (def trace_subkeys dontknow.library/trace_subkeys)
 (def lookup dontknow.library/lookup)
 
-(def make_env dontknow.library/make_env)
-(def match_bind dontknow.library/match_bind)
-(def env_lookup dontknow.library/env_lookup)
 (def interpret dontknow.library/interpret)
 (def interpret_prim dontknow.library/interpret_prim)
-(def error dontknow.library/error)
+(def pprint dontknow.library/mp-pprint)
 
 (def flip dontknow.library/flip)
 (def uniform dontknow.library/uniform)
-(def capture_tag_address dontknow.library/capture_tag_address)
 (def resolve_tag_address dontknow.library/resolve_tag_address)
 (def name_for_definiens dontknow.library/name_for_definiens)
+
+(def pair dontknow.library/pair)
+(def list_to_array dontknow.library/list_to_array)
+(def list dontknow.library/mp-list)
+
+;; ----------------------------------------------------------------------
+;; Re-export prelude overrides
+
+(def first dontknow.library/mp-first)
+(def rest dontknow.library/mp-rest)
+(def is_pair dontknow.library/is_pair)
+(def length dontknow.library/length)
+(def last dontknow.library/mp-last)
+(def nth dontknow.library/mp-nth)
+(def range dontknow.library/mp-range)
+
+(def map dontknow.library/mp-map)     ;use the one from the prelude instead!
+
+(def append dontknow.library/append)
+
+(def error dontknow.library/error)
+(def capture_tag_address dontknow.library/capture_tag_address)
+
+(def env_lookup dontknow.library/env_lookup)
+(def make_env dontknow.library/make_env)
+(def match_bind dontknow.library/match_bind)
+
