@@ -35,6 +35,20 @@
   (testing "Does a program appear to be a trie?"
     (is (= (trace_get (program [] 7)) "prob prog"))))
 
+(deftest last-1
+  (testing "Last element of a metaprob list"
+    (is (= (mp-last (seq-to-metaprob-list (list 1 2 3)))
+           3))))
+
+(deftest append-1
+  (testing "Concatenate two metaprob lists"
+    (let [l1 (seq-to-metaprob-list (list 1 2 3))
+          l2 (seq-to-metaprob-list (list 7 8 9))]
+      (is (= (mp-last (append l1 l2))
+             9)))))
+
+;; map should be moved to prelude
+
 (deftest map-1
   (testing "Map over a clojure list"
     (is (= (mp-map (fn [x] (+ x 1))
@@ -55,15 +69,3 @@
                              (seq-to-metaprob-tuple (list 6 7 8)))
                      (list 1))
            8))))
-
-(deftest last-1
-  (testing "Last element of a metaprob list"
-    (is (= (mp-last (seq-to-metaprob-list (list 1 2 3)))
-           3))))
-
-(deftest append-1
-  (testing "Concatenate two metaprob lists"
-    (let [l1 (seq-to-metaprob-list (list 1 2 3))
-          l2 (seq-to-metaprob-list (list 7 8 9))]
-      (is (= (mp-last (append l1 l2))
-             9)))))

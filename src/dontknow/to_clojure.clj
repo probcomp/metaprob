@@ -2,7 +2,9 @@
   (:require [dontknow.trie :refer :all])
   (:require [dontknow.library :refer :all])
   (:require [dontknow.metaprob-user])
-  (:require [clojure.pprint :as pp]))
+  (:require [clojure.pprint :as pp])
+  (:require [clojure.string :as cs])
+  (:require [clojure.java.io :as io]))
 
 ; Read a source code trie (i.e. trace) in ("a-value" "prop" "val") form
 ; and translate it into Clojure.
@@ -239,14 +241,18 @@
 
 ; exprs is list of clojure expressions, as returned by top-level-to-clojure
 
-(defn write-to-file [exprs outpath]
+(defn write-to-file [exprs ns-name outpath]
+  ;; (print (format "** ns A = %s\n" *ns*))(flush)
   (with-open [w (clojure.java.io/writer
                  (clojure.java.io/output-stream outpath))]
-    (let [user-ns
-          (binding [*ns* *ns*]
-            (ns dontknow.metaprob-user
-              (:refer-clojure :only [and or declare])  ; Don't import clojure core!
-              (:require [dontknow.metaprob :refer :all])))]
+    (let [this-ns (create-ns ns-name)]
+      ;; with-loading-context is defined in clojure.core, but not documented.
+      ;; It is used in the expansion of the `ns` macro.
+      ;; (See https://clojuredocs.org/clojure.core/with-loading-context)
+      (binding [*ns* this-ns]
+        (with-loading-context
+          (refer-clojure :only '[and or declare])  ; Don't import clojure core!
+          (require '[dontknow.metaprob :refer :all])))
       (letfn [(write-one-form [form]
                 ;; (print form) (newline) (flush)
                 (pp/with-pprint-dispatch pp/code-dispatch
@@ -254,17 +260,33 @@
                 (binding [*out* w]
                   (println)
                   (println)))]
+        ;; (print (format "** ns B = %s\n" *ns*))(flush)
         (write-one-form
-         '(ns dontknow.metaprob-user
+         `(ns ~ns-name
             ;; We tickle a clojure pprint bug if the :only list is []
+            ;; https://dev.clojure.org/jira/browse/CLJCLR-97
             (:refer-clojure :only [and or declare])
             (:require [dontknow.metaprob :refer :all])))
-        (binding [*ns* user-ns]
+        (binding [*ns* this-ns]
           (doseq [form exprs]
             ;; Add forward declarations??
             (write-one-form form)))))))
 
-(defn convert [inpath outpath]
-  (write-to-file (top-level-to-clojure (reconstruct-trace (read-from-file inpath)))
-                 outpath))
+;; Damn, this is no good.  No idea how many terminal path components
+;; to include in the dot-separated namespace name.
+;; - so this code is unused for now... keeping it because sunk cost.
 
+(defn path-to-namespace-name [path]
+  (let [name (.getName (io/file path))
+        dot (cs/last-index-of name ".")]
+    (cs/replace
+     (if dot
+       (subs name 0 dot)
+       name)
+     "_"
+     "-")))
+
+(defn convert [inpath outpath ns-name]
+  (write-to-file (top-level-to-clojure (reconstruct-trace (read-from-file inpath)))
+                 (symbol ns-name)
+                 outpath))

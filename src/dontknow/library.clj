@@ -3,41 +3,9 @@
             [clojure.pprint :as pp]
             [dontknow.trie :refer :all]))
 
-; This module is intended for import by clojure code.
-; For metaprob builtins, please import the metaprob namespace and
-; suppress the impulse to import clojure.core.
-
-; Builtins used in trace-choices.vnts and other extant metaprob sources:
-;   trace_has_key
-;   trace_get
-;   trace_has
-;   trace_set
-;   trace_set_subtrace_at
-;   lookup
-;   mk_nil
-;
-;   pprint  [clojure conflict - takes a trace]
-;   error
-;   first rest   [clojure conflict]
-;   last    [clojure conflict]
-;   range   [clojure conflict]
-;   length
-;   map   [clojure conflict]
-;   list_to_array
-;   add (from metaprob '+')
-;   add (from =)
-;   eq
-;   neq
-
-;   name_for_definiens
-;   make_env
-;   match_bind      - extends an environment (implemented as trace).
-;   env_lookup
-;   capture_tag_address   - for 'this'
-;   resolve_tag_address   - for with_address
-
-;   interpret    -- what is this?
-;   interpret_prim
+;; This module is intended for import by clojure code.
+;; For metaprob builtins, please import the metaprob namespace and
+;; suppress the impulse to import clojure.core.
 
 (declare from-clojure)
 
@@ -49,7 +17,7 @@
             (if (symbol? pat)
               pat
               (symbol (clojure.string/join "|"
-                                           (clojure.core/map var-for-pattern pat)))))
+                                           (map var-for-pattern pat)))))
 
           ;; Returns a list [[var val] ...]
           ;; to be turned into, say, (block (define var val) ...)
@@ -65,10 +33,10 @@
                                   (list)
                                   (explode-pattern subpattern `(nth ~var ~i))))
                               pattern
-                              (clojure.core/range (count pattern)))))))]
+                              (range (count pattern)))))))]
 
-    `(do ~@(clojure.core/map (fn [[var val]] `(def ~var ~val))
-                             (explode-pattern pattern rhs)))))
+    `(do ~@(map (fn [[var val]] `(def ~var ~val))
+                (explode-pattern pattern rhs)))))
 
 (defn make-program [fun name params body ns]
   (let [exp (from-clojure `(program ~params ~@body))
@@ -99,9 +67,9 @@
   [& forms]
   (letfn [(definition? [form]
             (and (seq? form)
-                 (= (clojure.core/first form) 'def)))
+                 (= (first form) 'def)))
           (definition-pattern [form]
-            (clojure.core/second form))
+            (second form))
           (definition-rhs [form]
             (nth form 2))
           (program-definition? [form]
@@ -109,7 +77,7 @@
                  (symbol? (definition-pattern form))
                  (let [rhs (definition-rhs form)]
                    (and (list? rhs)
-                        (= (clojure.core/first rhs) 'program)))))
+                        (= (first rhs) 'program)))))
           (qons [x y]
             (if (list? y)
               (conj y x)
@@ -118,7 +86,7 @@
             (assert program-definition? form)
             (let [rhs (definition-rhs form)       ;a program-expression
                   prog-pattern (definition-pattern rhs)
-                  prog-body (clojure.core/rest (clojure.core/rest rhs))]
+                  prog-body (rest (rest rhs))]
               (qons (definition-pattern form)
                     (qons prog-pattern
                           prog-body))))
@@ -126,20 +94,20 @@
           (block-to-body [forms]
             (if (empty? forms)
               '()
-              (let [more (block-to-body (clojure.core/rest forms))]    ; list of forms
-                (if (definition? (clojure.core/first forms))
-                  (let [pattern (definition-pattern (clojure.core/first forms))
-                        rhs (definition-rhs (clojure.core/first forms))]
+              (let [more (block-to-body (rest forms))]    ; list of forms
+                (if (definition? (first forms))
+                  (let [pattern (definition-pattern (first forms))
+                        rhs (definition-rhs (first forms))]
                     ;; A definition must not be last expression in a block
-                    (if (empty? (clojure.core/rest forms))
+                    (if (empty? (rest forms))
                       (print (format "** Warning: Definition of %s occurs at end of block\n"
                                      pattern)))
-                    (if (program-definition? (clojure.core/first forms))
-                      (let [spec (process-definition (clojure.core/first forms))
-                            more1 (clojure.core/first more)]
+                    (if (program-definition? (first forms))
+                      (let [spec (process-definition (first forms))
+                            more1 (first more)]
                         (if (and (list? more1)
-                                 (= (clojure.core/first more1) 'letfn))
-                          (do (assert (empty? (clojure.core/rest more)))
+                                 (= (first more1) 'letfn))
+                          (do (assert (empty? (rest more)))
                               ;; more1 = (letfn [...] ...)
                               ;;    (letfn [...] & body)
                               ;; => (letfn [(name pattern & prog-body) ...] & body)
@@ -155,11 +123,11 @@
                                        more)))))
                       ;; Definition, but not of a function
                       ;; (first forms) has the form (def pattern rhs)
-                      (let [more1 (clojure.core/first more)]
+                      (let [more1 (first more)]
                         (if (and (list? more1)
-                                 (= (clojure.core/first more1) 'let))
+                                 (= (first more1) 'let))
                           ;; Combine two lets into one
-                          (do (assert (empty? (clojure.core/rest more)))
+                          (do (assert (empty? (rest more)))
                               (let [[_ specs & body] more1]
                                 (list             ;Single form
                                  (qons 'let
@@ -170,14 +138,14 @@
                                  (qons [pattern rhs]
                                        more)))))))
                   ;; Not a definition
-                  (qons (clojure.core/first forms) more)))))
+                  (qons (first forms) more)))))
 
           (formlist-to-form [forms]
             (assert (seq? forms))
             (if (empty? forms)
               'nil
-              (if (empty? (clojure.core/rest forms))
-                (clojure.core/first forms)
+              (if (empty? (rest forms))
+                (first forms)
                 (if (list? forms)
                   (qons 'do forms)
                   (qons 'do (concat (list) forms))))))]
@@ -208,7 +176,7 @@
 ; The aux-name is logically unnecessary but helps with debugging.
 
 (defmacro define-primitive [lib-name mp-name params & body]
-  (let [aux-name (symbol (str lib-name '$primitive))]
+  (let [aux-name (symbol (str lib-name '|primitive))]
     `(do (declare ~lib-name)
          (defn ~aux-name ~params ~@body)
          (def ~lib-name
@@ -412,7 +380,7 @@
     (if (is_pair x)
       (letfn [(scan [x]
                 (if (is_pair x)
-                  (+ x (scan (rest x)))
+                  (+ 1 (scan (mp-rest x)))
                   0))]
         (scan x))
       (trie-count x))
@@ -528,8 +496,8 @@
   (if (instance? clojure.lang.Namespace env)
     (deref (ns-resolve env (symbol name)))
     (do (assert (map? env) env)
-        (or (get (deref (clojure.core/first env)) name)
-            (env_lookup (clojure.core/rest env) name)))))
+        (or (get (deref (first env)) name)
+            (env_lookup (rest env) name)))))
 
 ;; make_env - overrides original prelude
 
@@ -544,10 +512,10 @@
              (if (not (seq? pattern))
                (if (not (= pattern '_))
                  ;; in transaction???
-                 (ref-set (clojure.core/first env) pattern inputs))
+                 (ref-set (first env) pattern inputs))
                (if (not (empty? pattern))
-                 (do (mb (clojure.core/first pattern) (clojure.core/first inputs))
-                     (mb (clojure.core/rest pattern) (clojure.core/rest inputs))))))]
+                 (do (mb (first pattern) (first inputs))
+                     (mb (rest pattern) (rest inputs))))))]
      (mb pattern inputs))
    env))
 
@@ -569,7 +537,7 @@
 (defn from-clojure-program [exp]
   (let [[_ pattern & body] exp]
     (let [body-exp (if (= (count body) 1)
-                     (clojure.core/first body)
+                     (first body)
                      (cons 'block body))]
       (trie-from-map {"pattern" (from-clojure pattern)
                       "body" (from-clojure body-exp)}
@@ -583,7 +551,7 @@
                    "if")))
 
 (defn from-clojure-block [exp]
-  (from-clojure-seq (clojure.core/rest exp) "block"))
+  (from-clojure-seq (rest exp) "block"))
 
 (defn from-clojure-with-address [exp]
   (let [[_ tag ex] exp]
@@ -609,7 +577,7 @@
 (defn from-clojure-1 [exp]
   (cond (vector? exp) (from-clojure-tuple exp)
         ;; I don't know why this is sometimes a non-list seq.
-        (seq? exp) (case (clojure.core/first exp)
+        (seq? exp) (case (first exp)
                      program (from-clojure-program exp)
                      if (from-clojure-if exp)
                      block (from-clojure-block exp)

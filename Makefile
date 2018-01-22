@@ -1,6 +1,6 @@
 
 all:
-	bash parse-all.sh
+	bash bin/parse-all
 
 # this target is referenced in README.md
 lein:
@@ -12,12 +12,12 @@ lein:
 # Create directory of .trace files from .vnts files
 # NOTE: This must run with the metaprob virtualenv active!
 parse: ../metaprob/pythenv.sh python/transcribe.py
-	./parse-all.sh
+	bin/parse-all
 
 # Create directory of .clj files from .trace files
 convert: src/dontknow/main.clj src/dontknow/to_clojure.clj .lein_classpath
 	lein compile :all
-	./convert-all.sh
+	bin/convert-all
 
 # General rule for converting a .vnts (metaprob) file to a .trace file
 # NOTE: This must run with the metaprob virtualenv active!
@@ -37,3 +37,6 @@ convert: src/dontknow/main.clj src/dontknow/to_clojure.clj .lein_classpath
 .lein_classpath:
 	lein classpath > $@
 
+src/metaprob/metacirc/propose_and_trace_choices.clj: converted/metacirc/propose_and_trace_choices.clj
+	mkdir -p `dirname $@`
+	cp -p $< $@

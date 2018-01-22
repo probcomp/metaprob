@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Convert an original-metaprob source file (.trace) to clojure (.clj)
+
+set -e
+
+function err {
+    echo "$@" 1>&2
+    exit 1
+}
+
+[ $# = 3 ] || err "wna"
+
+source=$1
+namespace=$2
+dest=$3
+
+# Now do the convert command
+mkdir -p `dirname $dest`
+echo Converting $source '->' $dest
+if true ; then
+    java -cp `cat .lein_classpath` dontknow.main $source $dest.new $namespace
+    mv -f $dest.new $dest
+else
+    echo "** namespace = " $namespace
+fi

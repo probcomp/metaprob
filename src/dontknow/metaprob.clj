@@ -48,6 +48,7 @@
 ;; ----------------------------------------------------------------------
 ;; Re-expore builtin functions
 
+(def assert dontknow.library/mp-assert)
 (def not dontknow.library/mp-not)
 
 (def eq dontknow.library/eq)
