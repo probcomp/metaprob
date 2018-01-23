@@ -28,6 +28,9 @@
   (narrow [_])    ;If there's a already trie corresponding to this trace, return it
   (blaze [_]))
 
+(defn trace? [x]
+  (satisfies? ITrace x))
+
 ; Concrete implementation of the above interface
 
 (declare ensure-subtrie-at)
@@ -155,11 +158,15 @@
 
 ; Returns a trie whose subtries are the members of the clojure sequence tlist
 
-(defn trie-from-seq [tlist val]
-  (assert (every? trie? tlist))
-  (trie-from-map (zipmap (range (count tlist))
-                         tlist)
-                 val))
+(defn trie-from-seq
+  ([tlist]
+   (trie-from-map (zipmap (range (count tlist))
+                          tlist)))
+  ([tlist val]
+   (assert (every? trie? tlist))
+   (trie-from-map (zipmap (range (count tlist))
+                          tlist)
+                  val)))
 
 ; Returns a clojure seq of the numbered subtries of the trie tr
 
@@ -322,6 +329,3 @@
 
 (defn locative? [x]
   (= (type x) Locative))
-
-(defn trace? [x]
-  (or (trie? x) (locative? x)))

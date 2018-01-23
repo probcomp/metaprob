@@ -170,7 +170,7 @@
       "splice" (list 'splice
                      (subexpression-to-clojure tr "expression"))
       "this" 'this
-      "tuple" (vec (subexpressions-to-clojure tr))
+      "tuple" (qons 'tuple (subexpressions-to-clojure tr))
       "unquote" (list 'unquote
                       (subexpression-to-clojure tr "expression"))
       "with_address" (list 'with-address
@@ -188,7 +188,7 @@
 
 (defn declarations [subs]
   (assert (seq? subs))
-  (let [defs (rest (filter program-definition? subs))]
+  (let [defs (filter program-definition? subs)]
     (do (assert (seq? defs) "no brainer")
     (if (empty? defs)
       (list)
@@ -241,36 +241,35 @@
 
 ; exprs is list of clojure expressions, as returned by top-level-to-clojure
 
+(def metaprob-inherits-from-clojure '[declare])
+
 (defn write-to-file [exprs ns-name outpath]
   ;; (print (format "** ns A = %s\n" *ns*))(flush)
   (with-open [w (clojure.java.io/writer
                  (clojure.java.io/output-stream outpath))]
     (let [this-ns (create-ns ns-name)]
-      ;; with-loading-context is defined in clojure.core, but not documented.
-      ;; It is used in the expansion of the `ns` macro.
-      ;; (See https://clojuredocs.org/clojure.core/with-loading-context)
       (binding [*ns* this-ns]
-        (with-loading-context
-          (refer-clojure :only '[and or declare])  ; Don't import clojure core!
-          (require '[dontknow.metaprob :refer :all])))
-      (letfn [(write-one-form [form]
-                ;; (print form) (newline) (flush)
-                (pp/with-pprint-dispatch pp/code-dispatch
-                  (pp/write form :pretty true :stream w))
+        (refer 'clojure.core :only metaprob-inherits-from-clojure)
+        (require '[dontknow.metaprob :refer :all]))
+      (letfn [(write-one-form [form ns]
+                (binding [*ns* ns]
+                  (pp/with-pprint-dispatch pp/code-dispatch
+                    (pp/write form :pretty true :stream w)))
                 (binding [*out* w]
                   (println)
                   (println)))]
         ;; (print (format "** ns B = %s\n" *ns*))(flush)
+
         (write-one-form
          `(ns ~ns-name
             ;; We tickle a clojure pprint bug if the :only list is []
             ;; https://dev.clojure.org/jira/browse/CLJCLR-97
-            (:refer-clojure :only [and or declare])
-            (:require [dontknow.metaprob :refer :all])))
-        (binding [*ns* this-ns]
-          (doseq [form exprs]
-            ;; Add forward declarations??
-            (write-one-form form)))))))
+            (:refer-clojure :only ~metaprob-inherits-from-clojure)
+            (:require [dontknow.metaprob :refer :all]))
+         (create-ns 'clojure/core))
+        (doseq [form exprs]
+          ;; Add forward declarations??
+          (write-one-form form this-ns))))))
 
 ;; Damn, this is no good.  No idea how many terminal path components
 ;; to include in the dot-separated namespace name.

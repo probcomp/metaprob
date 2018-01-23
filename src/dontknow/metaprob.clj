@@ -45,6 +45,14 @@
 (defmacro block [& rest]
   `(dontknow.library/block ~@rest))
 
+(defmacro tuple [& rest]
+  `(dontknow.library/tuple ~@rest))
+
+(defmacro with-address [& rest]
+  `(dontknow.library/with-address ~@rest))
+
+(def this "please do not use 'this' in the absence of run-time traces")
+
 ;; ----------------------------------------------------------------------
 ;; Re-expore builtin functions
 
@@ -86,7 +94,16 @@
 
 (def pair dontknow.library/pair)
 (def list_to_array dontknow.library/list_to_array)
+(def array_to_list dontknow.library/array_to_list)
 (def list dontknow.library/mp-list)
+
+(def is_metaprob_array dontknow.library/is_metaprob_array)
+
+(def dereify_tag dontknow.library/dereify_tag)
+(def and dontknow.library/mp-and)
+(def or  dontknow.library/mp-or)
+
+(def exactly)
 
 ;; ----------------------------------------------------------------------
 ;; Re-export prelude overrides
@@ -99,7 +116,7 @@
 (def nth dontknow.library/mp-nth)
 (def range dontknow.library/mp-range)
 
-(def map dontknow.library/mp-map)     ;use the one from the prelude instead!
+;; (def map dontknow.library/mp-map)     ;use the one from the prelude instead!
 
 (def append dontknow.library/append)
 

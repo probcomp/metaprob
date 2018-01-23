@@ -174,9 +174,11 @@
                                           "prob prog")})))
 
 ; The aux-name is logically unnecessary but helps with debugging.
+; lib-name is the name the primitive has in the library namespace.
+; mp-name is the name the primitive has in the metaprob namespace.
 
 (defmacro define-primitive [lib-name mp-name params & body]
-  (let [aux-name (symbol (str lib-name '|primitive))]
+  (let [aux-name (symbol (str mp-name '|primitive))]
     `(do (declare ~lib-name)
          (defn ~aux-name ~params ~@body)
          (def ~lib-name
@@ -195,6 +197,13 @@
           (get m :trace)
           x)
         x))))
+
+(defmacro tuple [& members]
+  `(trie-from-map ~(zipmap (range (count members))
+                           (map (fn [x] `(new-trie ~x)) members))))
+
+(defmacro with-address [addr & body]
+  `(do ~addr ~@body))
 
 ;; ----------------------------------------------------------------------
 ;; Builtins (defined in python in original-metaprob)
@@ -338,6 +347,18 @@
                        (+ n 1)))))]
       (r mp-list 0))))
 
+;; array_to_list - builtin
+
+(define-primitive array_to_list array_to_list [arr]
+  (if (trie? arr)
+    (letfn [(scan [i]
+              (if (has-subtrie? arr i)
+                (pair (value (subtrie arr i)) (scan (+ i 1)))
+                (mk_nil)))]
+      (scan 0))
+    ;; seqable?
+    (apply list arr)))
+
 ;; list - builtin
 
 (defn seq-to-metaprob-list [things]
@@ -347,6 +368,30 @@
 
 (define-primitive mp-list list [& things]
   (seq-to-metaprob-list things))
+
+;; This is an approximation
+
+(define-primitive is_metaprob_array is_metaprob_array [x]
+  (and (trace? x)
+       (not (has-value? x))
+       (let [n (trie-count x)]
+         (or (= n 0)
+             (and (has-subtrie? x 0)
+                  (has-subtrie? x (- n 1)))))))
+
+;; dummy
+
+(define-primitive dereify_tag dereify_tag [x]
+  x)
+
+;; In metaprob, these are strict functions.
+
+(define-primitive mp-and and [a b]
+  (and a b))
+
+(define-primitive mp-or or [a b]
+  (or a b))
+
 
 ;; ----------------------------------------------------------------------
 ;; Defined in original prelude (if they are here, then there should be
@@ -524,7 +569,7 @@
 ;; does this get used? I don't think so.
 
 (defn seq-to-metaprob-tuple [things]
-  (trie-from-seq (map new-trie things) "tuple"))
+  (trie-from-seq (map new-trie things)))
 
 ; -----------------------------------------------------------------------------
 
@@ -575,7 +620,7 @@
   (from-clojure-seq exp "tuple"))
 
 (defn from-clojure-1 [exp]
-  (cond (vector? exp) (from-clojure-tuple exp)
+  (cond (vector? exp) (from-clojure-tuple exp)    ;; Hmm, no, not really.  No translation
         ;; I don't know why this is sometimes a non-list seq.
         (seq? exp) (case (first exp)
                      program (from-clojure-program exp)
@@ -583,6 +628,7 @@
                      block (from-clojure-block exp)
                      splice (trie-from-map {"expression" (from-clojure exp)} "splice")
                      unquote (trie-from-map {"expression" (from-clojure exp)} "unquote")
+                     tuple (from-clojure-seq exp "tuple")
                      with-address (from-clojure-with-address exp)
                      define (from-clojure-definition exp)
                      ;; else
