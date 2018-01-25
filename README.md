@@ -71,6 +71,9 @@ A tiny bit of setup:
 
 This only has to be done once.
 
+To convert all the metaprob-repository metaprob files from traces (see
+`make parse`) to clojure files:
+
     java -cp `cat .lein_classpath` dontknow.main {inpath}.trace {outpath}.clj
 
 This can also be done at the Clojure read-eval-print loop or in a
@@ -86,16 +89,30 @@ To convert *all* of the metaprob files from the metaprob repository, following `
 ## Using Clojure
 
 There are many ways to do development or other activities in Clojure.
-Here is what I do:
+Here is what I do, which is not necessarily right or best:
 
 Put the following in your `.emacs` file:
 
+    ;; From http://clojure-doc.org/articles/tutorials/emacs.html
+    (require 'package)
+    (add-to-list 'package-archives
+                 '("melpa-stable" . "http://stable.melpa.org/packages/")
+                 t)
+    (package-initialize)
     (defvar clojure-packages '(projectile
                                clojure-mode
                                cider))
     (dolist (p clojure-packages)
       (unless (package-installed-p p)
         (package-install p)))
+
+Here is my `~/.lein/profiles.clj`; I'm not sure why it is as it is,
+but it seems to be harmless:
+
+    ; Sample profile: https://gist.github.com/jamesmacaulay/5603176
+    {:repl {:dependencies [[org.clojure/tools.namespace "0.2.11"]]
+            :injections [(require '(clojure.tools.namespace repl find))]
+            :plugins [[cider/cider-nrepl "0.15.1"]]}}
 
 At a shell, in its own window or tab, do:
 

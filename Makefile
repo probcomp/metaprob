@@ -37,10 +37,12 @@ convert: src/dontknow/main.clj src/dontknow/to_clojure.clj .lein_classpath
 .lein_classpath:
 	lein classpath > $@
 
+promote: src/dontknow/propose_and_trace_choices.clj
+
 src/dontknow/propose_and_trace_choices.clj: \
                 converted/metacirc/propose_and_trace_choices.clj
 	mkdir -p `dirname $@`
-	cp -p $< $@
+	sed -e s/metaprob.metacirc/dontknow/ $< $@
 
 converted/metacirc/propose_and_trace_choices.clj: \
                 parsings/metacirc/propose-and-trace-choices.trace \
