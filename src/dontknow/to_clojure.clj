@@ -305,7 +305,6 @@
     (binding [*ns* the-ns]
       (refer 'clojure.core :only metaprob-inherits-from-clojure)
       (doseq [r (get-requirements nsname)]
-        (print (format "Requiring %s for %s\n" r [*ns*])) (flush)
         (require r)))
     the-ns))
 
