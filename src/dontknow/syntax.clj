@@ -38,7 +38,7 @@
 (declare from-clojure)
 
 (defn make-program [fun name params body ns]
-  (let [exp (from-clojure `(program ~params ~@body))
+  (let [exp (from-clojure `(~'program ~params ~@body))
         env ns]
     (with-meta fun {:name name
                     :trace (trie-from-map {"name" (new-trie exp)
@@ -250,6 +250,7 @@
         (literal-exp? exp)
         (trie-from-map {"value" (new-trie exp)} "literal")
         ;; I don't know why this is sometimes a non-list seq.
+        ;; TBD: check that (first exp) is a non-namespaced symbol.
         (seqable? exp) (case (first exp)
                          program (from-clojure-program exp)
                          if (from-clojure-if exp)

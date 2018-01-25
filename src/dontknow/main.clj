@@ -9,7 +9,7 @@
 
   (if inpath
     (if outpath
-      (dontknow.to-clojure/convert inpath outpath nsname)
+      (dontknow.to-clojure/convert inpath outpath (symbol nsname))
       (throw (Exception. "no outpath")))
     (throw (Exception. "no inpath")))
 )

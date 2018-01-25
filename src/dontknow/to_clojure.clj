@@ -141,8 +141,8 @@
 
 (defn block-to-clojure-1 [trs def-ok?]
   (if (empty? trs)
-    (qons `block nil)
-    (qons `block
+    (qons 'block nil)
+    (qons 'block
           (letfn [(dive [trs]
                     (if (empty? (rest trs))
                       (qons (form-to-clojure (first trs) def-ok?) nil)
@@ -260,10 +260,9 @@
             [dontknow.builtin :refer :all]
             [dontknow.prelude :refer :all])))
 
-(defn write-to-file [forms ns-name outpath]
+(defn write-to-file [forms this-ns outpath]
   ;; (print (format "** ns A = %s\n" *ns*))(flush)
-  (let [this-ns (find-ns ns-name)]
-    (assert (symbol? this-ns))
+  (let [nsname (ns-name this-ns)]
     (with-open [w (clojure.java.io/writer
                    (clojure.java.io/output-stream outpath))]
       (letfn [(write-one-form [form]
@@ -275,13 +274,13 @@
         (binding [*out* w]
           (print ";; This file was automatically generated\n\n"))
         ;; *ns* at this point is assumed to be a normal clojure
-        ;; namespace, the same one in which ns-name was created
+        ;; namespace, the same one in which nsname was created
         (write-one-form
-         `(ns ~ns-name
+         `(ns ~nsname
             ;; We tickle a clojure pprint bug if the :only list is []
             ;; https://dev.clojure.org/jira/browse/CLJCLR-97
             (:refer-clojure :only ~metaprob-inherits-from-clojure)
-            (:require ~@(get-requirements ns-name))))
+            (:require ~@(get-requirements nsname))))
         (doseq [form forms]
           ;; Add forward declarations??
           (binding [*ns* this-ns]
@@ -301,20 +300,26 @@
      "_"
      "-")))
 
+(defn create-namespace [nsname]
+  (let [the-ns (create-ns (symbol nsname))]
+    (binding [*ns* the-ns]
+      (refer 'clojure.core :only metaprob-inherits-from-clojure)
+      (doseq [r (get-requirements nsname)]
+        (print (format "Requiring %s for %s\n" r [*ns*])) (flush)
+        (require r)))
+    the-ns))
+
 ;; reconstruct-trace is sensitive to *ns*.  Set *ns* to something
 ;; approximating what will be in effect when the file is eventually
 ;; compiled and loaded.  I don't think the trace
 ;; is sensitive, but it might be, so take care in reading it.
 
-(defn read-trace-from-file [inpath ns-name]
-  (let [the-ns (create-ns ns-name)]
-    (binding [*ns* the-ns]
-      (refer 'clojure.core :only metaprob-inherits-from-clojure)
-      (doseq [r (get-requirements ns-name)] (require r))
-      (reconstruct-trace (read-from-file inpath)))))
+(defn read-trace-from-file [inpath ns]
+  (binding [*ns* ns]
+    (reconstruct-trace (read-from-file inpath))))
 
-(defn convert [inpath outpath ns-name]
-  (let [ns-name (symbol ns-name)]
-    (write-to-file (top-level-to-clojure (read-trace-from-file inpath ns-name))
-                   ns-name
+(defn convert [inpath outpath nsname]
+  (let [ns (create-namespace nsname)]
+    (write-to-file (top-level-to-clojure (read-trace-from-file inpath ns))
+                   ns
                    outpath)))
