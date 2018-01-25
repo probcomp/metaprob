@@ -79,6 +79,50 @@ Clojure program, something like:
     (in-ns 'dontknow.to_clojure)
     (convert "{inpath}.trace" "{outpath}.clj")
 
+To convert *all* of the metaprob files from the metaprob repository, following `make parse`:
+
+    make convert
+
+## Using Clojure
+
+There are many ways to do development or other activities in Clojure.
+Here is what I do:
+
+Put the following in your `.emacs` file:
+
+    (defvar clojure-packages '(projectile
+                               clojure-mode
+                               cider))
+    (dolist (p clojure-packages)
+      (unless (package-installed-p p)
+        (package-install p)))
+
+At a shell, in its own window or tab, do:
+
+    $ lein repl :headless
+
+This prints the TCP port to connect to in the next step.  In emacs, do:
+
+    M-x cider-connect
+    localhost
+    <port> control-J
+
+where `<port>` is the port you saw earlier.
+
+Useful libraries: `clojure.test` and `clojure.tools.namespace.repl`, e.g.
+
+    (require '[clojure.test :refer :all])
+    (require '[clojure.tools.namespace.repl :refer [refresh]])
+
+I guess these can be put somewhere so that they happen every time you
+start Clojure this way?
+
+Often during development, if the namespaces change in some
+incompatible way, I find it necessary to restart clojure (C-c C-q
+followed by killing the `lein repl :headless` process).  It is also
+helpful in suchg situations to remove the `target` directory.
+
+
 ## Test
 
 There are some tests of the Clojure code.  To run them all:
