@@ -28,11 +28,6 @@
 ;
 ;  def do if
 
-; This isn't part of metaprob but boy is it useful
-
-(defmacro let [& rest]
-  `(clojure.core/let ~@rest))
-
 ;; ----------------------------------------------------------------------
 ;; Re-export library macros
 
@@ -51,10 +46,10 @@
 (defmacro with-address [& rest]
   `(dontknow.library/with-address ~@rest))
 
-(def this "please do not use 'this' in the absence of run-time traces")
-
 ;; ----------------------------------------------------------------------
 ;; Re-expore builtin functions
+
+(def this "please do not use 'this' in the absence of run-time traces")
 
 (def assert dontknow.library/mp-assert)
 (def not dontknow.library/mp-not)

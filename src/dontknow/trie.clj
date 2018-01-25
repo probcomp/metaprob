@@ -62,7 +62,7 @@
     (contains? subtries key))
   (subtrie [_ key]
     (let [sub (get subtries key)]
-      (assert (trie? sub) (list "no such subtrie" key (trie-keys _)))
+      (assert (trie? sub) ["no such subtrie" key (trie-keys _)])
       sub))
   (set-subtrie! [_ key subtrie]
     (set! subtries (assoc subtries key subtrie)))
@@ -81,7 +81,6 @@
         (and (has-subtrie? _ head)
              (has-value-at? (subtrie _ head) tail)))))
   (value-at [_ addr]
-    (assert (address? addr) addr)
     (value (subtrie-at _ addr)))
   (set-value-at! [_ addr val]
     (assert (address? addr) addr)

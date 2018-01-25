@@ -45,4 +45,4 @@ src/metaprob/metacirc/propose_and_trace_choices.clj: \
 converted/metacirc/propose_and_trace_choices.clj: \
                 parsings/metacirc/propose-and-trace-choices.trace \
 		src/dontknow/to_clojure.clj
-	bin/convert $< metaprob.metacirc.propose-and-trace-choices.trace $@
+	bin/convert $< metaprob.metacirc.propose-and-trace-choices $@

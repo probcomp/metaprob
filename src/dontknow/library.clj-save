@@ -1,6 +1,5 @@
 (ns dontknow.library
   (:require [clojure.string]
-            [clojure.pprint :as pp]
             [dontknow.trie :refer :all]))
 
 ;; This module is intended for import by clojure code.
@@ -66,8 +65,10 @@
   "like do, but for metaprob - supports local definitions"
   [& forms]
   (letfn [(definition? [form]
-            (and (seq? form)
-                 (= (first form) 'def)))
+            (and (seqable? form)
+                 ;; Can't compare to 'define, wrong namespace
+                 (= (name (first form)) "define")
+                 (= (count form) 3)))
           (definition-pattern [form]
             (second form))
           (definition-rhs [form]
@@ -76,8 +77,8 @@
             (and (definition? form)
                  (symbol? (definition-pattern form))
                  (let [rhs (definition-rhs form)]
-                   (and (list? rhs)
-                        (= (first rhs) 'program)))))
+                   (and (seqable? rhs)
+                        (= (name (first rhs)) "program")))))
           (qons [x y]
             (if (list? y)
               (conj y x)
@@ -91,64 +92,82 @@
                     (qons prog-pattern
                           prog-body))))
 
+          ;; Returns let-list [var exp var exp ...]
+          (explode-pattern [pattern rhs]
+            (if (symbol? pattern)
+              (list pattern rhs)
+              (let [var '?subject?]
+                (cons var
+                      (cons rhs
+                            (mapcat (fn [subpattern i]
+                                      (if (= subpattern '_)
+                                        (list)
+                                        (explode-pattern subpattern `(nth ~var ~i))))
+                                    pattern
+                                    (range (count pattern))))))))
+
+          (extend-specs [pattern rhs specs body]
+            (let [allow-patterns? true
+                  new-specs (vec (if allow-patterns?
+                                   (concat (explode-pattern pattern rhs) specs)
+                                   (cons pattern (cons rhs specs))))]
+              (qons `let
+                    (qons new-specs
+                          body))))
+
           (block-to-body [forms]
             (if (empty? forms)
               '()
-              (let [more (block-to-body (rest forms))]    ; list of forms
-                (if (definition? (first forms))
-                  (let [pattern (definition-pattern (first forms))
-                        rhs (definition-rhs (first forms))]
+              (let [here (first forms)
+                    more (block-to-body (rest forms))]    ; list of forms
+                (if (definition? here)
+                  (let [pattern (definition-pattern here)
+                        rhs (definition-rhs here)]
                     ;; A definition must not be last expression in a block
                     (if (empty? (rest forms))
                       (print (format "** Warning: Definition of %s occurs at end of block\n"
                                      pattern)))
-                    (if (program-definition? (first forms))
-                      (let [spec (process-definition (first forms))
-                            more1 (first more)]
-                        (if (and (list? more1)
-                                 (= (first more1) 'letfn))
-                          (do (assert (empty? (rest more)))
-                              ;; more1 = (letfn [...] ...)
-                              ;;    (letfn [...] & body)
-                              ;; => (letfn [(name pattern & prog-body) ...] & body)
-                              (let [[_ specs & body] more1]
-                                (list             ;Single form
-                                 (qons 'letfn
+                    (if (program-definition? here)
+                      (list
+                       (let [spec (process-definition here)
+                             next (first more)]
+                         (if (and (list? next)
+                                  (= (first next) `letfn))
+                           (do (assert (empty? (rest more)))
+                               ;; next = (letfn [...] ...)
+                               ;;    (letfn [...] & body)
+                               ;; => (letfn [(name pattern & prog-body) ...] & body)
+                               (let [[_ specs & body] next]
+                                 (qons `letfn
                                        (qons (vec (cons spec specs))
-                                             body)))))
-                          ;; more1 = something else
-                          (list                   ;Single form
-                           (qons 'letfn
+                                             body))))
+                           ;; next = (first more)
+                           (qons `letfn
                                  (qons [spec]
                                        more)))))
                       ;; Definition, but not of a function
-                      ;; (first forms) has the form (def pattern rhs)
-                      (let [more1 (first more)]
-                        (if (and (list? more1)
-                                 (= (first more1) 'let))
-                          ;; Combine two lets into one
-                          (do (assert (empty? (rest more)))
-                              (let [[_ specs & body] more1]
-                                (list             ;Single form
-                                 (qons 'let
-                                       (qons (vec (cons pattern (cons rhs specs)))
-                                             body)))))
-                          (list                   ;Single form
-                           (qons 'let
-                                 (qons [pattern rhs]
-                                       more)))))))
+                      ;; here has the form (def pattern rhs)
+                      (list                   ;Single form
+                       (let [next (first more)]
+                         (if (and (list? next)
+                                  (= (first next) `let))
+                           ;; Combine two lets into one
+                           (let [[_ specs & body] next]
+                             (assert (empty? (rest more)))
+                             (extend-specs pattern rhs specs body))
+                           (extend-specs pattern rhs [] more))))))
                   ;; Not a definition
-                  (qons (first forms) more)))))
+                  (qons here more)))))
 
           (formlist-to-form [forms]
-            (assert (seq? forms))
+            (assert (seqable? forms))
             (if (empty? forms)
-              'nil
+              `nil
               (if (empty? (rest forms))
                 (first forms)
                 (if (list? forms)
-                  (qons 'do forms)
-                  (qons 'do (concat (list) forms))))))]
+                  (qons `do forms)
+                  (qons `do (concat (list) forms))))))]
     (formlist-to-form (block-to-body forms))))
 
 ; Similar to sp_to_prob_prog
@@ -317,9 +336,9 @@
 (define-primitive name_for_definiens name-for-definiens [pattern]
   (if (symbol? pattern)
     (if (= pattern '_)
-      'definiens
+      `definiens
       pattern)
-    'definiens))
+    `definiens))
 
 ;; pair - not defined in prelude
 
@@ -554,7 +573,7 @@
 (define-primitive match_bind match_bind [pattern inputs env]
   (dosync
    (letfn [(mb [pattern inputs]
-             (if (not (seq? pattern))
+             (if (not (seqable? pattern))
                (if (not (= pattern '_))
                  ;; in transaction???
                  (ref-set (first env) pattern inputs))
@@ -583,8 +602,8 @@
   (let [[_ pattern & body] exp]
     (let [body-exp (if (= (count body) 1)
                      (first body)
-                     (cons 'block body))]
-      (trie-from-map {"pattern" (from-clojure pattern)
+                     (cons `block body))]
+      (trie-from-map {"pattern" (from-clojure pattern)    ;Careful!
                       "body" (from-clojure body-exp)}
                      "program"))))
 
@@ -619,28 +638,33 @@
 (defn from-clojure-tuple [exp]
   (from-clojure-seq exp "tuple"))
 
+;; N.b. strings are seqable
+
+(defn literal-exp? [exp]
+  (or (number? exp)
+      (string? exp)
+      (boolean? exp)))
+
 (defn from-clojure-1 [exp]
   (cond (vector? exp) (from-clojure-tuple exp)    ;; Hmm, no, not really.  No translation
+        (literal-exp? exp)
+        (trie-from-map {"value" (new-trie exp)} "literal")
         ;; I don't know why this is sometimes a non-list seq.
-        (seq? exp) (case (first exp)
-                     program (from-clojure-program exp)
-                     if (from-clojure-if exp)
-                     block (from-clojure-block exp)
-                     splice (trie-from-map {"expression" (from-clojure exp)} "splice")
-                     unquote (trie-from-map {"expression" (from-clojure exp)} "unquote")
-                     tuple (from-clojure-seq exp "tuple")
-                     with-address (from-clojure-with-address exp)
-                     define (from-clojure-definition exp)
-                     ;; else
-                     (from-clojure-application exp))
-        (= exp 'this) (trie-from-map {} "this")
+        (seqable? exp) (case (first exp)
+                         program (from-clojure-program exp)
+                         if (from-clojure-if exp)
+                         block (from-clojure-block exp)
+                         splice (trie-from-map {"expression" (from-clojure exp)} "splice")
+                         unquote (trie-from-map {"expression" (from-clojure exp)} "unquote")
+                         tuple (from-clojure-seq exp "tuple")
+                         with-address (from-clojure-with-address exp)
+                         define (from-clojure-definition exp)
+                         ;; else
+                         (from-clojure-application exp))
+        (= exp `this) (trie-from-map {} "this")
         (symbol? exp) (trie-from-map {"name" (new-trie (str exp))} "variable")
         ;; Literal
-        true (do (assert (or (number? exp)
-                             (string? exp)
-                             (boolean? exp))
-                         ["bogus expression" exp])
-                 (trie-from-map {"value" (new-trie exp)} "literal"))))
+        true (assert false ["bogus expression" exp])))
         
 
 (defn from-clojure [exp]

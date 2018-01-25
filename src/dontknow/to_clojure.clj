@@ -1,7 +1,18 @@
 (ns dontknow.to-clojure
   (:require [dontknow.trie :refer :all])
-  (:require [dontknow.library :refer :all])
-  (:require [dontknow.metaprob-user])
+  (:require [dontknow.syntax :refer :all])
+  (:require [dontknow.builtin
+             :exclude [not
+                       assert
+                       pprint
+                       list
+                       and
+                       or
+                       first
+                       rest
+                       last
+                       nth
+                       range]])
   (:require [clojure.pprint :as pp])
   (:require [clojure.string :as cs])
   (:require [clojure.java.io :as io]))
@@ -98,7 +109,7 @@
 
 (defn form-to-formlist [form]
   (if (and (seq? form)
-           (= (first form) 'block)
+           (= (name (first form)) "block")
            (not (= (count form) 2)))
     (rest form)
     (list form)))
@@ -130,8 +141,8 @@
 
 (defn block-to-clojure-1 [trs def-ok?]
   (if (empty? trs)
-    (qons 'block nil)
-    (qons 'block
+    (qons `block nil)
+    (qons `block
           (letfn [(dive [trs]
                     (if (empty? (rest trs))
                       (qons (form-to-clojure (first trs) def-ok?) nil)
@@ -167,11 +178,11 @@
                  (subexpression-to-clojure tr "else"))
       "block" (ensure-list
               (block-to-clojure (subtries-to-seq tr) def-ok?) "blah")
-      "splice" (list 'splice
+      "splice" (list 'mp-splice
                      (subexpression-to-clojure tr "expression"))
       "this" 'this
       "tuple" (qons 'tuple (subexpressions-to-clojure tr))
-      "unquote" (list 'unquote
+      "unquote" (list 'ml-unquote
                       (subexpression-to-clojure tr "expression"))
       "with_address" (list 'with-address
                            ;; Not directly executable in clojure
@@ -242,34 +253,39 @@
 ; exprs is list of clojure expressions, as returned by top-level-to-clojure
 
 (def metaprob-inherits-from-clojure '[declare])
+(defn get-requirements [ns-name]
+  (filter (fn [x]
+            (not (= (name (first x)) (name ns-name))))
+          '([dontknow.syntax :refer :all]
+            [dontknow.builtin :refer :all]
+            [dontknow.prelude :refer :all])))
 
-(defn write-to-file [exprs ns-name outpath]
+(defn write-to-file [forms ns-name outpath]
   ;; (print (format "** ns A = %s\n" *ns*))(flush)
-  (with-open [w (clojure.java.io/writer
-                 (clojure.java.io/output-stream outpath))]
-    (let [this-ns (create-ns ns-name)]
-      (binding [*ns* this-ns]
-        (refer 'clojure.core :only metaprob-inherits-from-clojure)
-        (require '[dontknow.metaprob :refer :all]))
-      (letfn [(write-one-form [form ns]
-                (binding [*ns* ns]
-                  (pp/with-pprint-dispatch pp/code-dispatch
-                    (pp/write form :pretty true :stream w)))
+  (let [this-ns (find-ns ns-name)]
+    (assert (symbol? this-ns))
+    (with-open [w (clojure.java.io/writer
+                   (clojure.java.io/output-stream outpath))]
+      (letfn [(write-one-form [form]
+                (pp/with-pprint-dispatch pp/code-dispatch
+                  (pp/write form :pretty true :stream w))
                 (binding [*out* w]
                   (println)
                   (println)))]
-        ;; (print (format "** ns B = %s\n" *ns*))(flush)
-
+        (binding [*out* w]
+          (print ";; This file was automatically generated\n\n"))
+        ;; *ns* at this point is assumed to be a normal clojure
+        ;; namespace, the same one in which ns-name was created
         (write-one-form
          `(ns ~ns-name
             ;; We tickle a clojure pprint bug if the :only list is []
             ;; https://dev.clojure.org/jira/browse/CLJCLR-97
             (:refer-clojure :only ~metaprob-inherits-from-clojure)
-            (:require [dontknow.metaprob :refer :all]))
-         (create-ns 'clojure/core))
-        (doseq [form exprs]
+            (:require ~@(get-requirements ns-name))))
+        (doseq [form forms]
           ;; Add forward declarations??
-          (write-one-form form this-ns))))))
+          (binding [*ns* this-ns]
+            (write-one-form form)))))))
 
 ;; Damn, this is no good.  No idea how many terminal path components
 ;; to include in the dot-separated namespace name.
@@ -285,7 +301,20 @@
      "_"
      "-")))
 
+;; reconstruct-trace is sensitive to *ns*.  Set *ns* to something
+;; approximating what will be in effect when the file is eventually
+;; compiled and loaded.  I don't think the trace
+;; is sensitive, but it might be, so take care in reading it.
+
+(defn read-trace-from-file [inpath ns-name]
+  (let [the-ns (create-ns ns-name)]
+    (binding [*ns* the-ns]
+      (refer 'clojure.core :only metaprob-inherits-from-clojure)
+      (doseq [r (get-requirements ns-name)] (require r))
+      (reconstruct-trace (read-from-file inpath)))))
+
 (defn convert [inpath outpath ns-name]
-  (write-to-file (top-level-to-clojure (reconstruct-trace (read-from-file inpath)))
-                 (symbol ns-name)
-                 outpath))
+  (let [ns-name (symbol ns-name)]
+    (write-to-file (top-level-to-clojure (read-trace-from-file inpath ns-name))
+                   ns-name
+                   outpath)))

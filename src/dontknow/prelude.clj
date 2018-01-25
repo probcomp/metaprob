@@ -1,8 +1,9 @@
 ;; See doc/about-the-prelude.md
 
-(clojure.core/ns metaprob.src.prelude
-  (:refer-clojure :only [declare ])
-  (:require [dontknow.metaprob :refer :all]))
+(clojure.core/ns dontknow.prelude
+  (:refer-clojure :only [declare])
+  (:require [dontknow.syntax :refer :all])
+  (:require [dontknow.builtin :refer :all]))
 
 (declare
   drop
@@ -37,7 +38,7 @@
 
 ;(trace_set (lookup uniform (list "name")) "uniform")
 
-(trace_set (lookup flip (list "support")) (array_to_list [true false]))
+(trace_set (lookup flip (list "support")) (array_to_list (tuple true false)))
 
 (define
   drop
@@ -189,7 +190,7 @@
     [sp args]
     (define t2 (mk_nil))
     (define score (propose1 sp args (mk_nil) (mk_nil) t2))
-    [score t2]))
+    (tuple score t2)))
 
 (define
   lookup_chain
@@ -262,7 +263,7 @@
     (program
       [args t1 t2 t3]
       (define score (trace_get (lookup args (list 0))))
-      [(mk_nil) score])))
+      (tuple (mk_nil) score))))
 
 (define
   apply_with_address

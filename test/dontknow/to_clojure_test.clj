@@ -1,7 +1,19 @@
 (ns dontknow.to-clojure-test
-  (:require [clojure.test :refer :all]
-            [dontknow.library :refer :all]
-            [dontknow.to-clojure :refer :all]))
+  (:require [clojure.test :refer :all])
+  (:require [dontknow.syntax :refer :all])
+  (:require [dontknow.builtin
+             :exclude [not
+                       assert
+                       pprint
+                       list
+                       and
+                       or
+                       first
+                       rest
+                       last
+                       nth
+                       range]])
+  (:require [dontknow.to-clojure :refer :all]))
 
 (deftest convert-1
   (testing "Smoke test for trace-to-clojure"
@@ -32,5 +44,6 @@
 
 (deftest invert-2
   (testing "Smoke test 2 for from/to-clojure"
-    (let [sample '(program [x] 7 x)]
-      (is (= sample (to-clojure (from-clojure sample)))))))
+    (let [sample '(program [x] 7 x)
+          probe (to-clojure (from-clojure sample))]
+      (is (= sample probe)))))

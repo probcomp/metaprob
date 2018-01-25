@@ -5,6 +5,7 @@ Preparing prelude.clj for use
 - Convert to Clojure
 - Copy from converted/src/ to src/metaprob/src/
 - Ad hoc modifications:
+    * Remove (:require [metaprob.src.prelude :refer :all])
     * Remove addresses_of because I can't figure out what it's good for.
     * Remove uniform_categorical because I don't understand what it's supposed to do.
     * Remove uniform_continuous because I can't find its definition.
