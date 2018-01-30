@@ -276,7 +276,7 @@
         ;; *ns* at this point is assumed to be a normal clojure
         ;; namespace, the same one in which nsname was created
         (write-one-form
-         `(ns ~nsname
+         `(~'ns ~nsname
             ;; We tickle a clojure pprint bug if the :only list is []
             ;; https://dev.clojure.org/jira/browse/CLJCLR-97
             (:refer-clojure :only ~metaprob-inherits-from-clojure)

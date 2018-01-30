@@ -61,14 +61,17 @@
   [params & body]
   `(named-program unnamed ~params ~@body))
 
+;; Oddly, the source s-expressions don't seem to answer true to list?
+
 (defmacro block
   "like do, but for metaprob - supports local definitions"
   [& forms]
   (letfn [(definition? [form]
             (and (seqable? form)
+                 (symbol? (first form))
                  ;; Can't compare to 'define, wrong namespace
                  (= (name (first form)) "define")
-                 (= (count form) 3)))
+                 (do (assert (= (count form) 3)) true)))
           (definition-pattern [form]
             (second form))
           (definition-rhs [form]
@@ -78,6 +81,7 @@
                  (symbol? (definition-pattern form))
                  (let [rhs (definition-rhs form)]
                    (and (seqable? rhs)
+                        (symbol? (first rhs))
                         (= (name (first rhs)) "program")))))
           (qons [x y]
             (if (list? y)
@@ -88,9 +92,10 @@
             (let [rhs (definition-rhs form)       ;a program-expression
                   prog-pattern (definition-pattern rhs)
                   prog-body (rest (rest rhs))]
+              ;; (name [args] body1 body2 ...) as in letfn
               (qons (definition-pattern form)
-                    (qons prog-pattern
-                          prog-body))))
+                    (list prog-pattern
+                          (qons 'block prog-body)))))
 
           ;; Returns let-list [var exp var exp ...]
           (explode-pattern [pattern rhs]
@@ -246,8 +251,8 @@
       (boolean? exp)))
 
 (defn from-clojure-1 [exp]
-  (cond (vector? exp) (from-clojure-tuple exp)    ;; Hmm, no, not really.  No translation
-        (literal-exp? exp)
+  (cond (vector? exp) (from-clojure-tuple exp)    ;; Pattern
+        (literal-exp? exp)    ;; including string
         (trie-from-map {"value" (new-trie exp)} "literal")
         ;; I don't know why this is sometimes a non-list seq.
         ;; TBD: check that (first exp) is a non-namespaced symbol.

@@ -50,6 +50,15 @@
                   b)
            2))))
 
+(deftest block-3a
+  (testing "Pattern in let"
+    (is (= ((program []
+                     (define [v _] [6 7])
+                     v))
+           6))))
+           
+
+
 (deftest block-4
   (testing "Nested pattern in let"
     (is (= (block (define [a [b c d]] [1 [2 3 4]])

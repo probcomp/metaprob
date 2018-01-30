@@ -93,11 +93,12 @@ Here is what I do, which is not necessarily right or best:
 
 Put the following in your `.emacs` file:
 
-    ;; From http://clojure-doc.org/articles/tutorials/emacs.html
+    ;; From http://clojure-doc.org/articles/tutorials/emacs.html.
     (require 'package)
     (add-to-list 'package-archives
                  '("melpa-stable" . "http://stable.melpa.org/packages/")
                  t)
+    ;; "Run M-x package-refresh-contents to pull in the package listing."
     (package-initialize)
     (defvar clojure-packages '(projectile
                                clojure-mode
@@ -114,7 +115,7 @@ but it seems to be harmless:
             :injections [(require '(clojure.tools.namespace repl find))]
             :plugins [[cider/cider-nrepl "0.15.1"]]}}
 
-At a shell, in its own window or tab, do:
+At a shell, in its own window or tab (not necessarily in emacs), do:
 
     $ lein repl :headless
 
@@ -148,3 +149,8 @@ There are some tests of the Clojure code.  To run them all:
 
 (Apparently the `lein` command automagically compiles clojure to
 java, as needed, placing the `.class` files in the `target` directory.)
+
+You can also test individual files:
+
+    lein test dontknow.to-clojure-test
+
