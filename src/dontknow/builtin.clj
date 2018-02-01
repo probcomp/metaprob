@@ -102,19 +102,32 @@
                               "executable" (new-trie execute)}
                              "prob prog")})))
 
-;; This corresponds to the py_propose method of the SPFromLite class,
-;; which is defined in sp.py
+;; The aux-name is logically unnecessary but helps with debugging.
+;; mp-name is the name the primitive has in the metaprob namespace.
+;; lib-name is deprecated.
 
-(defn apply-nondeterministic [fun args log-density intervene target output]
-  (clojure.core/assert trace? args)
-  (let [args (metaprob-collection-to-seq args)]
+(defmacro ^:private define-deterministic-primitive [mp-name params & body]
+  (let [aux-name (symbol (str mp-name '|primitive))]
+    `(do (declare ~mp-name)
+         (defn ~aux-name ~params ~@body)
+         (def ~mp-name
+           (make-deterministic-primitive '~mp-name
+                                         ~aux-name)))))
+
+;; This corresponds to the py_propose method of the SPFromLite class,
+;; which is defined in sp.py.  'params' (elsewhere called 'args') are
+;; the parameters to the particular distribution we're sampling.
+
+(defn apply-nondeterministic [fun params log-density intervene target output]
+  (clojure.core/assert trace? params)
+  (let [params (metaprob-collection-to-seq params)]
     (let [[ans score]
           (if (has-value? target)
             (let [ans (value target)]
-              [ans (log-density ans args)])
+              [ans (log-density ans params)])
             (let [ans (if (has-value? intervene)
                         (value intervene)
-                        (apply fun args))]
+                        (apply fun params))]
               [ans 0]))]
       (set-value! output ans)
       (metaprob-cons ans (metaprob-cons score (mk_nil))))))
@@ -131,20 +144,20 @@
 ;;     ptc=python_ptc_prob_prog(sp.py_propose)) # TODO Name the proposer?
 ;; p-a-t-c, in particular, looks for "custom_choice_tracing_proposer".
 
-(defn make-nondeterministic-primitive [name fun log-density]
-  (clojure.core/assert (instance? clojure.lang.IFn fun))
-  (clojure.core/assert (instance? clojure.lang.IFn log-density))
+(defn make-nondeterministic-primitive [name sampler logdensity]
+  (clojure.core/assert (instance? clojure.lang.IFn sampler))
+  (clojure.core/assert (instance? clojure.lang.IFn logdensity))
   (letfn [(execute [args]          ;sp.simulate
-            (apply fun args))
+            (apply sampler args))
           (p-a-t-c [args intervene target output]
-            (apply-nondeterministic fun args log-density intervene target output))
+            (apply-nondeterministic sampler args logdensity intervene target output))
           (interpret [args intervene]
             (p-a-t-c args intervene (mk_nil) (mk_nil)))
           (propose [args intervene target]
             (p-a-t-c args intervene target (mk_nil)))
           (trace [args intervene output]
             (p-a-t-c args intervene (mk_nil) output))]
-    (with-meta fun
+    (with-meta sampler
       {:trace (trie-from-map
                {"name" (new-trie name)
                 "execute" (new-trie (make-deterministic-primitive name execute))
@@ -155,29 +168,22 @@
                     (new-trie (make-deterministic-primitive name p-a-t-c))}
                "prob prog")})))
 
-;; The aux-name is logically unnecessary but helps with debugging.
-;; mp-name is the name the primitive has in the metaprob namespace.
-;; lib-name is deprecated.
-
-(defmacro ^:private define-deterministic-primitive [mp-name params & body]
-  (let [aux-name (symbol (str mp-name '|primitive))]
+(defmacro ^:private define-nondeterministic-primitive [mp-name
+                                                       sample-fun
+                                                       logdensity-fun]
+  (let [sample-name (symbol (str mp-name '|sampler))
+        logdensity-name (symbol (str mp-name '|logdensity))]
     `(do (declare ~mp-name)
-         (defn ~aux-name ~params ~@body)
-         (def ~mp-name
-           (make-deterministic-primitive '~mp-name
-                           ~aux-name)))))
-
-(defmacro ^:private define-nondeterministic-primitive [mp-name [params & body]
-                                                               [params2 & body2]]
-  (let [aux-name (symbol (str mp-name '|primitive))
-        log-aux-name (symbol (str mp-name '|logdensity))]
-    `(do (declare ~mp-name)
-         (defn ~aux-name ~params ~@body)
-         (defn ~log-aux-name ~params2 ~@body2)
+         ;; It would be better if these were defns instead of defs, but
+         ;; that would require work.
+         ;; sample-fun takes the distribution parameters as arguments
+         (def ~sample-name ~sample-fun)
+         ;; logdensity-fun takes 2 args, a sample and the list of parameters
+         (def ~logdensity-name ~logdensity-fun)
          (def ~mp-name
            (make-nondeterministic-primitive '~mp-name
-                                            ~aux-name
-                                            ~log-aux-name)))))
+                                            ~sample-name
+                                            ~logdensity-name)))))
 
 
 
@@ -302,14 +308,22 @@
   ;; x is a trie.  need to prettyprint it somehow.
   (print (format "[prettyprint %s]\n" x)))
 
-; Other builtins
+                                        ; Other builtins
 
-;; registerBuiltinSP("flip", typed_nr(BernoulliOutputPSP(),
-;;   [t.ProbabilityType()], t.BoolType(), min_req_args=0))
+;; Code translated from class BernoulliOutputPSP(DiscretePSP):
+;;
+;; The larger the weight, the more likely it is that the sample is
+;; true rather than false.
 
 (define-nondeterministic-primitive flip
-  ([weight] (<= (rand) weight))
-  ([blah blah2 blah2] true))
+  (fn
+    ([] (<= (rand) 0.5))
+    ([weight] (<= (rand) weight)))
+  (fn [sample params]
+    (let [weight (apply (fn ([] 0.5) ([weight] weight)) params)]
+      (if sample
+        (java.lang.Math/log weight)
+        (java.lang.Math/log1p (- 0 weight))))))
 
 (define-deterministic-primitive uniform-continuous [a b]
   (+ (rand (- b a)) a))

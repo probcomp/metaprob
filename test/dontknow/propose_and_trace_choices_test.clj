@@ -50,8 +50,12 @@
 ;; N.b. this will reify the program to get stuff to eval
 
 (deftest binding-1
-  (testing "Bind a variable locally to a value"
+  (testing "Bind a variable locally to a value (apply)"
     (is (= (ez-apply (program [x] x) 5)
            5))))
 
+(deftest binding-2
+  (testing "Bind a variable locally to a value (eval)"
+    (is (= (ez-eval '((program [x] x) 5))
+           5))))
 

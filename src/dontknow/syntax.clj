@@ -113,15 +113,6 @@
                                     pattern
                                     (range (count pattern))))))))
 
-          (extend-specs [pattern rhs specs body]
-            (let [allow-patterns? true
-                  new-specs (vec (if allow-patterns?
-                                   (concat (explode-pattern pattern rhs) specs)
-                                   (cons pattern (cons rhs specs))))]
-              (qons `let
-                    (qons new-specs
-                          body))))
-
           (block-to-body [forms]
             (if (empty? forms)
               '()
@@ -134,8 +125,8 @@
                     (if (empty? (rest forms))
                       (print (format "** Warning: Definition of %s occurs at end of block\n"
                                      pattern)))
-                    (if (program-definition? here)
-                      (list
+                    (list
+                     (if (program-definition? here)
                        (let [spec (process-definition here)
                              next (first more)]
                          (if (and (list? next)
@@ -151,18 +142,11 @@
                            ;; next = (first more)
                            (qons `letfn
                                  (qons [spec]
-                                       more)))))
-                      ;; Definition, but not of a function
-                      ;; here has the form (def pattern rhs)
-                      (list                   ;Single form
-                       (let [next (first more)]
-                         (if (and (list? next)
-                                  (= (first next) `let))
-                           ;; Combine two lets into one
-                           (let [[_ specs & body] next]
-                             (assert (empty? (rest more)))
-                             (extend-specs pattern rhs specs body))
-                           (extend-specs pattern rhs [] more))))))
+                                       more))))
+                       ;; Definition, but not of a function
+                       (qons `let
+                             (qons (vec (explode-pattern pattern rhs))
+                                   more)))))
                   ;; Not a definition
                   (qons here more)))))
 

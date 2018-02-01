@@ -58,3 +58,22 @@
                              (tuple 6 7 8))
                      '(1))
            8))))
+
+;; Test nondeterministic primitive
+
+(deftest flip-1
+  (testing "Try doing a flip"
+    (is (boolean? (flip)))
+    (is (boolean? (flip 0.5)))
+    (let [proposer (trace_get (lookup flip (list "custom_choice_tracing_proposer")))
+          target-val true
+          target (new-trie target-val)
+          ;; Args to prop are: params intervene target output
+          result (proposer (mk_nil) (mk_nil) target (mk_nil))
+          [val score] (metaprob-list-to-seq result)]
+      (prn [val score])
+      (is (= val target-val))
+      (is (> score -2))
+      (is (< score 0)))))
+
+
