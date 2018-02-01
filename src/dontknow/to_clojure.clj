@@ -154,6 +154,12 @@
   (ensure-list (block-to-clojure-1 trs def-ok?)
                "block"))
 
+(defn program-to-clojure [pat-trace body-trace]
+  (qons 'program
+        (qons (pattern-to-pattern pat-trace)
+              ;; For readability, allow x y instead of (block x y)
+              (form-to-formlist (to-clojure body-trace)))))
+
 ; Convert a top level form (expression or definition)
 
 (defn to-clojure [tr]
@@ -166,12 +172,8 @@
                      (subexpressions-to-clojure tr))
       "variable" (to-symbol (subvalue tr "name"))
       "literal" (subvalue tr "value")
-      "program" (qons 'program
-                      (qons (pattern-to-pattern (subtrie tr "pattern"))
-                            ;; For readability, allow x y instead of (block x y)
-                            (form-to-formlist
-                             (ensure-list
-                             (subexpression-to-clojure tr "body") "blah 2"))))
+      "program" (program-to-clojure (subtrie tr "pattern")
+                                    (subtrie tr "body"))
       "if" (list 'if
                  (subexpression-to-clojure tr "predicate")
                  (subexpression-to-clojure tr "then")

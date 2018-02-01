@@ -8,6 +8,16 @@
 
 (declare propose_and_trace_choices ptc_eval)
 
+;; interpret - adapted from metacirc_stub
+
+(define
+  interpret
+  (program
+    [sp args intervene]
+    (define [v _]
+      (propose_and_trace_choices sp args intervene (mk_nil) (mk_nil)))
+    v))
+
 (define
   propose_and_trace_choices
   (program

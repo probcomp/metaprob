@@ -25,7 +25,7 @@
   (trie-keys [_])
   (trie-count [_])  ;Number of subtries
 
-  (narrow [_])    ;If there's a already trie corresponding to this trace, return it
+  (normalize [_])    ;If there's a already trie corresponding to this trace, return it
   (blaze [_]))
 
 (defn trace? [x]
@@ -129,7 +129,7 @@
   (trie-count [_]
     (count subtries))
 
-  (narrow [_] _)
+  (normalize [_] _)
 
   (blaze [_] _))
 
@@ -144,42 +144,6 @@
   ([val]
    (assert (not (= val no-value)) "no value")
    (Trie. val (hash-map))))
-
-; thanks https://stuartsierra.com/2015/06/01/clojure-donts-optional-arguments-with-varargs
-(defn trie-from-map
-  ([maap]
-   (assert (every? trie? (vals maap)) ["x1" maap])
-   (Trie. no-value maap))
-  ([maap val]
-   (assert (every? trie? (vals maap)) ["xs" maap])
-   (assert (not (= val no-value)) "no value")
-   (Trie. val maap)))
-
-; Returns a trie whose subtries are the members of the clojure sequence tlist
-
-(defn trie-from-seq
-  ([tlist]
-   (trie-from-map (zipmap (range (count tlist))
-                          tlist)))
-  ([tlist val]
-   (assert (every? trie? tlist))
-   (trie-from-map (zipmap (range (count tlist))
-                          tlist)
-                  val)))
-
-; Returns a clojure seq of the numbered subtries of the trie tr
-
-(defn subtries-to-seq [tr]
-  (assert trie? tr)
-  (for [i (range (trie-count tr))]
-    (subtrie tr i)))
-
-; Returns a seq of the values of the numbered subtries of tr
-
-(defn subtrie-values-to-seq [tr]
-  (assert trie? tr)
-  (for [i (range (trie-count tr))]
-    (value (subtrie tr i))))
 
 (defn ensure-subtrie [tr key]
   (assert trie? tr)
@@ -231,12 +195,12 @@
   ITrace
 
   (has-value? [_]
-    (let [n (narrow _)]
+    (let [n (normalize _)]
       (if (trie? n)
         (has-value? n)
         false)))
   (value [_]
-    (let [n (narrow _)]
+    (let [n (normalize _)]
       (assert (trie? n) "unrealized locatives don't have values")
       (value n)))
   (set-value! [_ val]
@@ -244,31 +208,31 @@
 
   ;; Direct children
   (has-subtrie? [_ key]
-    (let [n (narrow _)]
+    (let [n (normalize _)]
       (if (trie? n)
         (has-value? n)
         false)))
   (subtrie [_ key]
-    (let [n (narrow _)]
+    (let [n (normalize _)]
       (assert (trie? n) "unresolved locatives don't have subtries")
       (subtrie n key)))
   (set-subtrie! [_ key subtrie]
     (set-subtrie! (blaze _) key subtrie))
 
   (subtrace [_ key]
-    (let [n (narrow _)]
+    (let [n (normalize _)]
       (if (trie? n)
         (subtrace n key)
         (new-locative _ key))))
 
   ;; Value at address
   (has-value-at? [_ addr]
-    (let [n (narrow _)]
+    (let [n (normalize _)]
       (if (trie? n)
         (has-value-at? n addr)
         false)))
   (value-at [_ addr]
-    (let [n (narrow _)]
+    (let [n (normalize _)]
       (assert (trie? n) "unresolved locatives don't have subtries")
       (value-at n addr)))
   (set-value-at! [_ addr val]
@@ -276,19 +240,19 @@
 
   ;; Descendant subtrie at address
   (has-subtrie-at? [_ addr]
-    (let [n (narrow _)]
+    (let [n (normalize _)]
       (if (trie? n)
         (has-subtrie-at? n addr)
         false)))
   (subtrie-at [_ addr]
-    (let [n (narrow _)]
+    (let [n (normalize _)]
       (assert (trie? n) "unresolved locatives don't have subtries")
       (subtrie-at _ addr)))
   (set-subtrie-at! [_ addr subtrie]
     (set-subtrie-at! (blaze _) addr subtrie))
 
   (subtrace-at [_ addr]
-    (let [n (narrow _)]
+    (let [n (normalize _)]
       (if (trie? n)
         (subtrie-at n addr)
         (if (empty? addr)
@@ -298,22 +262,22 @@
 
 
   (trie-keys [_] 
-    (let [n (narrow _)]
+    (let [n (normalize _)]
       (if (trie? n)
         (trie-keys n)
         '())))
   (trie-count [_]
-    (let [n (narrow _)]
+    (let [n (normalize _)]
       (if (trie? n)
         (trie-count n)
         0)))
 
-  (narrow [_]
+  (normalize [_]
     (if (trie? trie-or-locative)
       (if (has-subtrie? trie-or-locative this-key)
         (subtrie trie-or-locative this-key)
         _)
-      (let [n (narrow trie-or-locative)]
+      (let [n (normalize trie-or-locative)]
         (if (trie? n)
           (new-locative n this-key)
           _))))
@@ -328,3 +292,42 @@
 
 (defn locative? [x]
   (= (type x) Locative))
+
+;; Utilities
+
+; thanks https://stuartsierra.com/2015/06/01/clojure-donts-optional-arguments-with-varargs
+(defn trie-from-map
+  ([maap]
+   (assert (every? trie? (vals maap)) ["x1" maap])
+   (Trie. no-value maap))
+  ([maap val]
+   (assert (every? trie? (vals maap)) ["xs" maap])
+   (assert (not (= val no-value)) "no value")
+   (Trie. val maap)))
+
+; Returns a trie whose subtries are the members of the clojure sequence tlist
+
+(defn trie-from-seq
+  ([tlist]
+   (trie-from-map (zipmap (range (count tlist))
+                          tlist)))
+  ([tlist val]
+   (assert (every? trie? tlist))
+   (trie-from-map (zipmap (range (count tlist))
+                          tlist)
+                  val)))
+
+; Returns a clojure seq of the numbered subtries of the trie tr
+
+(defn subtries-to-seq [tr]
+  (assert trie? tr)
+  (for [i (range (trie-count tr))]
+    (subtrie tr i)))
+
+; Returns a seq of the values of the numbered subtries of tr
+
+(defn subtrie-values-to-seq [tr]
+  (assert trie? tr)
+  (for [i (range (trie-count tr))]
+    (value (subtrie tr i))))
+

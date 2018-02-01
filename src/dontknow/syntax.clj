@@ -1,6 +1,7 @@
 (ns dontknow.syntax
   (:require [clojure.string]
-            [dontknow.trie :refer :all]))
+            [dontknow.trie :refer :all]
+            [dontknow.builtin :as builtin]))
 
 ;; This module is intended for import by metaprob code, and defines
 ;; the syntactic constructs to be used in metaprob programs.
@@ -29,13 +30,13 @@
                                 (if (and (symbol? subpattern)
                                          (= (name subpattern) "_"))
                                   (list)
-                                  (explode-pattern subpattern `(nth ~var ~i))))
+                                  (explode-pattern subpattern `(~'nth ~var ~i))))
                               pattern
                               (range (count pattern)))))))]
 
     `(do ~@(explode-pattern pattern rhs))))
 
-(declare from-clojure)
+(declare from-clojure from-clojure-pattern)
 
 (defn make-program [fun name params body ns]
   (let [exp (from-clojure `(~'program ~params ~@body))
@@ -43,7 +44,7 @@
     (with-meta fun {:name name
                     :trace (trie-from-map {"name" (new-trie exp)
                                            "source" exp
-                                           "environment" (new-trie env)}
+                                           "environment" (new-trie (builtin/make-top-level-env *ns*))}
                                           "prob prog")})))
 
 (defmacro named-program [name params & body]
@@ -107,7 +108,7 @@
                             (mapcat (fn [subpattern i]
                                       (if (= subpattern '_)
                                         (list)
-                                        (explode-pattern subpattern `(nth ~var ~i))))
+                                        (explode-pattern subpattern `(~'nth ~var ~i))))
                                     pattern
                                     (range (count pattern))))))))
 
@@ -208,9 +209,15 @@
     (let [body-exp (if (= (count body) 1)
                      (first body)
                      (cons `block body))]
-      (trie-from-map {"pattern" (from-clojure pattern)    ;Careful!
+      (trie-from-map {"pattern" (from-clojure-pattern pattern)
                       "body" (from-clojure body-exp)}
                      "program"))))
+
+(defn from-clojure-pattern [pattern]
+  (if (symbol? pattern)
+    (trie-from-map {"name" (new-trie (str pattern))} "variable")
+    (do (assert (seqable? pattern) pattern)
+        (trie-from-seq (map from-clojure-pattern pattern) "tuple"))))
 
 (defn from-clojure-if [exp]
   (let [[_ pred thn els] exp]
@@ -251,7 +258,7 @@
       (boolean? exp)))
 
 (defn from-clojure-1 [exp]
-  (cond (vector? exp) (from-clojure-tuple exp)    ;; Pattern
+  (cond (vector? exp) (from-clojure-tuple exp)    ;; Pattern - shouldn't happen
         (literal-exp? exp)    ;; including string
         (trie-from-map {"value" (new-trie exp)} "literal")
         ;; I don't know why this is sometimes a non-list seq.

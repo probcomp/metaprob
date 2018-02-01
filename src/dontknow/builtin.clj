@@ -15,34 +15,170 @@
                             range])
   (:require [dontknow.trie :refer :all]))
 
+;; --------------------
+;; Let's start with metaprob tuples (= arrays), which are needed
+;; for defining primitives.
+
+;; empty-trace? - is this trace a metaprob representation of an empty tuple?
+
+(defn empty-trace? [x]
+  (clojure.core/and (trace? x)
+                    (= (trie-count x) 0)
+                    (clojure.core/not (has-value? x))))
+
+(defn metaprob-tuple? [x]
+  (clojure.core/and (trace? x)
+                    (let [n (trie-count x)]
+                      (clojure.core/or (= n 0)
+                                       (clojure.core/and (has-subtrie? x 0)
+                                                         (has-subtrie? x (- n 1)))))))
+
+(defn metaprob-tuple-to-seq [tup]
+  (clojure.core/assert (metaprob-tuple? tup))
+  (subtrie-values-to-seq tup))
+
+;; [n.v. seq-to-metaprob-tuple seems to not be needed yet; included
+;; here for completeness]
+
+(defn seq-to-metaprob-tuple [things]
+  (trie-from-seq (map new-trie things)))
+
+
+;; --------------------
+;; Next, the minimal pair support that will be needed in order to
+;; define primitives.
+
+(def rest-marker "rest")
+
+(defn metaprob-pair? [x]
+  (clojure.core/and (trace? x)
+                    (has-value? x)
+                    (has-subtrie? x rest-marker)))
+
+(defn metaprob-cons [thing mp-list]
+  (clojure.core/assert (clojure.core/or (empty-trace? mp-list)
+                                        (metaprob-pair? mp-list)))
+  (trie-from-map {rest-marker mp-list} thing))
+
+(defn mk_nil [] (new-trie))                 ; {{ }}
+
+;; seq-to-metaprob-list - convert clojure sequence to metaprob list.
+;; (n.b. seq-to-metaprob-tuple is defined in trie.clj)
+
+(defn seq-to-metaprob-list [things]
+  (if (empty? things)
+    (mk_nil)
+    (metaprob-cons (clojure.core/first things)
+                   (seq-to-metaprob-list (clojure.core/rest things)))))
+
+(defn metaprob-list-to-seq [things]
+  (if (metaprob-pair? things)
+    (cons (value things)
+          (metaprob-list-to-seq (subtrie things rest-marker)))
+    '()))
+
+;; metaprob-collection-to-seq - convert metaprob collection=sequence
+;; to clojure sequence.
+
+(defn metaprob-collection-to-seq [things]
+  (if (trace? things)
+    (if (empty-trace? things)
+      (clojure.core/list)
+      (if (metaprob-pair? things)
+        (metaprob-list-to-seq things)
+        (metaprob-tuple-to-seq things)))
+    (seq things)))
+
+;; --------------------
+;; Now ready to start defining primitives.
+
 ;; Similar to sp_to_prob_prog
 
 (defn make-deterministic-primitive [name fun]
-  (letfn [(simulate [args]          ;sp.simulate
-            (apply fun args))
-          (py-propose [args _intervention _target _output] ;sp.py_propose
-            [(apply fun args) 0])]
+  (letfn [(execute [args]          ;sp.simulate
+            (apply fun (metaprob-collection-to-seq args)))]
     (with-meta fun
       {:trace (trie-from-map {"name" (new-trie name)
-                              "executable" (new-trie simulate)
-                              "custom_interpreter" (new-trie py-propose)
-                              "custom_choice_trace" (new-trie py-propose)
-                              "custom_proposer" (new-trie py-propose)
-                              "custom_choice_tracing_proposer" (new-trie py-propose)}
-                             "PROB prog")})))
+                              "executable" (new-trie execute)}
+                             "prob prog")})))
+
+;; This corresponds to the py_propose method of the SPFromLite class,
+;; which is defined in sp.py
+
+(defn apply-nondeterministic [fun args log-density intervene target output]
+  (clojure.core/assert trace? args)
+  (let [args (metaprob-collection-to-seq args)]
+    (let [[ans score]
+          (if (has-value? target)
+            (let [ans (value target)]
+              [ans (log-density ans args)])
+            (let [ans (if (has-value? intervene)
+                        (value intervene)
+                        (apply fun args))]
+              [ans 0]))]
+      (set-value! output ans)
+      (metaprob-cons ans (metaprob-cons score (mk_nil))))))
+
+;; Nondeterministic primitives have to have a suite of custom
+;; application methods, one for each meta-circular interpreter.
+;; def sp_to_prob_prog(name, sp):
+;;   return make_prob_prog(
+;;     name=name,
+;;     simulator=sp.simulate,
+;;     interpreter=python_interpreter_prob_prog(sp.py_propose),
+;;     tracer=python_tracer_prob_prog(sp.py_propose),
+;;     proposer=python_proposer_prob_prog(sp.py_propose),
+;;     ptc=python_ptc_prob_prog(sp.py_propose)) # TODO Name the proposer?
+;; p-a-t-c, in particular, looks for "custom_choice_tracing_proposer".
+
+(defn make-nondeterministic-primitive [name fun log-density]
+  (clojure.core/assert (instance? clojure.lang.IFn fun))
+  (clojure.core/assert (instance? clojure.lang.IFn log-density))
+  (letfn [(execute [args]          ;sp.simulate
+            (apply fun args))
+          (p-a-t-c [args intervene target output]
+            (apply-nondeterministic fun args log-density intervene target output))
+          (interpret [args intervene]
+            (p-a-t-c args intervene (mk_nil) (mk_nil)))
+          (propose [args intervene target]
+            (p-a-t-c args intervene target (mk_nil)))
+          (trace [args intervene output]
+            (p-a-t-c args intervene (mk_nil) output))]
+    (with-meta fun
+      {:trace (trie-from-map
+               {"name" (new-trie name)
+                "execute" (new-trie (make-deterministic-primitive name execute))
+                "custom_interpreter" (new-trie (make-deterministic-primitive name interpret))
+                "custom_choice_trace" (new-trie (make-deterministic-primitive name trace))
+                "custom_proposer" (new-trie (make-deterministic-primitive name propose))
+                "custom_choice_tracing_proposer"
+                    (new-trie (make-deterministic-primitive name p-a-t-c))}
+               "prob prog")})))
 
 ;; The aux-name is logically unnecessary but helps with debugging.
 ;; mp-name is the name the primitive has in the metaprob namespace.
 ;; lib-name is deprecated.
 
-(defmacro ^:private define-deterministic-primitive [lib-name mp-name params & body]
-  ;; Ignore lib-name.  Excise it later.
+(defmacro ^:private define-deterministic-primitive [mp-name params & body]
   (let [aux-name (symbol (str mp-name '|primitive))]
     `(do (declare ~mp-name)
          (defn ~aux-name ~params ~@body)
          (def ~mp-name
            (make-deterministic-primitive '~mp-name
                            ~aux-name)))))
+
+(defmacro ^:private define-nondeterministic-primitive [mp-name [params & body]
+                                                               [params2 & body2]]
+  (let [aux-name (symbol (str mp-name '|primitive))
+        log-aux-name (symbol (str mp-name '|logdensity))]
+    `(do (declare ~mp-name)
+         (defn ~aux-name ~params ~@body)
+         (defn ~log-aux-name ~params2 ~@body2)
+         (def ~mp-name
+           (make-nondeterministic-primitive '~mp-name
+                                            ~aux-name
+                                            ~log-aux-name)))))
+
 
 
 ;; ----------------------------------------------------------------------
@@ -52,16 +188,13 @@
 ;; exceptions in the evaluation of its subforms, (2) it can show you
 ;; the source code for the subforms.
 
-(define-deterministic-primitive mp-assert assert [condition complaint]
+(define-deterministic-primitive assert [condition complaint]
   (clojure.core/assert condition complaint))
-
-; Used in prelude.vnts:
-;   is_metaprob_array  - how to define?
 
 (def not (make-deterministic-primitive 'not clojure.core/not))
 (def eq (make-deterministic-primitive 'eq =))
 
-(define-deterministic-primitive neq neq [x y] (clojure.core/not (= x y)))
+(define-deterministic-primitive neq [x y] (clojure.core/not (= x y)))
 
 (def gt (make-deterministic-primitive 'gt >))
 (def gte (make-deterministic-primitive 'gte >=))
@@ -70,7 +203,7 @@
 
 (declare append)
 
-(define-deterministic-primitive add add [x y]
+(define-deterministic-primitive add [x y]
   (if (number? x)
     (+ x y)
     (if (trace? x)
@@ -83,16 +216,16 @@
 (def mul (make-deterministic-primitive 'mul *))
 (def div (make-deterministic-primitive 'div /))
 
-(define-deterministic-primitive mk_nil mk_nil [] (new-trie))                 ; {{ }}
+(def mk_nil (make-deterministic-primitive 'mk_nil mk_nil))
 
-(declare is_pair first rest)
+(declare first rest)
 
 ;; addr is a metaprob list. The trie library wants clojure lists.
-;; TBD: permit tuple etc. here?
+;; TBD: permit tuple etc. here?  (metaprob-collection-to-seq?)
 
 (defn addrify [addr]
   (if (trace? addr)
-    (if (is_pair addr)
+    (if (metaprob-pair? addr)
       ;; N.b. first and rest refer to metaprob first and rest
       (cons (first addr)
             (addrify (rest addr)))
@@ -113,48 +246,61 @@
           x)
         x))))
 
-(define-deterministic-primitive trace_get trace_get [tr] (value (tracify tr)))        ; *e
-(define-deterministic-primitive trace_has trace_has [tr] (has-value? (tracify tr)))
-(define-deterministic-primitive trace_set trace_set [tr val]            ; e[e] := e
+(define-deterministic-primitive trace_get [tr] (value (tracify tr)))        ; *e
+(define-deterministic-primitive trace_has [tr] (has-value? (tracify tr)))
+(define-deterministic-primitive trace_set [tr val]            ; e[e] := e
   (set-value! (tracify tr) val))
-(define-deterministic-primitive trace_set_at trace_set_at [tr addr val]
+(define-deterministic-primitive trace_set_at [tr addr val]
   (set-value-at! (tracify tr) (addrify addr) val))
-(define-deterministic-primitive trace_set_subtrace_at trace_set_subtrace_at [tr addr sub]
+(define-deterministic-primitive trace_set_subtrace_at [tr addr sub]
   (set-subtrie-at! (tracify tr) (addrify addr) sub))
-(define-deterministic-primitive trace_has_key trace_has_key [tr key] (has-subtrie? (tracify tr) key))
-(define-deterministic-primitive trace_subkeys trace_subkeys [tr] (trie-keys (tracify tr)))
-(define-deterministic-primitive lookup lookup [tr addr]
+(define-deterministic-primitive trace_has_key [tr key] (has-subtrie? (tracify tr) key))
+(define-deterministic-primitive trace_subkeys [tr] (trie-keys (tracify tr)))
+(define-deterministic-primitive lookup [tr addr]
   ;; addr might be a metaprobe seq instead of a clojure seq.
   (subtrace-at (tracify tr) (addrify addr)))  ; e[e]
 
 
-;; Called 'apply' in lisp
-;; Same as in metacirc-stub.vnts
+;; Deterministic apply, like 'simulate' in the python version
+;; or 'execute' in p-a-t-c.
+;; The multiple cases are just for fun; probably much of this code
+;; will never get touched.
 
-(define-deterministic-primitive interpret interpret [proposer inputs intervention-trace]
-  ;; proposer is (fn [args _intervention _target _output] ...)
-  (if (has-value? intervention-trace)
-    (value intervention-trace)
-    ;; Discard weight?
-    (proposer (subtrie-values-to-seq inputs)
-              intervention-trace
-              (new-trie)
-              (new-trie))))
-  
+(define-deterministic-primitive execute [fun args]
+  (let [args (subtrie-values-to-seq args)]
+    (if (instance? clojure.lang.IFn fun)
+      (apply fun args)
+      (let [tr (tracify fun)]
+        (assert trace? tr)
+        (if (has-subtrie? tr "executable")
+          (let [f (subtrie tr "executable")]
+            (assert (instance? clojure.lang.IFn f)
+                    "executable property should be a clojure function")
+            (apply f args))
+          (if (clojure.core/and (has-subtrie? tr "pattern")
+                                (has-subtrie? tr "source"))
+            ;; Using program-to-clojure here would be a cyclic dependency!
+            (assert false "clojure eval of probprog not yet implemented")
+            ;; (let [prog (program-to-clojure (trace_get (lookup tr (list "pattern"))))]
+            ;;   (apply prog args))
+            ;; but need to convert list to metaprob list
+            ))))))
 
+;; Used for the "executable" case in propose_and_trace_choices.
+;; From metaprob/src/builtin.py :
 ;; def interpret_prim(f, args, intervention_trace):
 ;;   if intervention_trace.has():
 ;;     return intervention_trace.get()
 ;;   else:
 ;;     return f(metaprob_collection_to_python_list(args))
 
-(define-deterministic-primitive interpret_prim interpret_prim [simulate inputs intervention-trace]
+(define-deterministic-primitive interpret_prim [prim inputs intervention-trace]
   (if (has-value? intervention-trace)
     (value intervention-trace)
-    (simulate inputs)))
+    (execute prim inputs)))
 
 
-(define-deterministic-primitive mp-pprint pprint [x]
+(define-deterministic-primitive pprint [x]
   ;; x is a trie.  need to prettyprint it somehow.
   (print (format "[prettyprint %s]\n" x)))
 
@@ -163,18 +309,20 @@
 ;; registerBuiltinSP("flip", typed_nr(BernoulliOutputPSP(),
 ;;   [t.ProbabilityType()], t.BoolType(), min_req_args=0))
 
-(define-deterministic-primitive flip flip [weight] (<= (rand) weight))
+(define-nondeterministic-primitive flip
+  ([weight] (<= (rand) weight))
+  ([blah blah2 blah2] true))
 
-(define-deterministic-primitive uniform-continuous uniform-continuous [a b]
+(define-deterministic-primitive uniform-continuous [a b]
   (+ (rand (- b a)) a))
 
 ;; TBD (needed by prelude):
 ;; trace_sites uniform_categorical uniform_continuous
 
-(define-deterministic-primitive resolve_tag_address resolve_tag_address [stuff]
+(define-deterministic-primitive resolve_tag_address [stuff]
   stuff)
 
-(define-deterministic-primitive name_for_definiens name_for_definiens [pattern]
+(define-deterministic-primitive name_for_definiens [pattern]
   (if (symbol? pattern)
     (if (= pattern '_)
       `definiens
@@ -183,79 +331,56 @@
 
 ;; pair - not defined in prelude
 
-(def rest-marker "rest")
+(define-deterministic-primitive pair [thing mp-list]
+  (metaprob-cons thing mp-list))
 
-;; auxiliary - is a trace a metaprob representation of an empty vector
-;; or empty list?
+;; list_to_array - convert metaprob list to metaprob array/tuple
 
-(defn empty-trace? [mp-seq]
-  (= (trie-count mp-seq) 0))
-
-(define-deterministic-primitive pair pair [thing mp-list]
-  (clojure.core/assert (clojure.core/or (empty-trace? mp-list)
-                                        (is_pair mp-list)))
-  (trie-from-map {rest-marker mp-list} thing))
-
-;; list_to_array - convert metaprob list to metaprob array (tuple)
-;; TBD: rewrite functionally
-
-(define-deterministic-primitive list_to_array list_to_array [mp-list]
-  (let [arr (mk_nil)]
-    (letfn [(r [mp-list n]
-              (if (empty-trace? mp-list)
-                arr
-                (do (set-value-at! arr n (first mp-list))
-                    (r (rest mp-list)
-                       (+ n 1)))))]
-      (r mp-list 0))))
+(define-deterministic-primitive list_to_array [mp-list]
+  (letfn [(r [mp-list n]
+            (if (empty-trace? mp-list)
+              {}
+              (assoc (r (rest mp-list) (+ n 1))
+                     n
+                     (new-trie (first mp-list)))))]
+    (trie-from-map (r mp-list 0))))
 
 ;; list - builtin
 
-(defn seq-to-metaprob-list [things]
-  (if (empty? things)
-    (mk_nil)
-    (pair (clojure.core/first things)
-          (seq-to-metaprob-list (clojure.core/rest things)))))
-
-(define-deterministic-primitive mp-list list [& things]
+(define-deterministic-primitive list [& things]
   (seq-to-metaprob-list things))
 
-;; array_to_list - builtin - metaprob array to metaprob list
+;; array_to_list - builtin - metaprob array/tuple to metaprob list
 
-(define-deterministic-primitive array_to_list array_to_list [arr]
-  (if (trie? arr)
+(define-deterministic-primitive array_to_list [tup]
+  (if (trie? tup)
     (letfn [(scan [i]
-              (if (has-subtrie? arr i)
-                (pair (value (subtrie arr i)) (scan (+ i 1)))
+              (if (has-subtrie? tup i)
+                (pair (value (subtrie tup i)) (scan (+ i 1)))
                 (mk_nil)))]
       (scan 0))
     ;; seqable?
-    (apply list arr)))
+    (apply list tup)))
 
 ;; This is an approximation
 
-(define-deterministic-primitive is_metaprob_array is_metaprob_array [x]
-  (clojure.core/and (trace? x)
-       (clojure.core/not (has-value? x))
-       (let [n (trie-count x)]
-         (clojure.core/or (= n 0)
-             (clojure.core/and (has-subtrie? x 0)
-                  (has-subtrie? x (- n 1)))))))
+(define-deterministic-primitive is_metaprob_array [x]
+  (metaprob-tuple? x))
 
 ;; dummy, no longer needed
 
-(define-deterministic-primitive dereify_tag dereify_tag [x]
+(define-deterministic-primitive dereify_tag [x]
   x)
 
 ;; In metaprob, these are strict functions.
 
-(define-deterministic-primitive mp-and and [a b]
+(define-deterministic-primitive and [a b]
   (clojure.core/and a b))
 
-(define-deterministic-primitive mp-or or [a b]
+(define-deterministic-primitive or [a b]
   (clojure.core/or a b))
 
-(define-deterministic-primitive exactly exactly [& body]
+(define-deterministic-primitive exactly [& body]
   (assert false "what is exactly, exactly?"))
 
 ;; ----------------------------------------------------------------------
@@ -264,33 +389,31 @@
 
 ;; first - overrides original prelude (performance + generalization)
 
-(define-deterministic-primitive mp-first first [mp-list]
+(define-deterministic-primitive first [mp-list]
   (if (trace? mp-list)
     (value mp-list)
     (clojure.core/first mp-list)))
 
 ;; rest - overrides original prelude (performance + generalization)
 
-(define-deterministic-primitive mp-rest rest [mp-list]
+(define-deterministic-primitive rest [mp-list]
   (if (trace? mp-list)
-    (do (clojure.core/assert (is_pair mp-list))
+    (do (clojure.core/assert (metaprob-pair? mp-list))
         (subtrie mp-list rest-marker))
     (clojure.core/rest mp-list)))
 
 ;; is_pair - overrides original prelude (performance + generalization)
 
-(define-deterministic-primitive is_pair is_pair [x]
-  (clojure.core/and (trace? x)
-       (has-value? x)
-       (has-subtrie? x rest-marker)))
+(define-deterministic-primitive is_pair [x]
+  (metaprob-pair? x))
 
 ;; length - overrides original prelude (performance + generalization)
 
-(define-deterministic-primitive length length [x]
+(define-deterministic-primitive length [x]
   (if (trace? x)
-    (if (is_pair x)
+    (if (metaprob-pair? x)
       (letfn [(scan [x]
-                (if (is_pair x)
+                (if (metaprob-pair? x)
                   (+ 1 (scan (rest x)))
                   0))]
         (scan x))
@@ -302,14 +425,14 @@
 ;; last - overrides original prelude (performance + generalization)
 
 (defn ^:private mp-list-last [mp-list]
-  (if (is_pair mp-list)
+  (if (metaprob-pair? mp-list)
     (let [more (rest mp-list)]
-      (if (clojure.core/not (is_pair more))
+      (if (clojure.core/not (metaprob-pair? more))
         (first mp-list)
         (mp-list-last more)))
     mp-list))
 
-(define-deterministic-primitive mp-last last [mp-list]
+(define-deterministic-primitive last [mp-list]
   (if (trace? mp-list)
     (mp-list-last mp-list)
     (clojure.core/last mp-list)))
@@ -321,9 +444,9 @@
     (first mp-list)
     (mp-list-nth (rest mp-list) (- i 1))))
 
-(define-deterministic-primitive mp-nth nth [thing i]
+(define-deterministic-primitive nth [thing i]
   (if (trace? thing)
-    (if (is_pair thing)
+    (if (metaprob-pair? thing)
       (mp-list-nth thing i)
       (value (subtrie thing i)))
     (clojure.core/nth thing i)))
@@ -335,7 +458,7 @@
 (defn _range [n k]
   (if (gte k n) (mk_nil) (pair k (_range n (add k 1)))))
 
-(define-deterministic-primitive mp-range range [n]
+(define-deterministic-primitive range [n]
   (_range n 0))
 
 ;; map - overrides original prelude - BUT DON'T DO THIS.
@@ -344,18 +467,18 @@
 ;; --> We'll want to use the version from the original prelude so that
 ;; the traces can propagate through to calls to the function.
 
-(define-deterministic-primitive mp-map mp-map [mp-fn mp-seq]
+(define-deterministic-primitive mp-map [mp-fn mp-seq]
   ;; Do something - need to thread the trace through.
   (let [mp-seq (tracify mp-seq)]
     (if (trace? mp-seq)
       (if (empty-trace? mp-seq)
         mp-seq
-        (if (is_pair mp-seq)
+        (if (metaprob-pair? mp-seq)
           (letfn [(maplist [mp-list]
                     (clojure.core/assert (trace? mp-list) mp-list)
                     (if (empty-trace? mp-list)
                       mp-list
-                      (do (clojure.core/assert (is_pair mp-list) (trie-keys mp-list))
+                      (do (clojure.core/assert (metaprob-pair? mp-list) (trie-keys mp-list))
                       (pair (mp-fn (first mp-list))
                             (maplist (rest mp-list))))))]
             (maplist mp-seq))
@@ -374,8 +497,8 @@
 ;; append - overrides original prelude (performance)
 ;; This is only for metaprob lists, not for tuples.
 
-(define-deterministic-primitive append append [x y]
-  (if (is_pair x)
+(define-deterministic-primitive append [x y]
+  (if (metaprob-pair? x)
     (pair (first x) (append (rest x) y))
     y))
 
@@ -390,50 +513,87 @@
 
 ;; error - overrides original prelude (???)
 
-(define-deterministic-primitive error error [x]
+(define-deterministic-primitive error [x]
   (clojure.core/assert false x))                     ;from prelude.vnts
 
 ;; capture_tag_address - overrides original prelude - but definition is the same.
 ;; Compare builtin resolve_tag_address, defined above.
 
-(define-deterministic-primitive capture_tag_address capture_tag_address [& stuff]
+(define-deterministic-primitive capture_tag_address [& stuff]
   stuff)
 
-;; Environments
+(defn collection-subtries-to-seq [coll]
+  (clojure.core/assert trace? coll)
+  (if (has-subtrie? coll rest-marker)
+    (letfn [(re [coll]
+              (if (empty-trace? coll)
+                '()
+                (cons coll (re (rest coll)))))]
+      (re coll))
+    (subtries-to-seq coll)))
+
+
+;; --------------------
+;; Lexical environments, needed by program macro.
+
+(defprotocol IEnv
+  "An environment frame"
+  (env-lookup [_ name])
+  (env-bind [_ name value]))
+
+(deftype TopLevelEnv
+    [the-ns]
+  IEnv
+  (env-lookup [_ name]
+    (deref (ns-resolve the-ns name)))
+  (env-bind [_ name value]
+    ;; how to create a new binding in a namespace (a la def)???
+    (let [r (ns-resolve the-ns name value)
+          r (if r r (binding [*ns* the-ns]
+                      (eval `(def ~name))))]
+      (ref-set r value))))
+
+(defn make-top-level-env [ns]
+  (TopLevelEnv. ns))
+
+(deftype Frame
+    [the-parent
+     bindings-ref]
+  IEnv
+  (env-lookup [_ name]
+    (clojure.core/assert (string? name) [(type name) name])
+    (let [bs (deref bindings-ref)]
+      (if (contains? bs name)
+        (get bs name)
+        (env-lookup the-parent name))))
+  (env-bind [_ name value]
+    (ref-set bindings-ref (assoc (deref bindings-ref) name value))))
+
 
 ;; env_lookup - overrides original prelude
 
-(define-deterministic-primitive env_lookup env_lookup [env name]
-  (clojure.core/assert (string? name) [name (type name)])
-  (if (instance? clojure.lang.Namespace env)
-    (deref (ns-resolve env (symbol name)))
-    (do (clojure.core/assert (map? env) env)
-        (clojure.core/or (get (deref (clojure.core/first env)) name)
-            (env_lookup (clojure.core/rest env) name)))))
+(define-deterministic-primitive env_lookup [env name]
+  (assert (satisfies? env IEnv))
+  (env-lookup env (symbol name)))
 
 ;; make_env - overrides original prelude
 
-(define-deterministic-primitive make_env make_env [parent]
-  (cons (ref {}) parent))
+(define-deterministic-primitive make_env [parent]
+  (Frame. parent (ref {})))
 
 ;; match_bind - overrides original prelude
+;; match-bind [env pattern input]
 
-(define-deterministic-primitive match_bind match_bind [pattern inputs env]
-  (dosync
-   (letfn [(mb [pattern inputs]
-             (if (clojure.core/not (seqable? pattern))
-               (if (clojure.core/not (= pattern '_))
-                 ;; in transaction???
-                 (ref-set (clojure.core/first env) pattern inputs))
-               (if (clojure.core/not (empty? pattern))
-                 (do (mb (first pattern) (first inputs))
-                     (mb (rest pattern) (rest inputs))))))]
-     (mb pattern inputs))
-   env))
+(defn match-bind [pattern input env]
+  ;; pattern is a trace (variable or list, I think, maybe seq)
+  (clojure.core/assert trace? pattern)
+  (case (value pattern)
+    "variable" (env-bind env (value (subtrie pattern "name")) input)
+    "tuple"
+    ;; input is either a metaprob list or a metaprob tuple
+    (doseq [p (subtries-to-seq pattern)
+            i (metaprob-collection-to-seq input)]
+      (match-bind p i env))))
 
-;; ---- end of prelude ----
-
-;; Does this get used? I don't think so.  Maybe in tests?
-
-(defn seq-to-metaprob-tuple [things]
-  (trie-from-seq (clojure.core/map new-trie things)))
+(define-deterministic-primitive match_bind [pattern input env]
+  (dosync (match-bind pattern input env)))
