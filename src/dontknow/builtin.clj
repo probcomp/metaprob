@@ -240,11 +240,12 @@
   (if (trace? x)
     x
     (let [m (meta x)]
-      (if (map? m)
-        (if (contains? m :trace)
-          (get m :trace)
-          x)
-        x))))
+      (if (clojure.core/and (map? m) (contains? m :trace))
+        (let [tr (get m :trace)]
+          (clojure.core/assert (trace? tr))
+          tr)
+        (clojure.core/assert false
+                             ["can't coerce this to a trace" x])))))
 
 (define-deterministic-primitive trace_get [tr] (value (tracify tr)))        ; *e
 (define-deterministic-primitive trace_has [tr] (has-value? (tracify tr)))
@@ -254,37 +255,39 @@
   (set-value-at! (tracify tr) (addrify addr) val))
 (define-deterministic-primitive trace_set_subtrace_at [tr addr sub]
   (set-subtrie-at! (tracify tr) (addrify addr) sub))
-(define-deterministic-primitive trace_has_key [tr key] (has-subtrie? (tracify tr) key))
+(define-deterministic-primitive trace_has_key [tr key]
+  (has-subtrie? (tracify tr) key))
 (define-deterministic-primitive trace_subkeys [tr] (trie-keys (tracify tr)))
 (define-deterministic-primitive lookup [tr addr]
   ;; addr might be a metaprobe seq instead of a clojure seq.
   (subtrace-at (tracify tr) (addrify addr)))  ; e[e]
 
 
-;; Deterministic apply, like 'simulate' in the python version
-;; or 'execute' in p-a-t-c.
-;; The multiple cases are just for fun; probably much of this code
-;; will never get touched.
+;; Deterministic apply, like 'simulate' in the python version.
+;; exec is supposed to take one argument, a metaprob collection of arguments.
 
-(define-deterministic-primitive execute [fun args]
-  (let [args (subtrie-values-to-seq args)]
-    (if (instance? clojure.lang.IFn fun)
-      (apply fun args)
-      (let [tr (tracify fun)]
-        (assert trace? tr)
-        (if (has-subtrie? tr "executable")
-          (let [f (subtrie tr "executable")]
-            (assert (instance? clojure.lang.IFn f)
-                    "executable property should be a clojure function")
-            (apply f args))
-          (if (clojure.core/and (has-subtrie? tr "pattern")
-                                (has-subtrie? tr "source"))
-            ;; Using program-to-clojure here would be a cyclic dependency!
-            (assert false "clojure eval of probprog not yet implemented")
-            ;; (let [prog (program-to-clojure (trace_get (lookup tr (list "pattern"))))]
-            ;;   (apply prog args))
-            ;; but need to convert list to metaprob list
-            ))))))
+(define-deterministic-primitive interpret_prim [exec inputs intervention-trace]
+  (clojure.core/assert (instance? clojure.lang.IFn exec))
+  (if (has-value? intervention-trace)
+    (value intervention-trace)
+    (exec (metaprob-collection-to-seq inputs))))
+
+;; Experimental code... probably not too hard to regenerate; flush.
+;;       (let [tr (tracify exec)]
+;;         (assert trace? tr)
+;;         (if (has-subtrie? tr "executable")
+;;           (let [f (subtrie tr "executable")]
+;;             (assert (instance? clojure.lang.IFn f)
+;;                     "executable property should be a clojure function")
+;;             (f args))
+;;           (if (clojure.core/and (has-subtrie? tr "pattern")
+;;                                 (has-subtrie? tr "source"))
+;;             ;; Using program-to-clojure here would be a cyclic dependency!
+;;             (assert false "clojure eval of probprog not yet implemented")
+;;             ;; (let [prog (program-to-clojure (trace_get (lookup tr (list "pattern"))))]
+;;             ;;   (apply prog args))
+;;             ;; but need to convert list to metaprob list
+;;             )))
 
 ;; Used for the "executable" case in propose_and_trace_choices.
 ;; From metaprob/src/builtin.py :
@@ -293,11 +296,6 @@
 ;;     return intervention_trace.get()
 ;;   else:
 ;;     return f(metaprob_collection_to_python_list(args))
-
-(define-deterministic-primitive interpret_prim [prim inputs intervention-trace]
-  (if (has-value? intervention-trace)
-    (value intervention-trace)
-    (execute prim inputs)))
 
 
 (define-deterministic-primitive pprint [x]
@@ -545,12 +543,13 @@
     [the-ns]
   IEnv
   (env-lookup [_ name]
-    (deref (ns-resolve the-ns name)))
+    (deref (ns-resolve the-ns (symbol name))))
   (env-bind [_ name value]
     ;; how to create a new binding in a namespace (a la def)???
-    (let [r (ns-resolve the-ns name value)
+    (let [sym (symbol name)
+          r (ns-resolve the-ns sym value)
           r (if r r (binding [*ns* the-ns]
-                      (eval `(def ~name))))]
+                      (eval `(def ~sym))))]
       (ref-set r value))))
 
 (defn make-top-level-env [ns]
@@ -573,8 +572,8 @@
 ;; env_lookup - overrides original prelude
 
 (define-deterministic-primitive env_lookup [env name]
-  (assert (satisfies? env IEnv))
-  (env-lookup env (symbol name)))
+  (clojure.core/assert (satisfies? IEnv env))
+  (env-lookup env (str name)))
 
 ;; make_env - overrides original prelude
 

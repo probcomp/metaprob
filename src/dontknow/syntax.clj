@@ -40,11 +40,12 @@
 
 (defn make-program [fun name params body ns]
   (let [exp (from-clojure `(~'program ~params ~@body))
-        env ns]
+        env (builtin/make-top-level-env ns)]
     (with-meta fun {:name name
                     :trace (trie-from-map {"name" (new-trie exp)
                                            "source" exp
-                                           "environment" (new-trie (builtin/make-top-level-env *ns*))}
+                                           "environment"
+                                             (new-trie env)}
                                           "prob prog")})))
 
 (defmacro named-program [name params & body]
@@ -260,7 +261,14 @@
 (defn from-clojure-1 [exp]
   (cond (vector? exp) (from-clojure-tuple exp)    ;; Pattern - shouldn't happen
         (literal-exp? exp)    ;; including string
-        (trie-from-map {"value" (new-trie exp)} "literal")
+          (trie-from-map {"value" (new-trie exp)} "literal")
+
+        (symbol? exp)
+        (if (= (str exp) "this")
+          (trie-from-map {} "this")
+          (trie-from-map {"name" (new-trie (str exp))}
+                         "variable"))
+
         ;; I don't know why this is sometimes a non-list seq.
         ;; TBD: check that (first exp) is a non-namespaced symbol.
         (seqable? exp) (case (first exp)
@@ -274,8 +282,6 @@
                          define (from-clojure-definition exp)
                          ;; else
                          (from-clojure-application exp))
-        (= exp `this) (trie-from-map {} "this")
-        (symbol? exp) (trie-from-map {"name" (new-trie (str exp))} "variable")
         ;; Literal
         true (assert false ["bogus expression" exp])))
         
