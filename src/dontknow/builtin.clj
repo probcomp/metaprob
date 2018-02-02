@@ -13,7 +13,10 @@
                             last
                             nth
                             range])
-  (:require [dontknow.trie :refer :all]))
+  (:require [dontknow.trie :refer :all])
+  (:require [clojure.test.check.random :as random])
+  (:require [kixi.stats.distribution :as dist])
+  (:require [kixi.stats.math :as math]))
 
 ;; --------------------
 ;; Let's start with metaprob tuples (= arrays), which are needed
@@ -119,7 +122,6 @@
 ;; the parameters to the particular distribution we're sampling.
 
 (defn apply-nondeterministic [fun params log-density intervene target output]
-  (clojure.core/assert trace? params)
   (let [params (metaprob-collection-to-seq params)]
     (let [[ans score]
           (if (has-value? target)
@@ -268,6 +270,11 @@
   ;; addr might be a metaprobe seq instead of a clojure seq.
   (subtrace-at (tracify tr) (addrify addr)))  ; e[e]
 
+(define-deterministic-primitive prob_prog_name [pp]
+  (let [tr (tracify pp)]
+    (if (has-subtrie? tr "name")
+      (value (subtrie tr "name"))
+      nil)))
 
 ;; Deterministic apply, like 'simulate' in the python version.
 ;; exec is supposed to take one argument, a metaprob collection of arguments.
@@ -310,6 +317,8 @@
 
                                         ; Other builtins
 
+(def rng (random/make-random 42))
+
 ;; Code translated from class BernoulliOutputPSP(DiscretePSP):
 ;;
 ;; The larger the weight, the more likely it is that the sample is
@@ -317,13 +326,63 @@
 
 (define-nondeterministic-primitive flip
   (fn
-    ([] (<= (rand) 0.5))
-    ([weight] (<= (rand) weight)))
+    ([] (<= (random/rand-double rng) 0.5))
+    ([weight] (<= (random/rand-double rng) weight)))
   (fn [sample params]
-    (let [weight (apply (fn ([] 0.5) ([weight] weight)) params)]
+    (let [weight (apply (fn ([] 0.5) ([weight] weight))
+                        params)]
       (if sample
         (java.lang.Math/log weight)
         (java.lang.Math/log1p (- 0 weight))))))
+
+(defn exp [x] (java.lang.Math/exp x))
+(defn sqrt [x] (java.lang.Math/sqrt x))
+
+(defn pi [x] (java.lang.Math/acos -1))
+
+(defn normal [mu variance]
+  (let [two*variance (* 2.0 variance)]
+    (fn [x]
+      (let [x-mu (- x mu)]
+        (/ (exp (- 0 (/ (* x-mu x-mu) two*variance)))
+           (sqrt (* pi two*variance)))))))
+
+;; Big Beta, an auxiliary used in the calculation of the PDF of a
+;; beta distribution, can be calculated using Gamma.  Its log can
+;; be calculated using Gamma's log, which kixi provides us.
+;;
+;; scipy's version is much more robust, and can be found here:
+;; https://github.com/scipy/scipy/blob/master/scipy/special/cdflib/betaln.f
+
+(defn log-Beta [a b]
+  (- (+ (math/log-gamma a) (math/log-gamma b))
+     (math/log-gamma (+ a b))))
+
+;; BetaOutputPSP(RandomPSP)
+;; Please read the comments in lite/continuous.py in Venture
+
+(define-nondeterministic-primitive beta
+  (fn [a b]
+    ;; From kixi/stats/distribution.cljc :
+    ;; (let [[r1 r2] (split rng)
+    ;;         u (rand-gamma alpha r1)]
+    ;;   (/ u (+ u (rand-gamma beta r2))))
+    ;; rand-gamma is hairy. but defined in same file.
+    (dist/draw (dist/beta :alpha a :beta b)
+               :seed (random/rand-long rng)))
+  (fn [x [a b]]
+    ;; Venture does:
+    ;; def logDensityNumeric(self, x, params):
+    ;;   return scipy.stats.beta.logpdf(x,*params)
+    ;; Wikipedia has a formula for pdf; easy to derive logpdf 
+    ;; from it.
+    ;; scipy has a better version:
+    ;; https://github.com/scipy/scipy/blob/master/scipy/stats/_continuous_distns.py
+    (- (+ (* (math/log x) (- a 1.0))
+          (* (math/log (- 1.0 x)) (- b 1.0)))
+       (log-Beta a b))))
+
+;; Uniform
 
 (define-deterministic-primitive uniform-continuous [a b]
   (+ (rand (- b a)) a))
