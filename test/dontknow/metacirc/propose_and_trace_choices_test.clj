@@ -1,11 +1,11 @@
-(ns dontknow.propose-and-trace-choices-test
+(ns dontknow.metacirc.propose-and-trace-choices-test
   (:refer-clojure :exclude [not assert pprint and or
                             list first rest last nth range])
   (:require [clojure.test :refer :all]
             [dontknow.trie :refer :all]
             [dontknow.syntax :refer :all]
             [dontknow.builtin :as builtin]
-            [dontknow.propose-and-trace-choices :refer :all]))
+            [dontknow.metacirc.propose-and-trace-choices :refer :all]))
 
 (defn mk_nil [] (builtin/mk_nil))
 
@@ -31,7 +31,7 @@
   (let [[value score]
         (builtin/metaprob-collection-to-seq
          (ptc_eval (from-clojure x)
-                   (builtin/make-top-level-env 'dontknow.propose-and-trace-choices)
+                   (builtin/make-top-level-env 'dontknow.metacirc.propose-and-trace-choices)
                    (mk_nil)
                    (mk_nil)
                    (mk_nil)))]

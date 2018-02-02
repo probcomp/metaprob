@@ -1,22 +1,14 @@
-;; This file was automatically generated
+;; This file was automatically generated, then edited
 
-(clojure.core/ns dontknow.propose-and-trace-choices
+(clojure.core/ns dontknow.metacirc.propose-and-trace-choices
   (:refer-clojure :only [declare ])
   (:require [dontknow.syntax :refer :all]
             [dontknow.builtin :refer :all]
-            [dontknow.prelude :refer :all]))
+            [dontknow.prelude :refer :all]
+            ;; Added manually
+            [dontknow.metacirc.interpret :refer [interpret]]))
 
 (declare propose_and_trace_choices ptc_eval)
-
-;; interpret - adapted from metacirc_stub
-
-(define
-  interpret
-  (program
-    [sp args intervene]
-    (define [v _]
-      (propose_and_trace_choices sp args intervene (mk_nil) (mk_nil)))
-    v))
 
 (define
   propose_and_trace_choices

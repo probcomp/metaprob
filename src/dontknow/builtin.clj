@@ -384,21 +384,22 @@
 
 ;; Uniform
 
-(define-deterministic-primitive uniform-continuous [a b]
-  (+ (rand (- b a)) a))
+(define-nondeterministic-primitive uniform_continuous
+  (fn [a b]
+    (dist/draw (dist/uniform a b)))
+  (fn [x [a b]]
+    ;; return scipy.stats.uniform.logpdf(x, low, high-low)
+    (if (< x a)
+      0.0
+      (if (> x b)
+        0.0
+        (- 0.0 (math/log (- b a)))))))
 
 ;; TBD (needed by prelude):
 ;; trace_sites uniform_categorical uniform_continuous
 
 (define-deterministic-primitive resolve_tag_address [stuff]
   stuff)
-
-(define-deterministic-primitive name_for_definiens [pattern]
-  (if (symbol? pattern)
-    (if (= pattern '_)
-      `definiens
-      pattern)
-    `definiens))
 
 ;; pair - not defined in prelude
 

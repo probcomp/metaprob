@@ -9,7 +9,6 @@
   drop
   reverse
   _reverse
-  propose1
   iterate
   replicate
   repeat
@@ -34,7 +33,7 @@
 
 ;(define uniform_sample uniform_categorical)
 
-;(define uniform uniform_continuous)
+(define uniform uniform_continuous)
 
 ;(trace_set (lookup uniform (list "name")) "uniform")
 
@@ -55,15 +54,6 @@
     (if (is_pair lst)
       (_reverse (rest lst) (pair (first lst) res))
       res)))
-
-(define py_propose "nyi")
-
-(define
-  propose1
-  (program
-    [sp args intervention target output]
-    (define [_ score] (py_propose sp args intervention target output))
-    score))
 
 (define
   iterate
@@ -185,14 +175,6 @@
     (if (is_pair ll) (append (first ll) (concat (rest ll))) (mk_nil))))
 
 (define
-  trace_of
-  (program
-    [sp args]
-    (define t2 (mk_nil))
-    (define score (propose1 sp args (mk_nil) (mk_nil) t2))
-    (tuple score t2)))
-
-(define
   lookup_chain
   (program
     [coll key]
@@ -265,14 +247,17 @@
       (define score (trace_get (lookup args (list 0))))
       (tuple (mk_nil) score))))
 
+;; Manual edit: moved from interpret.clj
+
 (define
-  apply_with_address
-  (sp
-    "apply_with_address"
-    (program
-      [args _intervention _target _output]
-      (define [address sp subargs] args)
-      (define
-        [new_intervention new_target new_output]
-        (resolve_tag_address address))
-      (py_propose sp subargs new_intervention new_target new_output))))
+  name_for_definiens
+  (program
+    [pattern]
+    (block
+      (if (eq (trace_get pattern) "variable")
+        (block
+          (if (neq (trace_get (lookup pattern (list "name"))) "_")
+            (block (list (trace_get (lookup pattern (list "name")))))
+            (block (list "definiens"))))
+        (block (list "definiens"))))))
+
