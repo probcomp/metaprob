@@ -31,7 +31,7 @@
 
 (define addresses_of trace_sites)
 
-;(define uniform_sample uniform_categorical)
+(define uniform_sample uniform_categorical)
 
 (define uniform uniform_continuous)
 

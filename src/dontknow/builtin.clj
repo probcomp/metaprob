@@ -227,6 +227,9 @@
 (def mul (make-deterministic-primitive 'mul *))
 (def div (make-deterministic-primitive 'div /))
 
+(define-deterministic-primitive log [x]
+  (math/log x))
+
 (def mk_nil (make-deterministic-primitive 'mk_nil mk_nil))
 
 (declare first rest)
@@ -262,6 +265,8 @@
 (define-deterministic-primitive trace_has [tr] (has-value? (tracify tr)))
 (define-deterministic-primitive trace_set [tr val]            ; e[e] := e
   (set-value! (tracify tr) val))
+(define-deterministic-primitive trace_clear [tr]            ; del e[e]
+  (clear-value! (tracify tr)))
 (define-deterministic-primitive trace_set_at [tr addr val]
   (set-value-at! (tracify tr) (addrify addr) val))
 (define-deterministic-primitive trace_set_subtrace_at [tr addr sub]
@@ -352,7 +357,7 @@
     (let [weight (apply (fn ([] 0.5) ([weight] weight))
                         params)]
       (if sample
-        (java.lang.Math/log weight)
+        (math/log weight)
         (java.lang.Math/log1p (- 0 weight))))))
 
 (defn exp [x] (java.lang.Math/exp x))
@@ -409,11 +414,20 @@
     (dist/draw (dist/uniform a b)))
   (fn [x [a b]]
     ;; return scipy.stats.uniform.logpdf(x, low, high-low)
-    (if (< x a)
-      0.0
-      (if (> x b)
-        0.0
-        (- 0.0 (math/log (- b a)))))))
+    (- 0.0 (math/log (- b a)))))
+
+;; Categorical
+
+(define-nondeterministic-primitive uniform_categorical
+  (fn [items]
+    ;; items is a metaprob list (or tuple??)
+    (let [n (dist/draw (dist/uniform 0 (length items)))]
+      (nth items (Math/floor n))))
+  (fn [item [items]]
+    (let [items (metaprob-collection-to-seq items)]
+      (- (math/log (count (filter (fn [x] (= x item)) items)))
+         (math/log (count items))))))
+
 
 ;; TBD (needed by prelude):
 ;; trace_sites uniform_categorical uniform_continuous

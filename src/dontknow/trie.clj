@@ -7,6 +7,7 @@
   (has-value? [_])
   (value [_] "The value stored for this trie (python: get)")
   (set-value! [_ val] "Store a value at root of this trie (python: set)")
+  (clear-value! [_] "Remove any value")
 
   (has-subtrie? [_ key] "True iff this trie has a direct subtrie under the given key (python: has_key)")
   (subtrie [_ key] "The subtrie of this trie specified by the given key (python: _subtrace, sort of)")
@@ -55,6 +56,11 @@
   (set-value! [_ val]
     (assert (not (= val no-value)) "storing no value")
     (set! the-value val))
+  (clear-value! [_]
+    ;; Something fishy about this; if doing this causes the trie to become empty
+    ;; then shouldn't the trie go away entirely?  Well, we don't have parent 
+    ;; pointers, so nothing we can do about this.
+    (set! the-value no-value))
 
   ;; Direct children
   (has-subtrie? [_ key]
@@ -184,6 +190,11 @@
       (value n)))
   (set-value! [_ val]
     (set-value! (blaze _) val))
+  (clear-value! [_]
+    (let [n (normalize _)]
+      (if (trie? n)
+        (clear-value! n)
+        nil)))
 
   ;; Direct children
   (has-subtrie? [_ key]
