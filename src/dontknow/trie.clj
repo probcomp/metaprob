@@ -36,7 +36,7 @@
 (declare ensure-subtrie-at)
 (declare new-trie)
 (declare trie?)
-(declare new-locative)
+(declare new-locative trie-from-map)
 
 (defn address? [x] (seqable? x))
 
@@ -167,27 +167,6 @@
         (ensure-subtrie-at (ensure-subtrie tr head)
                            tail)))))
 
-
-;; From python trace.py
-  ;; def subtrace(self, _key): yield self
-  ;; def reify(self): pass
-  ;; def dereify(self): pass
-  ;; def has(self): return False
-  ;; def get(self): assert False, "Cannot get from a NullTrace"
-  ;; def set(self, _value): pass
-  ;; def clear(self): pass
-  ;; def has_key(self, _key): return False
-  ;; def update(self, _trace): pass
-  ;; def subkeys(self): return []
-  ;; def sites(self): return []
-  ;; def lookup(self, _addr): return self
-  ;; def get_at(self, _key): assert False, "Cannot get from a NullTrace"
-  ;; def set_at(self, _key, _val): return self
-  ;; def set_subtrace_at(self, _addr, _trace): return self
-  ;; def equalSameType(self, other): return self is other
-  ;; def asData(self): return (None, [])
-  ;; def subtrace_at(self, _keys): yield self
-
 (deftype Locative
   [trie-or-locative this-key]
 
@@ -287,6 +266,7 @@
     (let [tr (blaze trie-or-locative)]    ;Up one level
       (ensure-subtrie tr this-key))))
 
+
 (defn new-locative [tl key]
   (Locative. tl key))
 
@@ -331,3 +311,24 @@
   (for [i (range (trie-count tr))]
     (value (subtrie tr i))))
 
+
+
+;; From python trace.py
+  ;; def subtrace(self, _key): yield self
+  ;; def reify(self): pass
+  ;; def dereify(self): pass
+  ;; def has(self): return False
+  ;; def get(self): assert False, "Cannot get from a NullTrace"
+  ;; def set(self, _value): pass
+  ;; def clear(self): pass
+  ;; def has_key(self, _key): return False
+  ;; def update(self, _trace): pass
+  ;; def subkeys(self): return []
+  ;; def sites(self): return []
+  ;; def lookup(self, _addr): return self
+  ;; def get_at(self, _key): assert False, "Cannot get from a NullTrace"
+  ;; def set_at(self, _key, _val): return self
+  ;; def set_subtrace_at(self, _addr, _trace): return self
+  ;; def equalSameType(self, other): return self is other
+  ;; def asData(self): return (None, [])
+  ;; def subtrace_at(self, _keys): yield self

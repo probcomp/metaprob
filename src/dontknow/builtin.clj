@@ -12,22 +12,24 @@
                             rest
                             last
                             nth
-                            range])
+                            range
+                            print])
   (:require [dontknow.trie :refer :all])
   (:require [clojure.test.check.random :as random])
   (:require [kixi.stats.distribution :as dist])
   (:require [kixi.stats.math :as math]))
 
+;; empty-trace? - is this trace a metaprob representation of an empty tuple/list?
+
+(defn empty-trace? [x]
+  (let [x (normalize x)]
+    (clojure.core/and (trace? x)
+         (= (trie-count x) 0)
+         (clojure.core/not (has-value? x)))))
+
 ;; --------------------
 ;; Let's start with metaprob tuples (= arrays), which are needed
 ;; for defining primitives.
-
-;; empty-trace? - is this trace a metaprob representation of an empty tuple?
-
-(defn empty-trace? [x]
-  (clojure.core/and (trace? x)
-                    (= (trie-count x) 0)
-                    (clojure.core/not (has-value? x))))
 
 (defn metaprob-tuple? [x]
   (clojure.core/and (trace? x)
@@ -69,10 +71,11 @@
 ;; (n.b. seq-to-metaprob-tuple is defined in trie.clj)
 
 (defn seq-to-metaprob-list [things]
-  (if (empty? things)
-    (mk_nil)
-    (metaprob-cons (clojure.core/first things)
-                   (seq-to-metaprob-list (clojure.core/rest things)))))
+  (let [things (seq things)]
+    (if (empty? things)
+      (mk_nil)
+      (metaprob-cons (clojure.core/first things)
+                     (seq-to-metaprob-list (clojure.core/rest things))))))
 
 (defn metaprob-list-to-seq [things]
   (if (metaprob-pair? things)
@@ -270,6 +273,23 @@
   ;; addr might be a metaprobe seq instead of a clojure seq.
   (subtrace-at (tracify tr) (addrify addr)))  ; e[e]
 
+;; Translation of .sites method from trace.py.
+;; Returns a list of addresses, I believe.  (and addresses are themselves lists.)
+
+(define-deterministic-primitive trace_sites [trace]
+  (letfn [(sites [tr]
+            ;; returns a seq of tries
+            (let [site-list
+                  (mapcat (fn [key]
+                            (map (fn [site]
+                                   (metaprob-cons key site))
+                                 (sites (subtrie tr key))))
+                          (trie-keys tr))]
+              (if (has-value? tr)
+                (cons (mk_nil) site-list)
+                site-list)))]       
+    (seq-to-metaprob-list (sites (normalize trace)))))
+
 (define-deterministic-primitive prob_prog_name [pp]
   (let [tr (tracify pp)]
     (if (has-subtrie? tr "name")
@@ -313,7 +333,7 @@
 
 (define-deterministic-primitive pprint [x]
   ;; x is a trie.  need to prettyprint it somehow.
-  (print (format "[prettyprint %s]\n" x)))
+  (clojure.core/print (format "[prettyprint %s]\n" x)))
 
                                         ; Other builtins
 
@@ -670,3 +690,23 @@
 
 (define-deterministic-primitive match_bind [pattern input env]
   (dosync (match-bind pattern input env)))
+
+;; Random stuff
+
+(defn metaprob-list-contains? [s x]
+  (if (empty-trace? s)
+    false
+    (if (= x (value s))
+      true
+      (metaprob-list-contains? (rest s) x))))
+
+(define-deterministic-primitive set_difference [s1 s2]
+  (if (empty-trace? s1)
+    s1
+    (if (metaprob-list-contains? s2 (first s1))
+      (pair (first s1) (set_difference (rest s1) s2))
+      (set_difference (rest s1) s2))))
+
+;; Maybe print trace contents in the future...
+
+(def print (make-deterministic-primitive 'print prn))
