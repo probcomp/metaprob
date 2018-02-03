@@ -19,6 +19,8 @@
   (:require [kixi.stats.distribution :as dist])
   (:require [kixi.stats.math :as math]))
 
+(declare length nth)
+
 ;; empty-trace? - is this trace a metaprob representation of an empty tuple/list?
 
 (defn empty-trace? [x]
