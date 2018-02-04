@@ -65,7 +65,7 @@
     (is (boolean? (b/flip 0.5)))
     (let [proposer (b/trace_get (b/lookup b/flip (b/list "custom_choice_tracing_proposer")))
           target-val true
-          target (new-trie target-val)
+          target (new-trace target-val)
           ;; Args to prop are: params intervene target output
           result (proposer (b/mk_nil) (b/mk_nil) target (b/mk_nil))
           [val score] (b/metaprob-list-to-seq result)]
@@ -77,10 +77,10 @@
 
 (deftest trace_sites-1
   (testing "Smoke test trace_sites"
-    (let [tree (trie-from-map {"x" (trie-from-map {"a" (new-trie 1)
-                                                   "b" (new-trie 2)
-                                                   "c" (new-trie)})
-                               "y" (new-trie "d")})
+    (let [tree (trie-from-map {"x" (trie-from-map {"a" (new-trace 1)
+                                                   "b" (new-trace 2)
+                                                   "c" (new-trace)})
+                               "y" (new-trace "d")})
           sites (b/trace_sites tree)]
       (is (= (b/length sites) 3)))))
 

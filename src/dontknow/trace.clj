@@ -18,13 +18,13 @@
   (value-at [_ addr])
   (set-value-at! [_ addr val])
 
-  (has-subtrie-at? [_ addr])
+  (has-subtrace-at? [_ addr])
   (subtrie-at [_ addr] "(python: subtrace_at ??)")
   (set-subtrie-at! [_ addr subtrie] "(python: set_subtrace_at)")
   (subtrace-at [_ addr] "returns locative or trie as appropriate")
 
-  (trie-keys [_])
-  (trie-count [_])  ;Number of subtries
+  (trace-keys [_])
+  (trace-count [_])  ;Number of subtries
 
   (normalize [_])    ;If there's a already trie corresponding to this trace, return it
   (blaze [_]))
@@ -35,7 +35,7 @@
 ; Concrete implementation of the above interface
 
 (declare ensure-subtrie-at)
-(declare new-trie)
+(declare new-trace)
 (declare trie?)
 (declare new-locative trie-from-map)
 
@@ -68,9 +68,10 @@
     (contains? subtries key))
   (subtrie [_ key]
     (let [sub (get subtries key)]
-      (assert (trie? sub) ["no such subtrie" key (trie-keys _)])
+      (assert (trie? sub) ["no such subtrie" key (trace-keys _)])
       sub))
   (set-subtrie! [_ key subtrie]
+    (assert trie? subtrie)
     (set! subtries (assoc subtries key subtrie)))
 
   (subtrace [_ key]
@@ -93,13 +94,13 @@
     (set-value! (ensure-subtrie-at _ addr) val))
 
   ;; Descendant subtrie at address
-  (has-subtrie-at? [_ addr]
+  (has-subtrace-at? [_ addr]
     (assert (address? addr) addr)
     (if (empty? addr)
       true
       (let [[head & tail] addr]
         (and (has-subtrie? _ head)
-             (has-subtrie-at? (subtrie _ head) tail)))))
+             (has-subtrace-at? (subtrie _ head) tail)))))
   (subtrie-at [_ addr]
     ;; Assert: addr is a list (of symbols?)
     ;; Returns subtrie at address if it's there.
@@ -110,13 +111,15 @@
       (let [[head & tail] addr]
         (subtrie-at (subtrie _ head) tail))))
   (set-subtrie-at! [_ addr subtrie]
+    ;; TBD: deal with case where subtrie is a locative
+    (assert (trie? subtrie) subtrie)
     (assert (address? addr) addr)
     (let [[head & tail] addr]
       (if (empty? tail)
         (set-subtrie! _ head subtrie)
         (if (has-subtrie? _ head)
           (set-subtrie-at! (subtrie _ head) tail subtrie)
-          (let [novo (new-trie)]
+          (let [novo (new-trace)]
             (set-subtrie! _ head novo)
             (set-subtrie-at! novo tail subtrie))))))
 
@@ -127,12 +130,12 @@
       (let [[head & tail] addr]
         (subtrace-at (subtrace _ head) tail))))
 
-  (trie-keys [_] 
+  (trace-keys [_] 
     (let [ks (keys subtries)]
       (if (= ks nil)
         '()
         ks)))
-  (trie-count [_]
+  (trace-count [_]
     (count subtries))
 
   (normalize [_] _)
@@ -144,7 +147,7 @@
 (defn trie? [x]
   (= (type x) Trie))
 
-(defn new-trie
+(defn new-trace
   ([]
    (Trie. no-value (hash-map)))
   ([val]
@@ -155,7 +158,7 @@
   (assert trie? tr)
   (if (has-subtrie? tr key)
     (subtrie tr key)
-    (let [novo (new-trie)]
+    (let [novo (new-trace)]
       (set-subtrie! tr key novo)
       novo)))
 
@@ -229,10 +232,10 @@
     (set-value-at! (blaze _) addr val))
 
   ;; Descendant subtrie at address
-  (has-subtrie-at? [_ addr]
+  (has-subtrace-at? [_ addr]
     (let [n (normalize _)]
       (if (trie? n)
-        (has-subtrie-at? n addr)
+        (has-subtrace-at? n addr)
         false)))
   (subtrie-at [_ addr]
     (let [n (normalize _)]
@@ -251,15 +254,15 @@
             (new-locative (subtrace-at _ tail) head))))))
 
 
-  (trie-keys [_] 
+  (trace-keys [_] 
     (let [n (normalize _)]
       (if (trie? n)
-        (trie-keys n)
+        (trace-keys n)
         '())))
-  (trie-count [_]
+  (trace-count [_]
     (let [n (normalize _)]
       (if (trie? n)
-        (trie-count n)
+        (trace-count n)
         0)))
 
   (normalize [_]
@@ -312,14 +315,14 @@
 
 (defn subtries-to-seq [tr]
   (assert trie? tr)
-  (for [i (range (trie-count tr))]
+  (for [i (range (trace-count tr))]
     (subtrie tr i)))
 
 ; Returns a seq of the values of the numbered subtries of tr
 
 (defn subtrie-values-to-seq [tr]
   (assert trie? tr)
-  (for [i (range (trie-count tr))]
+  (for [i (range (trace-count tr))]
     (value (subtrie tr i))))
 
 

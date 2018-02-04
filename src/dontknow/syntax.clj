@@ -42,10 +42,10 @@
   (let [exp (from-clojure `(~'program ~params ~@body))
         env (builtin/make-top-level-env ns)]
     (with-meta fun {:name name
-                    :trace (trie-from-map {"name" (new-trie exp)
+                    :trace (trie-from-map {"name" (new-trace exp)
                                            "source" exp
                                            "environment"
-                                             (new-trie env)}
+                                             (new-trace env)}
                                           "prob prog")})))
 
 (defmacro named-program [name params & body]
@@ -163,7 +163,7 @@
 
 (defmacro tuple [& members]
   `(trie-from-map ~(zipmap (range (count members))
-                           (map (fn [x] `(new-trie ~x)) members))))
+                           (map (fn [x] `(new-trace ~x)) members))))
 
 (defmacro with-address [addr & body]
   `(do ~addr ~@body))
@@ -200,7 +200,7 @@
 
 (defn from-clojure-pattern [pattern]
   (if (symbol? pattern)
-    (trie-from-map {"name" (new-trie (str pattern))} "variable")
+    (trie-from-map {"name" (new-trace (str pattern))} "variable")
     (do (assert (seqable? pattern) pattern)
         (trie-from-seq (map from-clojure-pattern pattern) "tuple"))))
 
@@ -245,12 +245,12 @@
 (defn from-clojure-1 [exp]
   (cond (vector? exp) (from-clojure-tuple exp)    ;; Pattern - shouldn't happen
         (literal-exp? exp)    ;; including string
-          (trie-from-map {"value" (new-trie exp)} "literal")
+          (trie-from-map {"value" (new-trace exp)} "literal")
 
         (symbol? exp)
         (if (= (str exp) "this")
           (trie-from-map {} "this")
-          (trie-from-map {"name" (new-trie (str exp))}
+          (trie-from-map {"name" (new-trace (str exp))}
                          "variable"))
 
         ;; I don't know why this is sometimes a non-list seq.

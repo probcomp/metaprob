@@ -166,7 +166,7 @@
   (form-to-clojure tr true))
 
 (defn form-to-clojure-1 [tr def-ok?]
-  (let [tr (if (trie? tr) tr (new-trie tr))]
+  (let [tr (if (trie? tr) tr (new-trace tr))]
     (case (value tr)
       "application" (to-list
                      (subexpressions-to-clojure tr))

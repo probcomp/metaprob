@@ -26,7 +26,7 @@
 (defn empty-trace? [x]
   (let [x (normalize x)]
     (clojure.core/and (trace? x)
-         (= (trie-count x) 0)
+         (= (trace-count x) 0)
          (clojure.core/not (has-value? x)))))
 
 ;; --------------------
@@ -35,7 +35,7 @@
 
 (defn metaprob-tuple? [x]
   (clojure.core/and (trace? x)
-                    (let [n (trie-count x)]
+                    (let [n (trace-count x)]
                       (clojure.core/or (= n 0)
                                        (clojure.core/and (has-subtrie? x 0)
                                                          (has-subtrie? x (- n 1)))))))
@@ -48,7 +48,7 @@
 ;; here for completeness]
 
 (defn seq-to-metaprob-tuple [things]
-  (trie-from-seq (map new-trie things)))
+  (trie-from-seq (map new-trace things)))
 
 
 ;; --------------------
@@ -67,7 +67,7 @@
                                         (metaprob-pair? mp-list)))
   (trie-from-map {rest-marker mp-list} thing))
 
-(defn mk_nil [] (new-trie))                 ; {{ }}
+(defn mk_nil [] (new-trace))                 ; {{ }}
 
 ;; seq-to-metaprob-list - convert clojure sequence to metaprob list.
 ;; (n.b. seq-to-metaprob-tuple is defined in trie.clj)
@@ -106,8 +106,8 @@
   (letfn [(execute [args]          ;sp.simulate
             (apply fun (metaprob-collection-to-seq args)))]
     (with-meta fun
-      {:trace (trie-from-map {"name" (new-trie name)
-                              "executable" (new-trie execute)}
+      {:trace (trie-from-map {"name" (new-trace name)
+                              "executable" (new-trace execute)}
                              "prob prog")})))
 
 ;; The aux-name is logically unnecessary but helps with debugging.
@@ -166,13 +166,13 @@
             (p-a-t-c args intervene (mk_nil) output))]
     (with-meta sampler
       {:trace (trie-from-map
-               {"name" (new-trie name)
-                "execute" (new-trie (make-deterministic-primitive name execute))
-                "custom_interpreter" (new-trie (make-deterministic-primitive name interpret))
-                "custom_choice_trace" (new-trie (make-deterministic-primitive name trace))
-                "custom_proposer" (new-trie (make-deterministic-primitive name propose))
+               {"name" (new-trace name)
+                "execute" (new-trace (make-deterministic-primitive name execute))
+                "custom_interpreter" (new-trace (make-deterministic-primitive name interpret))
+                "custom_choice_trace" (new-trace (make-deterministic-primitive name trace))
+                "custom_proposer" (new-trace (make-deterministic-primitive name propose))
                 "custom_choice_tracing_proposer"
-                    (new-trie (make-deterministic-primitive name p-a-t-c))}
+                    (new-trace (make-deterministic-primitive name p-a-t-c))}
                "prob prog")})))
 
 (defmacro ^:private define-nondeterministic-primitive [mp-name
@@ -275,7 +275,7 @@
   (set-subtrie-at! (tracify tr) (addrify addr) sub))
 (define-deterministic-primitive trace_has_key [tr key]
   (has-subtrie? (tracify tr) key))
-(define-deterministic-primitive trace_subkeys [tr] (trie-keys (tracify tr)))
+(define-deterministic-primitive trace_subkeys [tr] (trace-keys (tracify tr)))
 (define-deterministic-primitive lookup [tr addr]
   ;; addr might be a metaprobe seq instead of a clojure seq.
   (subtrace-at (tracify tr) (addrify addr)))  ; e[e]
@@ -291,7 +291,7 @@
                             (map (fn [site]
                                    (metaprob-cons key site))
                                  (sites (subtrie tr key))))
-                          (trie-keys tr))]
+                          (trace-keys tr))]
               (if (has-value? tr)
                 (cons (mk_nil) site-list)
                 site-list)))]       
@@ -450,7 +450,7 @@
               {}
               (assoc (r (rest mp-list) (+ n 1))
                      n
-                     (new-trie (first mp-list)))))]
+                     (new-trace (first mp-list)))))]
     (trie-from-map (r mp-list 0))))
 
 ;; list - builtin
@@ -525,7 +525,7 @@
                   (+ 1 (scan (rest x)))
                   0))]
         (scan x))
-      (trie-count x))
+      (trace-count x))
     (count x)))
 
 ;; drop - use prelude version?
@@ -586,16 +586,16 @@
                     (clojure.core/assert (trace? mp-list) mp-list)
                     (if (empty-trace? mp-list)
                       mp-list
-                      (do (clojure.core/assert (metaprob-pair? mp-list) (trie-keys mp-list))
-                      (pair (mp-fn (first mp-list))
-                            (maplist (rest mp-list))))))]
+                      (do (clojure.core/assert (metaprob-pair? mp-list) (trace-keys mp-list))
+                          (pair (mp-fn (first mp-list))
+                                (maplist (rest mp-list))))))]
             (maplist mp-seq))
           ;; tbd: do this with zipmap instead of recursion
           (letfn [(maptup [i]
                     (if (has-subtrie? mp-seq i)
                       (assoc (maptup (+ i 1))
                              i
-                             (new-trie (mp-fn (value (subtrie mp-seq i)))))
+                             (new-trace (mp-fn (value (subtrie mp-seq i)))))
                       {}))]
             (trie-from-map (maptup 0) "tuple"))))
       (clojure.core/map mp-fn mp-seq))))    ;??? this isn't right
