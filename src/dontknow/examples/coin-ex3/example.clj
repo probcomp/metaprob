@@ -1,6 +1,6 @@
 ;; This file was automatically generated, then edited
 
-(clojure.core/ns dontnknow.examples.coin-ex3.example
+(clojure.core/ns dontknow.examples.coin-ex3.example
   (:refer-clojure :only [declare ])
   (:require [dontknow.syntax :refer :all]
             [dontknow.builtin :refer :all]
