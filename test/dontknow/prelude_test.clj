@@ -1,6 +1,6 @@
 (ns dontknow.prelude-test
   (:require [clojure.test :refer :all]
-            [dontknow.trie :refer :all]
+            [dontknow.trace :refer :all]
             [dontknow.syntax :refer :all])
   (:require [dontknow.builtin :as builtin])
   (:require [dontknow.prelude :as prelude]))

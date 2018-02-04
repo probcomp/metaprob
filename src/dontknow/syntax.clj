@@ -1,6 +1,6 @@
 (ns dontknow.syntax
   (:require [clojure.string]
-            [dontknow.trie :refer :all]
+            [dontknow.trace :refer :all]
             [dontknow.builtin :as builtin]))
 
 ;; This module is intended for import by metaprob code, and defines

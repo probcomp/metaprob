@@ -14,7 +14,7 @@
                             nth
                             range
                             print])
-  (:require [dontknow.trie :refer :all])
+  (:require [dontknow.trace :refer :all])
   (:require [clojure.test.check.random :as random])
   (:require [kixi.stats.distribution :as dist])
   (:require [kixi.stats.math :as math]))

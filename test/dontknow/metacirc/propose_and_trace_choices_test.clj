@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [not assert pprint and or
                             list first rest last nth range])
   (:require [clojure.test :refer :all]
-            [dontknow.trie :refer :all]
+            [dontknow.trace :refer :all]
             [dontknow.syntax :refer :all]
             [dontknow.builtin :as builtin]
             [dontknow.metacirc.propose-and-trace-choices :refer :all]))

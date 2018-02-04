@@ -1,6 +1,6 @@
-(ns dontknow.trie-test
+(ns dontknow.trace-test
   (:require [clojure.test :refer :all]
-            [dontknow.trie :refer :all]))
+            [dontknow.trace :refer :all]))
 
 ; Have to use 'is' for some reason
 

@@ -36,3 +36,6 @@ convert: src/dontknow/main.clj src/dontknow/to_clojure.clj .lein_classpath
 # I got this hack from stackoverflow.
 .lein_classpath:
 	lein classpath > $@
+
+tags:
+	etags --language=lisp `find . -name "*.clj"`

@@ -1,6 +1,6 @@
 (ns dontknow.builtin-test
   (:require [clojure.test :refer :all]
-            [dontknow.trie :refer :all]
+            [dontknow.trace :refer :all]
             [dontknow.syntax :refer :all]
             [dontknow.builtin :as b]))
 

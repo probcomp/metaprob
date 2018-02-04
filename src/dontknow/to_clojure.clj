@@ -1,5 +1,5 @@
 (ns dontknow.to-clojure
-  (:require [dontknow.trie :refer :all])
+  (:require [dontknow.trace :refer :all])
   (:require [dontknow.syntax :refer :all])
   (:require [dontknow.builtin
              :exclude [not

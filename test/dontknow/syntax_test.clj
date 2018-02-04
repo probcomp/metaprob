@@ -1,6 +1,6 @@
 (ns dontknow.syntax-test
   (:require [clojure.test :refer :all]
-            [dontknow.trie :refer :all]
+            [dontknow.trace :refer :all]
             [dontknow.syntax :refer :all]))
 
 (deftest program-1
