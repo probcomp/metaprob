@@ -42,7 +42,7 @@
   (let [exp (from-clojure `(~'program ~params ~@body))
         env (builtin/make-top-level-env ns)]
     (with-meta fun {:name name
-                    :trace (trie-from-map {"name" (new-trace exp)
+                    :trace (trace-from-map {"name" (new-trace exp)
                                            "source" exp
                                            "environment"
                                              (new-trace env)}
@@ -162,7 +162,7 @@
     (formlist-to-form (block-to-body forms))))
 
 (defmacro tuple [& members]
-  `(trie-from-map ~(zipmap (range (count members))
+  `(trace-from-map ~(zipmap (range (count members))
                            (map (fn [x] `(new-trace ~x)) members))))
 
 (defmacro with-address [addr & body]
@@ -187,26 +187,26 @@
 ; which can't occur in metaprob identifiers... for now at least...
 
 (defn from-clojure-seq [seq val]
-  (trie-from-seq (map from-clojure seq) val))
+  (trace-from-seq (map from-clojure seq) val))
 
 (defn from-clojure-program [exp]
   (let [[_ pattern & body] exp]
     (let [body-exp (if (= (count body) 1)
                      (first body)
                      (cons `block body))]
-      (trie-from-map {"pattern" (from-clojure-pattern pattern)
+      (trace-from-map {"pattern" (from-clojure-pattern pattern)
                       "body" (from-clojure body-exp)}
                      "program"))))
 
 (defn from-clojure-pattern [pattern]
   (if (symbol? pattern)
-    (trie-from-map {"name" (new-trace (str pattern))} "variable")
+    (trace-from-map {"name" (new-trace (str pattern))} "variable")
     (do (assert (seqable? pattern) pattern)
-        (trie-from-seq (map from-clojure-pattern pattern) "tuple"))))
+        (trace-from-seq (map from-clojure-pattern pattern) "tuple"))))
 
 (defn from-clojure-if [exp]
   (let [[_ pred thn els] exp]
-    (trie-from-map {"predicate" (from-clojure pred)
+    (trace-from-map {"predicate" (from-clojure pred)
                     "then" (from-clojure thn)
                     "else" (from-clojure els)}
                    "if")))
@@ -216,7 +216,7 @@
 
 (defn from-clojure-with-address [exp]
   (let [[_ tag ex] exp]
-    (trie-from-map {"tag" (from-clojure tag)
+    (trace-from-map {"tag" (from-clojure tag)
                     "expression" (from-clojure ex)}
                    "with_address")))
 
@@ -225,7 +225,7 @@
 (defn from-clojure-definition [exp]
   (let [[_ pattern rhs] exp
         key (if (symbol? pattern) (str pattern) "definiens")]
-    (trie-from-map {"pattern" (from-clojure pattern)
+    (trace-from-map {"pattern" (from-clojure pattern)
                     key (from-clojure rhs)}
                    "definition")))
 
@@ -245,12 +245,12 @@
 (defn from-clojure-1 [exp]
   (cond (vector? exp) (from-clojure-tuple exp)    ;; Pattern - shouldn't happen
         (literal-exp? exp)    ;; including string
-          (trie-from-map {"value" (new-trace exp)} "literal")
+          (trace-from-map {"value" (new-trace exp)} "literal")
 
         (symbol? exp)
         (if (= (str exp) "this")
-          (trie-from-map {} "this")
-          (trie-from-map {"name" (new-trace (str exp))}
+          (trace-from-map {} "this")
+          (trace-from-map {"name" (new-trace (str exp))}
                          "variable"))
 
         ;; I don't know why this is sometimes a non-list seq.
@@ -259,8 +259,8 @@
                          program (from-clojure-program exp)
                          if (from-clojure-if exp)
                          block (from-clojure-block exp)
-                         mp-splice (trie-from-map {"expression" (from-clojure exp)} "splice")
-                         mp-unquote (trie-from-map {"expression" (from-clojure exp)} "unquote")
+                         mp-splice (trace-from-map {"expression" (from-clojure exp)} "splice")
+                         mp-unquote (trace-from-map {"expression" (from-clojure exp)} "unquote")
                          tuple (from-clojure-seq exp "tuple")
                          with-address (from-clojure-with-address exp)
                          define (from-clojure-definition exp)

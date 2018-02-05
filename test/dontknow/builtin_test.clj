@@ -77,7 +77,7 @@
 
 (deftest trace_sites-1
   (testing "Smoke test trace_sites"
-    (let [tree (trie-from-map {"x" (trie-from-map {"a" (new-trace 1)
+    (let [tree (trace-from-map {"x" (trace-from-map {"a" (new-trace 1)
                                                    "b" (new-trace 2)
                                                    "c" (new-trace)})
                                "y" (new-trace "d")})

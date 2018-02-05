@@ -37,18 +37,18 @@
   (clojure.core/and (trace? x)
                     (let [n (trace-count x)]
                       (clojure.core/or (= n 0)
-                                       (clojure.core/and (has-subtrie? x 0)
-                                                         (has-subtrie? x (- n 1)))))))
+                                       (clojure.core/and (has-subtrace? x 0)
+                                                         (has-subtrace? x (- n 1)))))))
 
 (defn metaprob-tuple-to-seq [tup]
   (clojure.core/assert (metaprob-tuple? tup))
-  (subtrie-values-to-seq tup))
+  (subtrace-values-to-seq tup))
 
 ;; [n.v. seq-to-metaprob-tuple seems to not be needed yet; included
 ;; here for completeness]
 
 (defn seq-to-metaprob-tuple [things]
-  (trie-from-seq (map new-trace things)))
+  (trace-from-seq (map new-trace things)))
 
 
 ;; --------------------
@@ -60,17 +60,17 @@
 (defn metaprob-pair? [x]
   (clojure.core/and (trace? x)
                     (has-value? x)
-                    (has-subtrie? x rest-marker)))
+                    (has-subtrace? x rest-marker)))
 
 (defn metaprob-cons [thing mp-list]
   (clojure.core/assert (clojure.core/or (empty-trace? mp-list)
                                         (metaprob-pair? mp-list)))
-  (trie-from-map {rest-marker mp-list} thing))
+  (trace-from-map {rest-marker mp-list} thing))
 
 (defn mk_nil [] (new-trace))                 ; {{ }}
 
 ;; seq-to-metaprob-list - convert clojure sequence to metaprob list.
-;; (n.b. seq-to-metaprob-tuple is defined in trie.clj)
+;; (n.b. seq-to-metaprob-tuple is defined in trace.clj)
 
 (defn seq-to-metaprob-list [things]
   (let [things (seq things)]
@@ -82,7 +82,7 @@
 (defn metaprob-list-to-seq [things]
   (if (metaprob-pair? things)
     (cons (value things)
-          (metaprob-list-to-seq (subtrie things rest-marker)))
+          (metaprob-list-to-seq (subtrace things rest-marker)))
     '()))
 
 ;; metaprob-collection-to-seq - convert metaprob collection=sequence
@@ -106,7 +106,7 @@
   (letfn [(execute [args]          ;sp.simulate
             (apply fun (metaprob-collection-to-seq args)))]
     (with-meta fun
-      {:trace (trie-from-map {"name" (new-trace name)
+      {:trace (trace-from-map {"name" (new-trace name)
                               "executable" (new-trace execute)}
                              "prob prog")})))
 
@@ -165,7 +165,7 @@
           (trace [args intervene output]
             (p-a-t-c args intervene (mk_nil) output))]
     (with-meta sampler
-      {:trace (trie-from-map
+      {:trace (trace-from-map
                {"name" (new-trace name)
                 "execute" (new-trace (make-deterministic-primitive name execute))
                 "custom_interpreter" (new-trace (make-deterministic-primitive name interpret))
@@ -236,7 +236,7 @@
 
 (declare first rest)
 
-;; addr is a metaprob list. The trie library wants clojure lists.
+;; addr is a metaprob list. The trace library wants clojure lists.
 ;; TBD: permit tuple etc. here?  (metaprob-collection-to-seq?)
 
 (defn addrify [addr]
@@ -272,25 +272,25 @@
 (define-deterministic-primitive trace_set_at [tr addr val]
   (set-value-at! (tracify tr) (addrify addr) val))
 (define-deterministic-primitive trace_set_subtrace_at [tr addr sub]
-  (set-subtrie-at! (tracify tr) (addrify addr) sub))
+  (set-subtrace-at! (tracify tr) (addrify addr) sub))
 (define-deterministic-primitive trace_has_key [tr key]
-  (has-subtrie? (tracify tr) key))
+  (has-subtrace? (tracify tr) key))
 (define-deterministic-primitive trace_subkeys [tr] (trace-keys (tracify tr)))
 (define-deterministic-primitive lookup [tr addr]
   ;; addr might be a metaprobe seq instead of a clojure seq.
-  (subtrace-at (tracify tr) (addrify addr)))  ; e[e]
+  (subtrace-location-at (tracify tr) (addrify addr)))  ; e[e]
 
 ;; Translation of .sites method from trace.py.
 ;; Returns a list of addresses, I believe.  (and addresses are themselves lists.)
 
 (define-deterministic-primitive trace_sites [trace]
   (letfn [(sites [tr]
-            ;; returns a seq of tries
+            ;; returns a seq of traces
             (let [site-list
                   (mapcat (fn [key]
                             (map (fn [site]
                                    (metaprob-cons key site))
-                                 (sites (subtrie tr key))))
+                                 (sites (subtrace tr key))))
                           (trace-keys tr))]
               (if (has-value? tr)
                 (cons (mk_nil) site-list)
@@ -299,8 +299,8 @@
 
 (define-deterministic-primitive prob_prog_name [pp]
   (let [tr (tracify pp)]
-    (if (has-subtrie? tr "name")
-      (value (subtrie tr "name"))
+    (if (has-subtrace? tr "name")
+      (value (subtrace tr "name"))
       nil)))
 
 ;; Deterministic apply, like 'simulate' in the python version.
@@ -315,13 +315,13 @@
 ;; Experimental code... probably not too hard to regenerate; flush.
 ;;       (let [tr (tracify exec)]
 ;;         (assert trace? tr)
-;;         (if (has-subtrie? tr "executable")
-;;           (let [f (subtrie tr "executable")]
+;;         (if (has-subtrace? tr "executable")
+;;           (let [f (subtrace tr "executable")]
 ;;             (assert (instance? clojure.lang.IFn f)
 ;;                     "executable property should be a clojure function")
 ;;             (f args))
-;;           (if (clojure.core/and (has-subtrie? tr "pattern")
-;;                                 (has-subtrie? tr "source"))
+;;           (if (clojure.core/and (has-subtrace? tr "pattern")
+;;                                 (has-subtrace? tr "source"))
 ;;             ;; Using program-to-clojure here would be a cyclic dependency!
 ;;             (assert false "clojure eval of probprog not yet implemented")
 ;;             ;; (let [prog (program-to-clojure (trace_get (lookup tr (list "pattern"))))]
@@ -339,7 +339,7 @@
 
 
 (define-deterministic-primitive pprint [x]
-  ;; x is a trie.  need to prettyprint it somehow.
+  ;; x is a trace.  need to prettyprint it somehow.
   (clojure.core/print (format "[prettyprint %s]\n" x)))
 
                                         ; Other builtins
@@ -451,7 +451,7 @@
               (assoc (r (rest mp-list) (+ n 1))
                      n
                      (new-trace (first mp-list)))))]
-    (trie-from-map (r mp-list 0))))
+    (trace-from-map (r mp-list 0))))
 
 ;; list - builtin
 
@@ -461,10 +461,10 @@
 ;; array_to_list - builtin - metaprob array/tuple to metaprob list
 
 (define-deterministic-primitive array_to_list [tup]
-  (if (trie? tup)
+  (if (trace? tup)
     (letfn [(scan [i]
-              (if (has-subtrie? tup i)
-                (pair (value (subtrie tup i)) (scan (+ i 1)))
+              (if (has-subtrace? tup i)
+                (pair (value (subtrace tup i)) (scan (+ i 1)))
                 (mk_nil)))]
       (scan 0))
     ;; seqable?
@@ -507,7 +507,7 @@
 (define-deterministic-primitive rest [mp-list]
   (if (trace? mp-list)
     (do (clojure.core/assert (metaprob-pair? mp-list))
-        (subtrie mp-list rest-marker))
+        (subtrace mp-list rest-marker))
     (clojure.core/rest mp-list)))
 
 ;; is_pair - overrides original prelude (performance + generalization)
@@ -556,7 +556,7 @@
   (if (trace? thing)
     (if (metaprob-pair? thing)
       (mp-list-nth thing i)
-      (value (subtrie thing i)))
+      (value (subtrace thing i)))
     (clojure.core/nth thing i)))
 
 ;; prelude has: reverse, propose1, iterate, replicate, repeat
@@ -592,12 +592,12 @@
             (maplist mp-seq))
           ;; tbd: do this with zipmap instead of recursion
           (letfn [(maptup [i]
-                    (if (has-subtrie? mp-seq i)
+                    (if (has-subtrace? mp-seq i)
                       (assoc (maptup (+ i 1))
                              i
-                             (new-trace (mp-fn (value (subtrie mp-seq i)))))
+                             (new-trace (mp-fn (value (subtrace mp-seq i)))))
                       {}))]
-            (trie-from-map (maptup 0) "tuple"))))
+            (trace-from-map (maptup 0) "tuple"))))
       (clojure.core/map mp-fn mp-seq))))    ;??? this isn't right
 
 ;; original prelude has: imap, zipmap, for_each, filter
@@ -630,15 +630,15 @@
 (define-deterministic-primitive capture_tag_address [& stuff]
   stuff)
 
-(defn collection-subtries-to-seq [coll]
+(defn collection-subtraces-to-seq [coll]
   (clojure.core/assert trace? coll)
-  (if (has-subtrie? coll rest-marker)
+  (if (has-subtrace? coll rest-marker)
     (letfn [(re [coll]
               (if (empty-trace? coll)
                 '()
                 (cons coll (re (rest coll)))))]
       (re coll))
-    (subtries-to-seq coll)))
+    (subtraces-to-seq coll)))
 
 
 ;; --------------------
@@ -697,10 +697,10 @@
   ;; pattern is a trace (variable or list, I think, maybe seq)
   (clojure.core/assert trace? pattern)
   (case (value pattern)
-    "variable" (env-bind env (value (subtrie pattern "name")) input)
+    "variable" (env-bind env (value (subtrace pattern "name")) input)
     "tuple"
     ;; input is either a metaprob list or a metaprob tuple
-    (doseq [p (subtries-to-seq pattern)
+    (doseq [p (subtraces-to-seq pattern)
             i (metaprob-collection-to-seq input)]
       (match-bind p i env))))
 

@@ -47,7 +47,7 @@
 ; tr is a trie / trace.
 
 (defn subvalue [tr key]
-  (value (subtrie tr key)))
+  (value (subtrace tr key)))
 
 ; Definitions
 
@@ -56,7 +56,7 @@
        (has-value? tr)
        (= (value tr) "definition")))
 
-(defn definition-pattern [tr] (subtrie tr "pattern"))
+(defn definition-pattern [tr] (subtrace tr "pattern"))
 
 (defn definition-name [tr]
   (let [pattern (definition-pattern tr)]    ;trie
@@ -69,7 +69,7 @@
       "definiens")))
 
 (defn definition-rhs [tr]
-  (subtrie tr (definition-name tr)))
+  (subtrace tr (definition-name tr)))
 
 (defn program-definition? [tr]
   (and (definition? tr)
@@ -121,7 +121,7 @@
   (case (value tr)
     "variable" (to-symbol (subvalue tr "name"))
     "tuple" (vec (map pattern-to-pattern
-                      (subtries-to-seq tr)))
+                      (subtraces-to-seq tr)))
     (do 
       (print ["invalid pattern" (value tr)]) (newline)
       (list "invalid pattern" (value tr)))))
@@ -137,7 +137,7 @@
 
 (defn subexpressions-to-clojure [tr]
   (map expr-to-clojure
-       (subtries-to-seq tr)))
+       (subtraces-to-seq tr)))
 
 (defn block-to-clojure-1 [trs def-ok?]
   (if (empty? trs)
@@ -172,14 +172,14 @@
                      (subexpressions-to-clojure tr))
       "variable" (to-symbol (subvalue tr "name"))
       "literal" (subvalue tr "value")
-      "program" (program-to-clojure (subtrie tr "pattern")
-                                    (subtrie tr "body"))
+      "program" (program-to-clojure (subtrace tr "pattern")
+                                    (subtrace tr "body"))
       "if" (list 'if
                  (subexpression-to-clojure tr "predicate")
                  (subexpression-to-clojure tr "then")
                  (subexpression-to-clojure tr "else"))
       "block" (ensure-list
-              (block-to-clojure (subtries-to-seq tr) def-ok?) "blah")
+              (block-to-clojure (subtraces-to-seq tr) def-ok?) "blah")
       "splice" (list 'mp-splice
                      (subexpression-to-clojure tr "expression"))
       "this" 'this
@@ -214,14 +214,14 @@
 
 (defn top-level-to-clojure [tr]
   (if (= (value tr) "block")
-    (let [subs (subtries-to-seq tr)]
+    (let [subs (subtraces-to-seq tr)]
       (to-list
          (concat (declarations subs)
                  (map to-clojure subs))))
     (qons (to-clojure tr) nil)))
 
 (defn subexpression-to-clojure [tr key]
-  (let [sub (subtrie tr key)]
+  (let [sub (subtrace tr key)]
     (assert (trie? sub) (list "missing" key))
     (expr-to-clojure sub)))
 
@@ -239,8 +239,8 @@
                          (reconstruct-trace (first (rest things))))))]
         (let [m (mapify (rest form))]
           (if (= val :none)
-            (trie-from-map m)
-            (trie-from-map m val)))))
+            (trace-from-map m)
+            (trace-from-map m val)))))
     (list "[not a trace!?]" form)))
 
 ; My this is painful.
