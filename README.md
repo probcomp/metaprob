@@ -74,12 +74,12 @@ This only has to be done once.
 To convert all the metaprob-repository metaprob files from traces (see
 `make parse`) to clojure files:
 
-    java -cp `cat .lein_classpath` dontknow.main {inpath}.trace {outpath}.clj
+    java -cp `cat .lein_classpath` metaprob.main {inpath}.trace {outpath}.clj
 
 This can also be done at the Clojure read-eval-print loop or in a
 Clojure program, something like:
 
-    (in-ns 'dontknow.to_clojure)
+    (in-ns 'metaprob.to_clojure)
     (convert "{inpath}.trace" "{outpath}.clj")
 
 To convert *all* of the metaprob files from the metaprob repository, following `make parse`:
@@ -152,5 +152,5 @@ java, as needed, placing the `.class` files in the `target` directory.)
 
 You can also test individual files:
 
-    lein test dontknow.to-clojure-test
+    lein test metaprob.to-clojure-test
 

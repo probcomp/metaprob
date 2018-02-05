@@ -12,6 +12,9 @@ pom.xml.asc
 .lein-failures
 .lein_classpath
 .nrepl-port
+TAGS
+converted
+parsings
 *.tmp
 *~
 .#*

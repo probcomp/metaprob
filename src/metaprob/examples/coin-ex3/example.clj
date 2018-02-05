@@ -1,13 +1,13 @@
 ;; This file was automatically generated, then edited
 
-(clojure.core/ns dontknow.examples.coin-ex3.example
+(clojure.core/ns metaprob.examples.coin-ex3.example
   (:refer-clojure :only [declare ])
-  (:require [dontknow.syntax :refer :all]
-            [dontknow.builtin :refer :all]
-            [dontknow.prelude :refer :all]
+  (:require [metaprob.syntax :refer :all]
+            [metaprob.builtin :refer :all]
+            [metaprob.prelude :refer :all]
             ;; Added manually
-            [dontknow.metacirc.trace-choices :refer [trace_choices]]
-            [dontknow.lightweight :refer [single_site_metropolis_hastings_step]]))
+            [metaprob.metacirc.trace-choices :refer [trace_choices]]
+            [metaprob.lightweight :refer [single_site_metropolis_hastings_step]]))
 
 (declare
   flip_coins

@@ -19,7 +19,7 @@ dest=$3
 mkdir -p `dirname $dest`
 echo Converting $source '->' $dest
 if true ; then
-    java -cp `cat .lein_classpath` dontknow.main $source $dest.new $namespace
+    java -cp `cat .lein_classpath` metaprob.main $source $dest.new $namespace
     mv -f $dest.new $dest
 else
     echo "** namespace = " $namespace

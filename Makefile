@@ -15,7 +15,7 @@ parse: ../metaprob/pythenv.sh python/transcribe.py
 	bin/parse-all
 
 # Create directory of .clj files from .trace files
-convert: src/dontknow/main.clj src/dontknow/to_clojure.clj .lein_classpath
+convert: src/metaprob/main.clj src/metaprob/to_clojure.clj .lein_classpath
 	lein compile :all
 	bin/convert-all
 
@@ -27,7 +27,7 @@ convert: src/dontknow/main.clj src/dontknow/to_clojure.clj .lein_classpath
 
 # General rule for converting a .trace file to a .clj file
 %.clj: %.trace .lein_classpath
-	java -cp `cat .lein_classpath` dontknow.main $< $@.new
+	java -cp `cat .lein_classpath` metaprob.main $< $@.new
 	mv -f $@.new $@
 
 # By setting java's classpath explicitly, instead of relying on 'lein'
@@ -38,4 +38,4 @@ convert: src/dontknow/main.clj src/dontknow/to_clojure.clj .lein_classpath
 	lein classpath > $@
 
 tags:
-	etags --language=lisp `find . -name "*.clj"`
+	etags --language=lisp `find src -name "*.clj"` `find test -name "*.clj"`

@@ -7,7 +7,7 @@
 
 #   python setup.py  build
 #   ./pythenv.sh metaprob -e 'print(2+2)'
-#   cd ../dontknow
+#   cd ../metaprob
 #   ../metaprob/pythenv.sh python foo.py
 
 # N.b. virtualenv and #! do not interact nicely.  (#! overrides the
