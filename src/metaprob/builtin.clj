@@ -1,7 +1,7 @@
 ;; This module is intended for import by metaprob code.
 ;; To be used in conjunction with the syntax module.
 
-(ns dontknow.builtin
+(ns metaprob.builtin
   (:refer-clojure :exclude [not
                             assert
                             pprint
@@ -14,7 +14,7 @@
                             nth
                             range
                             print])
-  (:require [dontknow.trace :refer :all])
+  (:require [metaprob.trace :refer :all])
   (:require [clojure.test.check.random :as random])
   (:require [kixi.stats.distribution :as dist])
   (:require [kixi.stats.math :as math]))

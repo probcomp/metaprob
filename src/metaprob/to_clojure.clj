@@ -1,7 +1,7 @@
-(ns dontknow.to-clojure
-  (:require [dontknow.trace :refer :all])
-  (:require [dontknow.syntax :refer :all])
-  (:require [dontknow.builtin
+(ns metaprob.to-clojure
+  (:require [metaprob.trace :refer :all])
+  (:require [metaprob.syntax :refer :all])
+  (:require [metaprob.builtin
              :exclude [not
                        assert
                        pprint
@@ -258,9 +258,9 @@
 (defn get-requirements [ns-name]
   (filter (fn [x]
             (not (= (name (first x)) (name ns-name))))
-          '([dontknow.syntax :refer :all]
-            [dontknow.builtin :refer :all]
-            [dontknow.prelude :refer :all])))
+          '([metaprob.syntax :refer :all]
+            [metaprob.builtin :refer :all]
+            [metaprob.prelude :refer :all])))
 
 (defn write-to-file [forms this-ns outpath]
   ;; (print (format "** ns A = %s\n" *ns*))(flush)

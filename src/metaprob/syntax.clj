@@ -1,7 +1,7 @@
-(ns dontknow.syntax
+(ns metaprob.syntax
   (:require [clojure.string]
-            [dontknow.trace :refer :all]
-            [dontknow.builtin :as builtin]))
+            [metaprob.trace :refer :all]
+            [metaprob.builtin :as builtin]))
 
 ;; This module is intended for import by metaprob code, and defines
 ;; the syntactic constructs to be used in metaprob programs.

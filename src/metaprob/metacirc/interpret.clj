@@ -1,65 +1,58 @@
 ;; This file was automatically generated, then edited
 
-(clojure.core/ns dontknow.metacirc.trace-choices
+(clojure.core/ns metaprob.metacirc.interpret
   (:refer-clojure :only [declare ])
-  (:require [dontknow.syntax :refer :all]
-            [dontknow.builtin :refer :all]
-            [dontknow.prelude :refer :all]
-            ;; Added manually
-            [dontknow.metacirc.interpret :refer [interpret]]))
+  (:require [metaprob.syntax :refer :all]
+            [metaprob.builtin :refer :all]
+            [metaprob.prelude :refer :all]))
 
-(declare trace_choices tc_eval)
+;; Manual edit: moved name_for_definiens to prelude.clj
+
+(declare interpret interpret_eval construct_probprog)
 
 (define
-  trace_choices
+  interpret
   (program
-    [program-noncolliding inputs intervention_trace output_trace]
-    (if (trace_has_key program-noncolliding "custom_choice_tracer")
+    [program-noncolliding inputs intervention_trace]
+    (if (trace_has_key program-noncolliding "executable")
       (block
-        (define
-          tc_inputs
-          (tuple inputs intervention_trace output_trace))
-        (interpret
-          (trace_get
-            (lookup
-              program-noncolliding
-              (list "custom_choice_tracer")))
-          tc_inputs
-          (mk_nil)))
-      (if (trace_has_key program-noncolliding "source")
+        (interpret_prim
+          (trace_get (lookup program-noncolliding (list "executable")))
+          inputs
+          intervention_trace))
+      (if (trace_has_key program-noncolliding "custom_interpreter")
         (block
-          (define
-            new_exp
-            (lookup program-noncolliding (list "source" "body")))
-          (define
-            new_env
-            (make_env
-              (trace_get
-                (lookup program-noncolliding (list "environment")))))
-          (match_bind
-            (lookup program-noncolliding (list "source" "pattern"))
-            inputs
-            new_env)
-          (tc_eval new_exp new_env intervention_trace output_trace))
-        (if (trace_has_key program-noncolliding "executable")
+          (define i_inputs (tuple inputs intervention_trace))
+          (interpret
+            (trace_get
+              (lookup
+                program-noncolliding
+                (list "custom_interpreter")))
+            i_inputs
+            (mk_nil)))
+        (if (trace_has_key program-noncolliding "source")
           (block
             (define
-              val
-              (interpret_prim
+              new_env
+              (make_env
                 (trace_get
-                  (lookup program-noncolliding (list "executable")))
-                inputs
-                intervention_trace))
-            (trace_set output_trace val)
-            val)
+                  (lookup program-noncolliding (list "environment")))))
+            (match_bind
+              (lookup program-noncolliding (list "source" "pattern"))
+              inputs
+              new_env)
+            (interpret_eval
+              (lookup program-noncolliding (list "source" "body"))
+              new_env
+              intervention_trace))
           (block
             (pprint program-noncolliding)
             (error "Not a prob prog")))))))
 
 (define
-  tc_eval
+  interpret_eval
   (program
-    [exp env intervention_trace output_trace]
+    [exp env intervention_trace]
     (define
       walk
       (program
@@ -78,11 +71,10 @@
                   (range n)))
               (define oper (first values))
               (define name (trace_get (lookup oper (list "name"))))
-              (trace_choices
+              (interpret
                 oper
                 (rest values)
-                (lookup intervention_trace (add addr (list name)))
-                (lookup output_trace (add addr (list name)))))
+                (lookup intervention_trace (add addr (list name)))))
             (if (eq (trace_get exp) "variable")
               (block
                 (env_lookup
@@ -170,7 +162,7 @@
                               (capture_tag_address
                                 intervention_trace
                                 (mk_nil)
-                                output_trace))
+                                (mk_nil)))
                             (if (eq (trace_get exp) "with_address")
                               (block
                                 (define
@@ -179,13 +171,12 @@
                                     (lookup exp (list "tag"))
                                     (add addr (list "tag"))))
                                 (define
-                                  [new_intervene _ new_output]
+                                  [new_intervene _ _]
                                   (resolve_tag_address tag_addr))
-                                (tc_eval
+                                (interpret_eval
                                   (lookup exp (list "expression"))
                                   env
-                                  new_intervene
-                                  new_output))
+                                  new_intervene))
                               (block
                                 (pprint exp)
                                 (error
@@ -195,3 +186,17 @@
           (block v))))
     (walk exp (list))))
 
+(define
+  construct_probprog
+  (program
+    [name source env]
+    (block
+      (block
+        (define __trace_1__ (mk_nil))
+        (trace_set __trace_1__ "prob prog")
+        (trace_set (lookup __trace_1__ (list "name")) name)
+        (trace_set_subtrace_at __trace_1__ (list "source") source)
+        (trace_set (lookup __trace_1__ (list "environment")) env)
+        __trace_1__))))
+
+;; Manual edit: moved name_for_definiens to prelude.clj

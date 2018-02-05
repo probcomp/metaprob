@@ -1,8 +1,8 @@
-(ns dontknow.builtin-test
+(ns metaprob.builtin-test
   (:require [clojure.test :refer :all]
-            [dontknow.trace :refer :all]
-            [dontknow.syntax :refer :all]
-            [dontknow.builtin :as b]))
+            [metaprob.trace :refer :all]
+            [metaprob.syntax :refer :all]
+            [metaprob.builtin :as b]))
 
 (deftest last-1
   (testing "Last element of a metaprob list"

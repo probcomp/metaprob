@@ -1,13 +1,13 @@
-(ns dontknow.prelude-test
+(ns metaprob.prelude-test
   (:require [clojure.test :refer :all]
-            [dontknow.trace :refer :all]
-            [dontknow.syntax :refer :all])
-  (:require [dontknow.builtin :as builtin])
-  (:require [dontknow.prelude :as prelude]))
+            [metaprob.trace :refer :all]
+            [metaprob.syntax :refer :all])
+  (:require [metaprob.builtin :as builtin])
+  (:require [metaprob.prelude :as prelude]))
 
-;;  (:refer dontknow.builtin
+;;  (:refer metaprob.builtin
 ;;          :exclude [map reverse zipmap iterate concat drop replicate filter repeat])
-;;  (:refer dontknow.prelude
+;;  (:refer metaprob.prelude
 ;;          :exclude [not assert pprint and or
 ;;                    list first rest last nth range])
 
@@ -17,9 +17,9 @@
          (builtin/lookup (prelude/sp "foo" (program [] "foo"))
                          (builtin/list "custom_interpreter"))))
     ;; These tests have to run after the call to sp
-    (is (= (ns-resolve 'dontknow.prelude 'v) nil)
+    (is (= (ns-resolve 'metaprob.prelude 'v) nil)
         "namespacing sanity check 1")
-    (is (not (contains? (ns-publics 'dontknow.prelude) 'v))
+    (is (not (contains? (ns-publics 'metaprob.prelude) 'v))
         "namespacing sanity check 2")))
 
 (deftest map-1
@@ -29,9 +29,9 @@
                      1)
         6)
     ;; These tests have to run after the call to map
-    (is (= (ns-resolve 'dontknow.prelude 'val) nil)
+    (is (= (ns-resolve 'metaprob.prelude 'val) nil)
         "namespacing sanity check 1")
-    (is (not (contains? (ns-publics 'dontknow.prelude) 'val))
+    (is (not (contains? (ns-publics 'metaprob.prelude) 'val))
         "namespacing sanity check 2")))
 
 ;; I'm sort of tired of this and don't anticipate problems, so

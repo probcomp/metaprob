@@ -1,34 +1,39 @@
 ;; This file was automatically generated, then edited
 
-(clojure.core/ns dontknow.metacirc.propose
+(clojure.core/ns metaprob.metacirc.propose-and-trace-choices
   (:refer-clojure :only [declare ])
-  (:require [dontknow.syntax :refer :all]
-            [dontknow.builtin :refer :all]
-            [dontknow.prelude :refer :all]
+  (:require [metaprob.syntax :refer :all]
+            [metaprob.builtin :refer :all]
+            [metaprob.prelude :refer :all]
             ;; Added manually
-            [dontknow.metacirc.interpret :refer [interpret]]))
+            [metaprob.metacirc.interpret :refer [interpret]]))
 
-(declare propose propose_eval)
+(declare propose_and_trace_choices ptc_eval)
 
 (define
-  propose
+  propose_and_trace_choices
   (program
-    [program-noncolliding inputs intervention_trace target_trace]
-    (if (trace_has_key program-noncolliding "custom_proposer")
+    [program-noncolliding
+     inputs
+     intervention_trace
+     target_trace
+     output_trace]
+    (if (trace_has_key
+          program-noncolliding
+          "custom_choice_tracing_proposer")
       (block
         (define
-          propose_inputs
-          (tuple inputs intervention_trace target_trace))
+          ptc_inputs
+          (tuple inputs intervention_trace target_trace output_trace))
         (interpret
           (trace_get
-            (lookup program-noncolliding (list "custom_proposer")))
-          propose_inputs
+            (lookup
+              program-noncolliding
+              (list "custom_choice_tracing_proposer")))
+          ptc_inputs
           (mk_nil)))
       (if (trace_has_key program-noncolliding "source")
         (block
-          (define
-            new_exp
-            (lookup program-noncolliding (list "source" "body")))
           (define
             new_env
             (make_env
@@ -38,11 +43,12 @@
             (lookup program-noncolliding (list "source" "pattern"))
             inputs
             new_env)
-          (propose_eval
-            new_exp
+          (ptc_eval
+            (lookup program-noncolliding (list "source" "body"))
             new_env
             intervention_trace
-            target_trace))
+            target_trace
+            output_trace))
         (if (trace_has_key program-noncolliding "executable")
           (block
             (define
@@ -52,15 +58,16 @@
                   (lookup program-noncolliding (list "executable")))
                 inputs
                 intervention_trace))
+            (trace_set output_trace val)
             (tuple val 0))
           (block
             (pprint program-noncolliding)
             (error "Not a prob prog")))))))
 
 (define
-  propose_eval
+  ptc_eval
   (program
-    [exp env intervention_trace target_trace]
+    [exp env intervention_trace target_trace output_trace]
     (define
       walk
       (program
@@ -91,11 +98,12 @@
               (define name (trace_get (lookup oper (list "name"))))
               (define
                 [val score]
-                (propose
+                (propose_and_trace_choices
                   oper
                   (rest values)
                   (lookup intervention_trace (add addr (list name)))
-                  (lookup target_trace (add addr (list name)))))
+                  (lookup target_trace (add addr (list name)))
+                  (lookup output_trace (add addr (list name)))))
               (tuple val (add (trace_get subscore) score)))
             (if (eq (trace_get exp) "variable")
               (block
@@ -226,7 +234,7 @@
                                 (capture_tag_address
                                   intervention_trace
                                   target_trace
-                                  (mk_nil))
+                                  output_trace)
                                 0))
                             (if (eq (trace_get exp) "with_address")
                               (block
@@ -236,15 +244,16 @@
                                     (lookup exp (list "tag"))
                                     (add addr (list "tag"))))
                                 (define
-                                  [new_intervene new_target _]
+                                  [new_intervene new_target new_output]
                                   (resolve_tag_address tag_addr))
                                 (define
                                   [val score]
-                                  (propose_eval
+                                  (ptc_eval
                                     (lookup exp (list "expression"))
                                     env
                                     new_intervene
-                                    new_target))
+                                    new_target
+                                    new_output))
                                 (tuple val (add tag_score score)))
                               (block
                                 (pprint exp)

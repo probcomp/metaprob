@@ -1,14 +1,14 @@
 ;; This file was automatically generated, then edited
 
-(clojure.core/ns dontknow.lightweight
+(clojure.core/ns metaprob.lightweight
   (:refer-clojure :only [declare ])
-  (:require [dontknow.syntax :refer :all]
-            [dontknow.builtin :refer :all]
-            [dontknow.prelude :refer :all]
+  (:require [metaprob.syntax :refer :all]
+            [metaprob.builtin :refer :all]
+            [metaprob.prelude :refer :all]
             ;; Added
-            [dontknow.metacirc.propose-and-trace-choices :refer [propose_and_trace_choices]]
-            [dontknow.metacirc.propose :refer [propose]]
-            [dontknow.metacirc.trace-choices :refer [trace_choices]]))
+            [metaprob.metacirc.propose-and-trace-choices :refer [propose_and_trace_choices]]
+            [metaprob.metacirc.propose :refer [propose]]
+            [metaprob.metacirc.trace-choices :refer [trace_choices]]))
 
 (declare
   single_site_metropolis_hastings_step

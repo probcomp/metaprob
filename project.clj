@@ -1,4 +1,4 @@
-(defproject dontknow "0.1.0-SNAPSHOT"
+(defproject metaprob "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :license {:name "GNU General Public License Version 3, 29 June 2007"

@@ -1,7 +1,7 @@
-(ns dontknow.syntax-test
+(ns metaprob.syntax-test
   (:require [clojure.test :refer :all]
-            [dontknow.trace :refer :all]
-            [dontknow.syntax :refer :all]))
+            [metaprob.trace :refer :all]
+            [metaprob.syntax :refer :all]))
 
 (deftest program-1
   (testing "Smoke test for program macro"

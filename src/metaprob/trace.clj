@@ -1,4 +1,4 @@
-(ns dontknow.trace)
+(ns metaprob.trace)
 
 (def no-value '**no-value**)
 

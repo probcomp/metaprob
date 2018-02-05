@@ -1,6 +1,6 @@
-(ns dontknow.trace-test
+(ns metaprob.trace-test
   (:require [clojure.test :refer :all]
-            [dontknow.trace :refer :all]))
+            [metaprob.trace :refer :all]))
 
 ; Have to use 'is' for some reason
 

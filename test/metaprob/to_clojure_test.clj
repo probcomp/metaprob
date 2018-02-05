@@ -1,7 +1,7 @@
-(ns dontknow.to-clojure-test
+(ns metaprob.to-clojure-test
   (:require [clojure.test :refer :all])
-  (:require [dontknow.syntax :refer :all])
-  (:require [dontknow.builtin
+  (:require [metaprob.syntax :refer :all])
+  (:require [metaprob.builtin
              :exclude [not
                        assert
                        pprint
@@ -13,7 +13,7 @@
                        last
                        nth
                        range]])
-  (:require [dontknow.to-clojure :refer :all]))
+  (:require [metaprob.to-clojure :refer :all]))
 
 (deftest convert-1
   (testing "Smoke test for trace-to-clojure"

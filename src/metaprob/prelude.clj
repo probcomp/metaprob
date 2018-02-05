@@ -1,9 +1,9 @@
 ;; See doc/about-the-prelude.md
 
-(clojure.core/ns dontknow.prelude
+(clojure.core/ns metaprob.prelude
   (:refer-clojure :only [declare])
-  (:require [dontknow.syntax :refer :all])
-  (:require [dontknow.builtin :refer :all]))
+  (:require [metaprob.syntax :refer :all])
+  (:require [metaprob.builtin :refer :all]))
 
 (declare
   drop

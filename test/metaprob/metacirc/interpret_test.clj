@@ -1,19 +1,18 @@
-(ns dontknow.metacirc.trace-choices-test
+(ns metaprob.metacirc.interpret-test
   (:refer-clojure :exclude [not assert pprint and or
                             list first rest last nth range])
   (:require [clojure.test :refer :all]
-            [dontknow.trace :refer :all]
-            [dontknow.syntax :refer :all]
-            [dontknow.builtin :as builtin]
-            [dontknow.metacirc.trace-choices :refer :all]))
+            [metaprob.trace :refer :all]
+            [metaprob.syntax :refer :all]
+            [metaprob.builtin :as builtin]
+            [metaprob.metacirc.interpret :refer :all]))
 
 (defn mk_nil [] (builtin/mk_nil))
 
 (defn ez-apply [prob-prog & args]
-  (trace_choices prob-prog
-                 (builtin/seq-to-metaprob-tuple args)
-                 (mk_nil)
-                 (mk_nil)))
+  (interpret prob-prog
+             (builtin/seq-to-metaprob-tuple args)
+             (mk_nil)))
 
 (deftest apply-1
   (testing "Apply a probprog to no args"
@@ -26,10 +25,9 @@
            -7))))
 
 (defn ez-eval [x]
-  (tc_eval (from-clojure x)
-           (builtin/make-top-level-env 'dontknow.metacirc.trace-choices)
-           (mk_nil)
-           (mk_nil)))
+  (interpret_eval (from-clojure x)
+                  (builtin/make-top-level-env 'metaprob.metacirc.interpret)
+                  (mk_nil)))
 
 (deftest smoke-1
   (testing "Interpret a literal expression"
