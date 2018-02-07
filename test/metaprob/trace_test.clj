@@ -28,10 +28,10 @@
 (deftest store-fetch-subtrace
   (testing "If you add a subtrace to a trace, is it there?"
     (let [trace (new-trace)
-          sub (new-trace)]
-      (set-value! sub 'value)
-      (set-subtrace! trace 'key sub)
-      (is (= (subtrace trace 'key) sub)))))
+          sub (new-trace "value-1")]
+      (set-value! sub "value-2")
+      (set-subtrace! trace "key" sub)
+      (is (= (subtrace trace "key") sub)))))
 
 ; store/fetch a value
 

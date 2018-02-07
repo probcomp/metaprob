@@ -54,7 +54,7 @@
             val)
           (block
             (pprint program-noncolliding)
-            (error "Not a prob prog")))))))
+            (error "Not a prob prog" program-noncolliding)))))))
 
 (define
   tc_eval

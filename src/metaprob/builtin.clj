@@ -103,12 +103,15 @@
 ;; Similar to sp_to_prob_prog
 
 (defn make-deterministic-primitive [name fun]
-  (letfn [(execute [args]          ;sp.simulate
-            (apply fun (metaprob-collection-to-seq args)))]
-    (with-meta fun
-      {:trace (trace-from-map {"name" (new-trace name)
-                              "executable" (new-trace execute)}
-                             "prob prog")})))
+  (let [name (if (symbol? name) (str name) name)]
+    (clojure.core/assert (string? name) name)
+    (clojure.core/assert (instance? clojure.lang.IFn fun))
+    (letfn [(execute [args]          ;sp.simulate
+              (apply fun (metaprob-collection-to-seq args)))]
+      (with-meta fun
+        {:trace (trace-from-map {"name" (new-trace (str name))
+                                 "executable" (new-trace execute)}
+                                "prob prog")}))))
 
 ;; The aux-name is logically unnecessary but helps with debugging.
 ;; mp-name is the name the primitive has in the metaprob namespace.
@@ -152,28 +155,31 @@
 ;; p-a-t-c, in particular, looks for "custom_choice_tracing_proposer".
 
 (defn make-nondeterministic-primitive [name sampler logdensity]
-  (clojure.core/assert (instance? clojure.lang.IFn sampler))
-  (clojure.core/assert (instance? clojure.lang.IFn logdensity))
-  (letfn [(execute [args]          ;sp.simulate
-            (apply sampler args))
-          (p-a-t-c [args intervene target output]
-            (apply-nondeterministic sampler args logdensity intervene target output))
-          (interpret [args intervene]
-            (p-a-t-c args intervene (mk_nil) (mk_nil)))
-          (propose [args intervene target]
-            (p-a-t-c args intervene target (mk_nil)))
-          (trace [args intervene output]
-            (p-a-t-c args intervene (mk_nil) output))]
-    (with-meta sampler
-      {:trace (trace-from-map
-               {"name" (new-trace name)
-                "execute" (new-trace (make-deterministic-primitive name execute))
-                "custom_interpreter" (new-trace (make-deterministic-primitive name interpret))
-                "custom_choice_trace" (new-trace (make-deterministic-primitive name trace))
-                "custom_proposer" (new-trace (make-deterministic-primitive name propose))
-                "custom_choice_tracing_proposer"
-                    (new-trace (make-deterministic-primitive name p-a-t-c))}
-               "prob prog")})))
+  (let [name (if (symbol? name) (str name) name)]
+    (clojure.core/assert (string? name))
+    (clojure.core/assert (instance? clojure.lang.IFn sampler))
+    (clojure.core/assert (instance? clojure.lang.IFn logdensity))
+    (letfn [(execute [args]          ;sp.simulate
+              (apply sampler args))
+            (p-a-t-c [args intervene target output]
+              (apply-nondeterministic sampler args logdensity intervene target output))
+            (interpret [args intervene]
+              (p-a-t-c args intervene (mk_nil) (mk_nil)))
+            (propose [args intervene target]
+              (p-a-t-c args intervene target (mk_nil)))
+            (trace [args intervene output]
+              (p-a-t-c args intervene (mk_nil) output))]
+      (with-meta sampler
+        {:trace (trace-from-map
+                 {"name" (new-trace name)
+                  ;; The execute property is always a clojure function (non-trace)
+                  "executable" (new-trace execute)
+                  "custom_interpreter" (new-trace (make-deterministic-primitive name interpret))
+                  "custom_choice_trace" (new-trace (make-deterministic-primitive name trace))
+                  "custom_proposer" (new-trace (make-deterministic-primitive name propose))
+                  "custom_choice_tracing_proposer"
+                  (new-trace (make-deterministic-primitive name p-a-t-c))}
+                 "prob prog")}))))
 
 (defmacro ^:private define-nondeterministic-primitive [mp-name
                                                        sample-fun
@@ -236,16 +242,12 @@
 
 (declare first rest)
 
-;; addr is a metaprob list. The trace library wants clojure lists.
+;; addr is a metaprob list. The trace library wants clojure sequences.
 ;; TBD: permit tuple etc. here?  (metaprob-collection-to-seq?)
 
 (defn addrify [addr]
   (if (trace? addr)
-    (if (metaprob-pair? addr)
-      ;; N.b. first and rest refer to metaprob first and rest
-      (cons (first addr)
-            (addrify (rest addr)))
-      '())
+    (metaprob-list-to-seq addr)
     addr))
 
 ;; If an object (e.g. a function) has a :trace meta-property, then
@@ -304,7 +306,9 @@
       nil)))
 
 ;; Deterministic apply, like 'simulate' in the python version.
-;; exec is supposed to take one argument, a metaprob collection of arguments.
+;; exec is the value of something's "executable" property and is
+;; supposed to be a clojure function taking one argument, a metaprob
+;; collection of arguments.
 
 (define-deterministic-primitive interpret_prim [exec inputs intervention-trace]
   (clojure.core/assert (instance? clojure.lang.IFn exec))
@@ -337,12 +341,27 @@
 ;;   else:
 ;;     return f(metaprob_collection_to_python_list(args))
 
+;; Prettyprint
 
 (define-deterministic-primitive pprint [x]
-  ;; x is a trace.  need to prettyprint it somehow.
-  (clojure.core/print (format "[prettyprint %s]\n" x)))
+  (let [tr (tracify x)]
+    (if (not (= tr x))
+      (clojure.core/print x)
+    (if (trace? tr)
+      (letfn [(re [tr indent tag]
+                (clojure.core/print indent)
+                (clojure.core/print tag)
+                ;; If it has a value, clojure-print the value
+                (if (has-value? tr)
+                  (do (clojure.core/print " ")
+                      (pr (value tr))))
+                (newline)
+                (let [indent (str (concat indent "  "))]
+                  (doseq [key (trace-keys tr)]
+                    (re (subtrace tr key) indent key))))]
+        (re tr "trace:"))))))
 
-                                        ; Other builtins
+;; Other builtins
 
 (def rng (random/make-random 42))
 
@@ -608,7 +627,10 @@
 (define-deterministic-primitive append [x y]
   (if (metaprob-pair? x)
     (pair (first x) (append (rest x) y))
-    y))
+    (do (clojure.core/assert (or (empty-trace? y)
+                                 (metaprob-pair? y))
+                             ["expected append 2nd arg to be a mp list" y])
+        y)))
 
 ;; prelude has: trace_of lookup_chain lookup_chain_with_exactly 
 
@@ -621,8 +643,8 @@
 
 ;; error - overrides original prelude (???)
 
-(define-deterministic-primitive error [x]
-  (clojure.core/assert false x))                     ;from prelude.vnts
+(define-deterministic-primitive error [& irritants]
+  (clojure.core/assert false irritants))                     ;from prelude.vnts
 
 ;; capture_tag_address - overrides original prelude - but definition is the same.
 ;; Compare builtin resolve_tag_address, defined above.

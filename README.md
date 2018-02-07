@@ -20,10 +20,10 @@ Leinigen keeps some state in the `~/.lein` directory.
 
 ## Parsing metaprob
 
-Currently if you want to use the native metaprob syntax, you will have to use the
-metaprob parser written in python to write a file that can be read by
-Clojure.  This requires installing metaprob, which in turn requires
-Venture.
+Currently if you want to use the native metaprob syntax, you will have
+to use the "curly-metaprob" parser written in Python to write a file that can
+be read by Clojure.  This requires installing metaprob, which in turn
+requires Venture.
 
 ### Installing metaprob
 
@@ -43,7 +43,10 @@ Note:
    found in Venture.
 
 
-### Parsing metaprob
+### Parse curly-metaprob, generate clojure-metaprob
+
+This is the only part of the system that requires use of the original
+Python version of metaprob.
 
 To parse a single metaprob file:
 

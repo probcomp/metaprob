@@ -41,6 +41,18 @@
 
 (defn address? [x] (seqable? x))
 
+(defn acceptable? [key sub]
+  ;; Really stupid type system.  Functions should be stored, and only
+  ;; be stored, under the "executable" property.
+  (and (trie? sub)
+       (if (has-value? sub)
+         (let [val (value sub)]
+           (if (= key "executable")
+             (instance? clojure.lang.IFn val)
+             (or (not (instance? clojure.lang.IFn val))
+                 (meta val))))
+         true)))
+
 (deftype Trie
   [^:volatile-mutable the-value
    ^:volatile-mutable subtries]    ; hash-map
@@ -70,9 +82,11 @@
     (let [sub (get subtries key)]
       (assert (trie? sub) ["no such subtrie" key (trace-keys _)])
       sub))
-  (set-subtrace! [_ key subtrie]
-    (assert trie? subtrie)
-    (set! subtries (assoc subtries key subtrie)))
+  (set-subtrace! [_ key sub]
+    (assert trie? sub)
+    (assert (acceptable? key sub)
+            ["unacceptable value to store under this property" _ key (value sub)])
+    (set! subtries (assoc subtries key sub)))
 
   (subtrace-location [_ key]
     (if (has-subtrace? _ key)
@@ -289,15 +303,18 @@
 
 ;; Utilities
 
+(defn trie-from-map [val maap]
+  (doseq [[key sub] (seq maap)]
+    (assert (acceptable? key sub)
+            ["bad subtrie value" key (value sub) (type (value sub))]))
+  (Trie. val maap))
+
 ; thanks https://stuartsierra.com/2015/06/01/clojure-donts-optional-arguments-with-varargs
 (defn trace-from-map
   ([maap]
-   (assert (every? trie? (vals maap)) ["x1" maap])
-   (Trie. no-value maap))
+   (trie-from-map no-value maap))
   ([maap val]
-   (assert (every? trie? (vals maap)) ["xs" maap])
-   (assert (not (= val no-value)) "no value")
-   (Trie. val maap)))
+   (trie-from-map val maap)))
 
 ; Returns a trie whose subtries are the members of the clojure sequence tlist
 
