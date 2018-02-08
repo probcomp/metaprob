@@ -199,14 +199,22 @@
 (defn from-clojure-seq [seq val]
   (trace-from-seq (map from-clojure seq) val))
 
+;; Trace       => clojure                   => trace
+;; (x)->{a;b;} => (program [x] (block a b)) => (x)->{a;b;}
+;; (x)->{a;}   => (program [x] (block a))   => (x)->{a;}
+;; (x)->a      => (program [x] a)           => (x)->a
+;;
+;; safe abbreviation:
+;; (x)->{a;b;} => (program [x] a b) => (x)->{a;b;}
+
 (defn from-clojure-program [exp]
   (let [[_ pattern & body] exp]
     (let [body-exp (if (= (count body) 1)
                      (first body)
-                     (cons `block body))]
+                     (cons 'block body))]
       (trace-from-map {"pattern" (from-clojure-pattern pattern)
-                      "body" (from-clojure body-exp)}
-                     "program"))))
+                       "body" (from-clojure body-exp)}
+                      "program"))))
 
 (defn from-clojure-pattern [pattern]
   (if (symbol? pattern)
@@ -252,16 +260,22 @@
       (string? exp)
       (boolean? exp)))
 
+;; Don't create variables with these names...
+;;   (tbd: look for :meta on a Var in this namespace ??)
+(def prohibited-names #{"block" "program" "define" "if"})
+
 (defn from-clojure-1 [exp]
   (cond (vector? exp) (from-clojure-tuple exp)    ;; Pattern - shouldn't happen
         (literal-exp? exp)    ;; including string
           (trace-from-map {"value" (new-trace exp)} "literal")
 
         (symbol? exp)
-        (if (= (str exp) "this")
-          (trace-from-map {} "this")
-          (trace-from-map {"name" (new-trace (str exp))}
-                         "variable"))
+        (let [s (str exp)]
+          (if (= s "this")
+            (trace-from-map {} "this")
+            (do (assert (not (contains? prohibited-names s)) exp)
+                (trace-from-map {"name" (new-trace s)}
+                                "variable"))))
 
         ;; I don't know why this is sometimes a non-list seq.
         ;; TBD: check that (first exp) is a non-namespaced symbol.

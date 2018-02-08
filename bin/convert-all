@@ -18,17 +18,16 @@ for f in `cd parsings; find . -name "*.trace"`; do
 
     # https://stackoverflow.com/questions/24077667/bash-replace-slash
     namespace=metaprob.${dir//\//.}.$base
+    destpath=$dir/$base
 
     # Clojure prefers underscores in file names; don't know why.
     if [ $dashtounderscore = yes ]; then
         # See bash manual under '${parameter/pattern/string}'
-        destbase=${base//-/_}
-    else
-        destbase=$base
+        destpath=${destpath//-/_}
     fi
 
     # Now do the convert command
     source=$sourcedir/$f
-    dest=$destdir/$dir/$destbase.clj
+    dest=$destdir/$destpath.clj
     bin/convert "$source" "$namespace" "$dest"
 done

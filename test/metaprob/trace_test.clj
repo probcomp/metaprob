@@ -22,16 +22,16 @@
 
 (deftest fetch-value
   (testing "Can we get the trace's value?"
-    (let [trace (new-trace 'value)]
-      (is (= (value trace) 'value)))))
+    (let [trace (new-trace "value")]
+      (is (= (value trace) "value")))))
 
 ; store/fetch value at trace
 
 (deftest store-fetch-value
   (testing "Can we get a value that we put in?"
     (let [trace (new-trace)]
-      (set-value! trace 'value)
-      (is (= (value trace) 'value)))))
+      (set-value! trace "value")
+      (is (= (value trace) "value")))))
 
 ; store/fetch an immediate subtrace
 

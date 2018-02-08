@@ -76,5 +76,4 @@
       (binding [*ns* (find-ns 'metaprob.syntax)]
         (eval form)
         (let [probprog (eval 'foo)]
-          (prn probprog)
-          (is (= (probprog 17) 17)))))))
+          (is (= (probprog 17) 17) probprog))))))

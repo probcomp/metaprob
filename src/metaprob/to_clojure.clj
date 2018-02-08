@@ -81,7 +81,7 @@
 
 (def colliding-names
   #{;; "first" "rest" "last" "range" "pprint" "map" "replicate"
-    "program" "block"})
+    "program" "block" "define"})
 
 (defn to-symbol [strng]
   (symbol (if (contains? colliding-names strng)
@@ -104,11 +104,22 @@
 (defn expr-to-clojure [tr]
   (form-to-clojure tr false))
 
+;; Trace       => clojure                   => trace
+;; (x)->{a;b;} => (program [x] (block a b)) => (x)->{a;b;}
+;; (x)->{a;}   => (program [x] (block a))   => (x)->{a;}
+;; (x)->a      => (program [x] a)           => (x)->a
+;;
+;; safe abbreviation:
+;; (x)->{a;b;} => (program [x] a b) => (x)->{a;b;}
+
 ; Allow generation of (program [x] (foo) (bar)) instead of
 ; (program [x] (block (foo) (bar)))
 
+(def elide-block-sometimes true) ;screws up trace numbering
+
 (defn form-to-formlist [form]
-  (if (and (seq? form)
+  (if (and elide-block-sometimes
+           (seq? form)
            (= (name (first form)) "block")
            (not (= (count form) 2)))
     (rest form)
@@ -160,7 +171,7 @@
               ;; For readability, allow x y instead of (block x y)
               (form-to-formlist (to-clojure body-trace)))))
 
-; Convert a top level form (expression or definition)
+                                        ; Convert a top level form (expression or definition)
 
 (defn to-clojure [tr]
   (form-to-clojure tr true))
@@ -179,7 +190,7 @@
                  (subexpression-to-clojure tr "then")
                  (subexpression-to-clojure tr "else"))
       "block" (ensure-list
-              (block-to-clojure (subtraces-to-seq tr) def-ok?) "blah")
+               (block-to-clojure (subtraces-to-seq tr) def-ok?) "blah")
       "splice" (list 'mp-splice
                      (subexpression-to-clojure tr "expression"))
       "this" 'this
@@ -210,7 +221,8 @@
                              ;; the variables in the pattern.
                              (to-symbol (definition-name d)))))))))
 
-; Returns a list of clojure expressions
+;; Returns a list of clojure expressions.
+;; These are at the top level of the file, so not subject to constraints on trace path preservation.
 
 (defn top-level-to-clojure [tr]
   (if (= (value tr) "block")
@@ -222,7 +234,7 @@
 
 (defn subexpression-to-clojure [tr key]
   (let [sub (subtrace tr key)]
-    (assert (trie? sub) (list "missing" key))
+    (assert (trie? sub) ["missing field in parse tree" key])
     (expr-to-clojure sub)))
 
 ; Create a trie from a file containing a representation of a
@@ -252,9 +264,12 @@
                     (clojure.java.io/input-stream inpath)))]
       (read r))))
 
-; exprs is list of clojure expressions, as returned by top-level-to-clojure
+;; exprs is list of clojure expressions, as returned by top-level-to-clojure
+;; We tickle a clojure pprint bug if the :only list is []
+;; https://dev.clojure.org/jira/browse/CLJCLR-97
 
-(def metaprob-inherits-from-clojure '[declare])
+(def metaprob-inherits-from-clojure '[ns declare])
+
 (defn get-requirements [ns-name]
   (filter (fn [x]
             (not (= (name (first x)) (name ns-name))))
@@ -279,12 +294,9 @@
         ;; namespace, the same one in which nsname was created
         (write-one-form
          `(~'ns ~nsname
-            ;; We tickle a clojure pprint bug if the :only list is []
-            ;; https://dev.clojure.org/jira/browse/CLJCLR-97
             (:refer-clojure :only ~metaprob-inherits-from-clojure)
             (:require ~@(get-requirements nsname))))
         (doseq [form forms]
-          ;; Add forward declarations??
           (binding [*ns* this-ns]
             (write-one-form form)))))))
 

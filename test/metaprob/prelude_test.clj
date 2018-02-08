@@ -36,3 +36,29 @@
 
 ;; I'm sort of tired of this and don't anticipate problems, so
 ;; not putting more work into tests at this time.
+
+
+(deftest map-1a
+  (testing "Map over a clojure list"
+    (let [foo (prelude/map (fn [x] (+ x 1))
+                        (builtin/list 6 7 8))]
+      (is (builtin/length foo) 3)
+      (is (= (builtin/nth foo 0) 7))
+      (is (= (builtin/nth foo 1) 8))
+      (is (= (builtin/nth foo 2) 9)))))
+
+(deftest map-2
+  (testing "Map over a metaprob list"
+    (is (= (builtin/first
+            (builtin/rest
+             (prelude/map (fn [x] (+ x 1))
+                       (builtin/pair 6 (builtin/pair 7 (builtin/pair 8 (builtin/mk_nil)))))))
+           8))))
+
+(deftest map-3
+  (testing "Map over a metaprob array/tuple"
+    (is (= (value-at (prelude/map (fn [x] (+ x 1))
+                               (tuple 6 7 8))
+                     '(1))
+           8))))
+

@@ -14,17 +14,23 @@
     [the-ns]
   IEnv
   (env-lookup [_ name]
-    (deref (ns-resolve the-ns (symbol name))))
+    (let [v (ns-resolve the-ns (symbol name))]
+      (assert (var? v) ["not bound" name the-ns])
+      (assert (not (get (meta v) :macro)) ["reference to macro" name the-ns])
+      (deref v)))
   (env-bind! [_ name value]
     ;; how to create a new binding in a namespace (a la def)???
     (let [sym (symbol name)
           r (ns-resolve the-ns sym value)
           r (if r r (binding [*ns* the-ns]
                       (eval `(def ~sym))))]
-      (ref-set r value))))
+      (ref-set r value)
+      nil)))
 
 (defn make-top-level-env [ns]
-  (TopLevelEnv. ns))
+  (TopLevelEnv. (if (symbol? ns)
+                    (find-ns ns)
+                    ns)))
 
 (deftype Frame
     [the-parent
@@ -37,7 +43,8 @@
         (get bs name)
         (env-lookup the-parent name))))
   (env-bind! [_ name value]
-    (ref-set bindings-ref (assoc (deref bindings-ref) name value))))
+    (ref-set bindings-ref (assoc (deref bindings-ref) name value))
+    nil))
 
 (defn make-sub-environment [parent]
   (clojure.core/assert (satisfies? IEnv parent))

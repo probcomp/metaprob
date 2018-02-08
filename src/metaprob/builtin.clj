@@ -229,7 +229,7 @@
     (if (trace? x)
       (do (clojure.core/assert (trace? y))
           (append x y))
-      (if (and (seqable? x) (seqable? y))
+      (if (clojure.core/and (seqable? x) (seqable? y))
         (concat x y)
         (clojure.core/assert false ["invalid argument for add" x y])))))
 
@@ -704,7 +704,8 @@
       (match-bind p i env))))
 
 (define-deterministic-primitive match_bind [pattern input env]
-  (dosync (match-bind pattern input env)))
+  (dosync (match-bind pattern input env))
+  "return value of match_bind")
 
 
 ;; Random stuff

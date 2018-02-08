@@ -27,11 +27,19 @@
   (trace-keys [_])
   (trace-count [_])  ;Number of subtries
 
-  (normalize [_])    ;If there's a trie corresponding to this trace, return it, else nil
+  (maybe-normalize [_])    ;If there's a trie corresponding to this trace, return it, else nil
   (blaze [_]))
 
 (defn trace? [x]
   (satisfies? ITrace x))
+
+(defn normalize
+  ([tr]
+   (normalize tr nil))
+  ([tr info]
+   (let [n (maybe-normalize tr)]
+     (assert n ["failed to find this node" info])
+     n)))
 
 ; Concrete implementation of the above interface
 
@@ -49,7 +57,10 @@
       (trace? val)                      ;possibly a locative
       (environment? val)
       (and (instance? clojure.lang.IFn val)
-           (meta val))))
+           ;; ugh
+           (not (seq? val))
+           (not (map? val))
+           (not (symbol? val)))))
 
 (defn acceptable? [key sub]
   ;; Really stupid type system.  Functions should be stored, and only
@@ -57,8 +68,9 @@
   (if (trie? sub)
     (if (has-value? sub)
       (let [val (value sub)]
-        (if (= key "executable")
-          (instance? clojure.lang.IFn val)
+        (if (instance? clojure.lang.IFn val)
+          (or (= key "executable")
+              (meta val))
           (metaprob-value? val)))
       true)
     false))
@@ -93,7 +105,7 @@
     the-value)
   (set-value! [_ val]
     (assert (not (= val no-value)) "storing no value")
-    (assert (metaprob-value? val))
+    (assert (metaprob-value? val) ["storing non-metaprob value" val])
     (set! the-value val))
   (clear-value! [_]
     ;; Something fishy about this; if doing this causes the trie to become empty
@@ -180,7 +192,7 @@
   (trace-count [_]
     (count subtries))
 
-  (normalize [_] _)
+  (maybe-normalize [_] _)
 
   (blaze [_] _))
 
@@ -195,8 +207,7 @@
   ([]
    (Trie. no-value (hash-map)))
   ([val]
-   (assert (not (= val no-value)) "no value")
-   (assert (metaprob-value? val))
+   (assert (metaprob-value? val) ["initial value is non-metaprob" val (environment? val) (type val)])
    (Trie. val (hash-map))))
 
 (defn ensure-subtrie [tr key]
@@ -228,64 +239,56 @@
   ITrace
 
   (has-value? [_]
-    (let [n (normalize _)]
+    (let [n (maybe-normalize _)]
       (if (trie? n)
         (has-value? n)
         false)))
   (value [_]
-    (let [n (normalize _)]
-      (assert (trie? n) "unrealized locatives don't have values")
-      (value n)))
+    (value (normalize _ this-key)))
   (set-value! [_ val]
     (set-value! (blaze _) val))
   (clear-value! [_]
-    (let [n (normalize _)]
+    (let [n (maybe-normalize _)]
       (if (trie? n)
         (clear-value! n)
         nil)))
 
   ;; Direct children
   (has-subtrace? [_ key]
-    (let [n (normalize _)]
+    (let [n (maybe-normalize _)]
       (if (trie? n)
         (has-value? n)
         false)))
   (subtrace [_ key]
-    (let [n (normalize _)]
-      (assert (trie? n) "unresolved locatives don't have subtraces")
-      (subtrace n key)))
+    (subtrace (normalize _ this-key) key))
   (set-subtrace! [_ key subtrie]
     (set-subtrace! (blaze _) key subtrie))
 
   (subtrace-location [_ key]
-    (let [n (normalize _)]
+    (let [n (maybe-normalize _)]
       (if (trie? n)
         (subtrace-location n key)
         (new-locative _ key))))
 
   ;; Value at address
   (has-value-at? [_ addr]
-    (let [n (normalize _)]
+    (let [n (maybe-normalize _)]
       (if (trie? n)
         (has-value-at? n addr)
         false)))
   (value-at [_ addr]
-    (let [n (normalize _)]
-      (assert (trie? n) "unresolved locatives don't have subtraces")
-      (value-at n addr)))
+    (value-at (normalize _ this-key) addr))
   (set-value-at! [_ addr val]
     (set-value-at! (blaze _) addr val))
 
   ;; Descendant subtrie at address
   (has-subtrace-at? [_ addr]
-    (let [n (normalize _)]
+    (let [n (maybe-normalize _)]
       (if (trie? n)
         (has-subtrace-at? n addr)
         false)))
   (subtrace-at [_ addr]
-    (let [n (normalize _)]
-      (assert (trie? n) "unresolved locatives don't have subtraces")
-      (subtrace-at _ addr)))
+    (subtrace-at (normalize _ this-key) addr))
   (set-subtrace-at! [_ addr subtrie]
     (set-subtrace-at! (blaze _) addr subtrie))
 
@@ -298,22 +301,22 @@
                         (subtrace-location n head)
                         (new-locative _ head))
                       tail))))]
-      (re (or (normalize _) _) addr)))
+      (re (or (maybe-normalize _) _) addr)))
 
   (trace-keys [_] 
-    (let [n (normalize _)]
+    (let [n (maybe-normalize _)]
       (if (trie? n)
         (trace-keys n)
         '())))
   (trace-count [_]
-    (let [n (normalize _)]
+    (let [n (maybe-normalize _)]
       (if (trie? n)
         (trace-count n)
         0)))
 
   ;; Returns trie or nil
-  (normalize [_]
-    (let [n (normalize trie-or-locative)]
+  (maybe-normalize [_]
+    (let [n (maybe-normalize trie-or-locative)]
       (if (trie? n)
         (if (has-subtrace? n this-key)
           (subtrace n this-key)
@@ -324,7 +327,6 @@
   (blaze [_]
     (let [tr (blaze trie-or-locative)]    ;Up one level
       (ensure-subtrie tr this-key))))
-
 
 (defn new-locative [tl key]
   (Locative. tl key))
@@ -345,6 +347,7 @@
   ([maap]
    (trie-from-map no-value maap))
   ([maap val]
+   (assert (metaprob-value? val) ["starting value is a non-metaprob value" val])
    (trie-from-map val maap)))
 
 ; Returns a trie whose subtries are the members of the clojure sequence tlist
