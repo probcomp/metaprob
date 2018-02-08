@@ -14,6 +14,7 @@
                             nth
                             range
                             print])
+  (:require [metaprob.environment :refer :all])
   (:require [metaprob.trace :refer :all])
   (:require [clojure.test.check.random :as random])
   (:require [kixi.stats.distribution :as dist])
@@ -26,8 +27,8 @@
 (defn empty-trace? [x]
   (let [x (normalize x)]
     (clojure.core/and (trace? x)
-         (= (trace-count x) 0)
-         (clojure.core/not (has-value? x)))))
+                      (= (trace-count x) 0)
+                      (clojure.core/not (has-value? x)))))
 
 ;; --------------------
 ;; Let's start with metaprob tuples (= arrays), which are needed
@@ -226,10 +227,11 @@
   (if (number? x)
     (+ x y)
     (if (trace? x)
-      (append x y)
-      (if (seqable? x)
+      (do (clojure.core/assert (trace? y))
+          (append x y))
+      (if (and (seqable? x) (seqable? y))
         (concat x y)
-        (clojure.core/assert false ["invalid argument for add" x])))))
+        (clojure.core/assert false ["invalid argument for add" x y])))))
 
 (def sub (make-deterministic-primitive 'sub -))
 (def mul (make-deterministic-primitive 'mul *))
@@ -274,12 +276,12 @@
 (define-deterministic-primitive trace_set_at [tr addr val]
   (set-value-at! (tracify tr) (addrify addr) val))
 (define-deterministic-primitive trace_set_subtrace_at [tr addr sub]
-  (set-subtrace-at! (tracify tr) (addrify addr) sub))
+  (set-subtrace-at! (tracify tr) (addrify addr) sub)
+  "do not use this value")
 (define-deterministic-primitive trace_has_key [tr key]
   (has-subtrace? (tracify tr) key))
 (define-deterministic-primitive trace_subkeys [tr] (trace-keys (tracify tr)))
 (define-deterministic-primitive lookup [tr addr]
-  ;; addr might be a metaprobe seq instead of a clojure seq.
   (subtrace-location-at (tracify tr) (addrify addr)))  ; e[e]
 
 ;; Translation of .sites method from trace.py.
@@ -356,10 +358,10 @@
                   (do (clojure.core/print " ")
                       (pr (value tr))))
                 (newline)
-                (let [indent (str (concat indent "  "))]
+                (let [indent (str indent "  ")]
                   (doseq [key (trace-keys tr)]
                     (re (subtrace tr key) indent key))))]
-        (re tr "trace:"))))))
+        (re tr "" "trace:"))))))
 
 ;; Other builtins
 
@@ -449,12 +451,6 @@
       (- (math/log (count (filter (fn [x] (= x item)) items)))
          (math/log (count items))))))
 
-
-;; TBD (needed by prelude):
-;; trace_sites uniform_categorical uniform_continuous
-
-(define-deterministic-primitive resolve_tag_address [stuff]
-  stuff)
 
 ;; pair - not defined in prelude
 
@@ -647,10 +643,28 @@
   (clojure.core/assert false irritants))                     ;from prelude.vnts
 
 ;; capture_tag_address - overrides original prelude - but definition is the same.
-;; Compare builtin resolve_tag_address, defined above.
+;; Overrides definition in prelude.clj.
 
-(define-deterministic-primitive capture_tag_address [& stuff]
-  stuff)
+(define-deterministic-primitive capture_tag_address [i t o]
+  (trace-from-map {"intervention" (new-trace i)
+                   "target" (new-trace t)
+                   "output" (new-trace o)}
+                  "captured tag address"))
+
+(define-deterministic-primitive resolve_tag_address [quasi_addr]
+  (let [captured (first quasi_addr)
+        addr (addrify (rest quasi_addr))]
+    (clojure.core/assert (trace? captured))
+    (clojure.core/assert (= (trace-count captured) 3))
+    (let [i (value (subtrace captured "intervention"))
+          t (value (subtrace captured "target"))
+          o (value (subtrace captured "output"))]
+      (clojure.core/assert (clojure.core/and (trace? i) (trace? t) (trace? o)))
+      (let [i2 (subtrace-location-at i addr)
+            t2 (subtrace-location-at t addr)
+            o2 (subtrace-location-at o addr)]
+        (clojure.core/assert (clojure.core/and (trace? i2) (trace? t2) (trace? o2)))
+        (seq-to-metaprob-tuple [i2 t2 o2])))))
 
 (defn collection-subtraces-to-seq [coll]
   (clojure.core/assert trace? coll)
@@ -666,60 +680,23 @@
 ;; --------------------
 ;; Lexical environments, needed by program macro.
 
-(defprotocol IEnv
-  "An environment frame"
-  (env-lookup [_ name])
-  (env-bind [_ name value]))
-
-(deftype TopLevelEnv
-    [the-ns]
-  IEnv
-  (env-lookup [_ name]
-    (deref (ns-resolve the-ns (symbol name))))
-  (env-bind [_ name value]
-    ;; how to create a new binding in a namespace (a la def)???
-    (let [sym (symbol name)
-          r (ns-resolve the-ns sym value)
-          r (if r r (binding [*ns* the-ns]
-                      (eval `(def ~sym))))]
-      (ref-set r value))))
-
-(defn make-top-level-env [ns]
-  (TopLevelEnv. ns))
-
-(deftype Frame
-    [the-parent
-     bindings-ref]
-  IEnv
-  (env-lookup [_ name]
-    (clojure.core/assert (string? name) [(type name) name])
-    (let [bs (deref bindings-ref)]
-      (if (contains? bs name)
-        (get bs name)
-        (env-lookup the-parent name))))
-  (env-bind [_ name value]
-    (ref-set bindings-ref (assoc (deref bindings-ref) name value))))
-
-
 ;; env_lookup - overrides original prelude
 
 (define-deterministic-primitive env_lookup [env name]
-  (clojure.core/assert (satisfies? IEnv env))
   (env-lookup env (str name)))
 
 ;; make_env - overrides original prelude
 
 (define-deterministic-primitive make_env [parent]
-  (Frame. parent (ref {})))
+  (make-sub-environment parent))
 
 ;; match_bind - overrides original prelude
-;; match-bind [env pattern input]
 
 (defn match-bind [pattern input env]
   ;; pattern is a trace (variable or list, I think, maybe seq)
   (clojure.core/assert trace? pattern)
   (case (value pattern)
-    "variable" (env-bind env (value (subtrace pattern "name")) input)
+    "variable" (env-bind! env (value (subtrace pattern "name")) input)
     "tuple"
     ;; input is either a metaprob list or a metaprob tuple
     (doseq [p (subtraces-to-seq pattern)
@@ -728,6 +705,7 @@
 
 (define-deterministic-primitive match_bind [pattern input env]
   (dosync (match-bind pattern input env)))
+
 
 ;; Random stuff
 

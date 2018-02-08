@@ -26,8 +26,40 @@
     (is (= (b/first (b/rest (b/list 4 5 6)))
            5))))
 
+(deftest array2list
+  (testing "Convert metaprob tuple to metaprob list"
+    (let [v [5 7 11 13]
+          t (b/seq-to-metaprob-tuple v)]
+      (is (b/metaprob-tuple? t))
+      (let [l (b/array_to_list t)]
+        (is (b/metaprob-pair? l))
+        (let [v2 (vec (b/metaprob-list-to-seq l))]
+          (is (= v2 v)))))))
+
+(deftest list2array
+  (testing "Convert metaprob list to metaprob tuple"
+    (let [v [5 7 11 13]
+          t (b/seq-to-metaprob-list v)]
+      (is (b/metaprob-pair? t))
+      (let [l (b/list_to_array t)]
+        (is (b/metaprob-tuple? l))
+        (let [v2 (vec (b/metaprob-tuple-to-seq l))]
+          (is (= v2 v)))))))
+
+(deftest tag_capture
+  (testing "capture_ and retrieve_tag_address smoke test"
+    (let [root (new-trace "root")
+          q (b/capture_tag_address root root root)
+          a (b/list "this" "that")
+          r (b/resolve_tag_address (b/pair q a))
+          o2 (b/nth r 2)]
+      (is (trace? o2))
+      (b/trace_set o2 "value")
+      (is (= (b/trace_get o2) "value"))
+      (is (= (b/trace_get (b/lookup root a)) "value")))))
+
 (deftest reification-1
-  (testing "Does a program appear to be a trie?"
+  (testing "Does a program appear to be a trace?"
     (is (= (b/trace_get (program [] 7)) "prob prog"))))
 
 ;; The real `map` is now in the prelude, but keeping the old one
@@ -83,5 +115,3 @@
                                "y" (new-trace "d")})
           sites (b/trace_sites tree)]
       (is (= (b/length sites) 3)))))
-
-                              

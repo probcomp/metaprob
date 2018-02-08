@@ -57,10 +57,24 @@
                      v))
            6))))
            
-
-
 (deftest block-4
   (testing "Nested pattern in let"
     (is (= (block (define [a [b c d]] [1 [2 3 4]])
                   c)
            3))))
+
+(deftest define-1
+  (testing "Basic definition"
+    (let [form '(define foo 17)]
+      (binding [*ns* (find-ns 'metaprob.syntax)]
+        (eval form)
+        (is (= (eval 'foo) 17))))))
+
+(deftest define-2
+  (testing "Program definition"
+    (let [form '(define foo (program [x] x))]
+      (binding [*ns* (find-ns 'metaprob.syntax)]
+        (eval form)
+        (let [probprog (eval 'foo)]
+          (prn probprog)
+          (is (= (probprog 17) 17)))))))

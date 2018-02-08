@@ -1,5 +1,6 @@
 (ns metaprob.syntax
   (:require [clojure.string]
+            [metaprob.environment :as env]
             [metaprob.trace :refer :all]
             [metaprob.builtin :as builtin]))
 
@@ -17,22 +18,31 @@
               (symbol (clojure.string/join "|"
                                            (map var-for-pattern pat)))))
 
+          ;; Insert name into function expression, if any
+
+          (form-def [name rhs]
+            (let [rhs (if (and (seq? rhs) (= (first rhs) 'program))
+                        `(~'named-program ~name ~@(rest rhs))
+                        rhs)]
+              `(def ~name ~rhs)))
+
           ;; Returns a list [[var val] ...]
           ;; to be turned into, say, (block (define var val) ...)
           ;; or into (let [var val ...] ...)
 
           (explode-pattern [pattern rhs]
             (if (symbol? pattern)
-              (list `(def ~pattern ~rhs))
+              (list (form-def pattern rhs))
               (let [var (var-for-pattern pattern)]
-                (cons `(def ~var ~rhs)
+                (cons (form-def var rhs)
                       (mapcat (fn [subpattern i]
                                 (if (and (symbol? subpattern)
                                          (= (name subpattern) "_"))
                                   (list)
                                   (explode-pattern subpattern `(~'nth ~var ~i))))
                               pattern
-                              (range (count pattern)))))))]
+                              (range (count pattern)))))))
+          ]
 
     `(do ~@(explode-pattern pattern rhs))))
 
@@ -40,7 +50,7 @@
 
 (defn make-program [fun name params body ns]
   (let [exp (from-clojure `(~'program ~params ~@body))
-        env (builtin/make-top-level-env ns)]
+        env (env/make-top-level-env ns)]
     (with-meta fun {:name name
                     :trace (trace-from-map {"name" (new-trace exp)
                                            "source" exp

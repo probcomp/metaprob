@@ -124,12 +124,14 @@
                             (add addr (list "else"))))))
                     (if (eq (trace_get exp) "block")
                       (block
+                        (pprint exp)
                         (define n (length (trace_subkeys exp)))
                         (define
                           values
                           (map
                             (program
                               [i]
+                              (pprint exp)
                               (walk
                                 (lookup exp (list i))
                                 (add addr (list i))))

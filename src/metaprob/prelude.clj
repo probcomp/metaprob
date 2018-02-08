@@ -1,7 +1,7 @@
 ;; See doc/about-the-prelude.md
 
-(clojure.core/ns metaprob.prelude
-  (:refer-clojure :only [declare])
+(ns metaprob.prelude
+  (:refer-clojure :only [declare ns])
   (:require [metaprob.syntax :refer :all])
   (:require [metaprob.builtin :refer :all]))
 

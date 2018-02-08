@@ -2,6 +2,16 @@
   (:require [clojure.test :refer :all]
             [metaprob.trace :refer :all]))
 
+; Predicates
+
+(deftest trace-p
+  (testing "Does an empty trace have keys?"
+    (is (trace? (new-trace)))))
+
+(deftest trie-p
+  (testing "Does an empty trace have keys?"
+    (is (trie? (new-trace)))))
+
 ; Have to use 'is' for some reason
 
 (deftest empty-has-no-keys

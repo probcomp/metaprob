@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [not assert pprint and or
                             list first rest last nth range])
   (:require [clojure.test :refer :all]
+            [metaprob.environment :as environment]
             [metaprob.trace :refer :all]
             [metaprob.syntax :refer :all]
             [metaprob.builtin :as builtin]
@@ -26,7 +27,7 @@
 
 (defn ez-eval [x]
   (interpret_eval (from-clojure x)
-                  (builtin/make-top-level-env 'metaprob.metacirc.interpret)
+                  (environment/make-top-level-env 'metaprob.metacirc.interpret)
                   (mk_nil)))
 
 (deftest smoke-1

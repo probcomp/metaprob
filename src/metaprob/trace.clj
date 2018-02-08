@@ -1,4 +1,5 @@
-(ns metaprob.trace)
+(ns metaprob.trace
+  (:require [metaprob.environment :refer :all]))
 
 (def no-value '**no-value**)
 
@@ -41,17 +42,42 @@
 
 (defn address? [x] (seqable? x))
 
+(defn metaprob-value? [val]
+  (or (number? val)
+      (string? val)
+      (boolean? val)
+      (trace? val)                      ;possibly a locative
+      (environment? val)
+      (and (instance? clojure.lang.IFn val)
+           (meta val))))
+
 (defn acceptable? [key sub]
   ;; Really stupid type system.  Functions should be stored, and only
   ;; be stored, under the "executable" property.
-  (and (trie? sub)
-       (if (has-value? sub)
-         (let [val (value sub)]
-           (if (= key "executable")
-             (instance? clojure.lang.IFn val)
-             (or (not (instance? clojure.lang.IFn val))
-                 (meta val))))
-         true)))
+  (if (trie? sub)
+    (if (has-value? sub)
+      (let [val (value sub)]
+        (if (= key "executable")
+          (instance? clojure.lang.IFn val)
+          (metaprob-value? val)))
+      true)
+    false))
+
+(defn reason-unacceptable [key sub]
+  (if (trie? sub)
+    (if (has-value? sub)
+      (let [val (value sub)]
+        (if (= key "executable")
+          (or (instance? clojure.lang.IFn val)
+              ["exec non-IFn" key sub val])
+          (if (instance? clojure.lang.IFn val)
+            (or (meta val)
+                ["non-exec non-meta IFn" key sub val])    ;incl. seq, map
+            (if (metaprob-value? val)
+              true
+              ["not a metaprob value" key sub val]))))
+      true)
+    ["non-trie" key sub (type sub)]))
 
 (deftype Trie
   [^:volatile-mutable the-value
@@ -67,6 +93,7 @@
     the-value)
   (set-value! [_ val]
     (assert (not (= val no-value)) "storing no value")
+    (assert (metaprob-value? val))
     (set! the-value val))
   (clear-value! [_]
     ;; Something fishy about this; if doing this causes the trie to become empty
@@ -80,13 +107,14 @@
     (contains? subtries key))
   (subtrace [_ key]
     (let [sub (get subtries key)]
-      (assert (trie? sub) ["no such subtrie" key (trace-keys _)])
+      (assert (trie? sub) ["no such subtrie" key (trace-keys _) the-value])
       sub))
   (set-subtrace! [_ key sub]
     (assert trie? sub)
     (assert (acceptable? key sub)
-            ["unacceptable value to store under this property" _ key (value sub)])
-    (set! subtries (assoc subtries key sub)))
+            ["unacceptable assignment" _ (reason-unacceptable key sub)])
+    (set! subtries (assoc subtries key sub))
+    nil)
 
   (subtrace-location [_ key]
     (if (has-subtrace? _ key)
@@ -159,13 +187,16 @@
 
 ; Not clear whether this is the most idiomatic / best approach.
 (defn trie? [x]
-  (= (type x) Trie))
+  (instance? Trie x)
+  ;; (= (type x) Trie)
+  )
 
 (defn new-trace
   ([]
    (Trie. no-value (hash-map)))
   ([val]
    (assert (not (= val no-value)) "no value")
+   (assert (metaprob-value? val))
    (Trie. val (hash-map))))
 
 (defn ensure-subtrie [tr key]
@@ -229,7 +260,7 @@
   (subtrace-location [_ key]
     (let [n (normalize _)]
       (if (trie? n)
-        (subtrace n key)
+        (subtrace-location n key)
         (new-locative _ key))))
 
   ;; Value at address
@@ -259,15 +290,15 @@
     (set-subtrace-at! (blaze _) addr subtrie))
 
   (subtrace-location-at [_ addr]
-    (let [n (normalize _)]
-      (if (trie? n)
-        (subtrace-at n addr)
-        (if (empty? addr)
-          _
-          (let [[head & tail] addr]
-            ;; (subtrace-location ...) ?
-            (new-locative (subtrace-location-at _ tail) head))))))
-
+    (letfn [(re [n addr]
+              (if (empty? addr)
+                n
+                (let [[head & tail] addr]
+                  (re (if (trie? n)
+                        (subtrace-location n head)
+                        (new-locative _ head))
+                      tail))))]
+      (re (or (normalize _) _) addr)))
 
   (trace-keys [_] 
     (let [n (normalize _)]
@@ -306,7 +337,7 @@
 (defn trie-from-map [val maap]
   (doseq [[key sub] (seq maap)]
     (assert (acceptable? key sub)
-            ["bad subtrie value" key (value sub) (type (value sub))]))
+            ["bad subtrie assignment" (reason-unacceptable key sub)]))
   (Trie. val maap))
 
 ; thanks https://stuartsierra.com/2015/06/01/clojure-donts-optional-arguments-with-varargs
@@ -323,7 +354,6 @@
    (trace-from-map (zipmap (range (count tlist))
                           tlist)))
   ([tlist val]
-   (assert (every? trie? tlist))
    (trace-from-map (zipmap (range (count tlist))
                           tlist)
                   val)))
