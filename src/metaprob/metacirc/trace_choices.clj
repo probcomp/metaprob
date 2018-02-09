@@ -78,6 +78,7 @@
                   (range n)))
               (define oper (first values))
               (define name (trace_get (lookup oper (list "name"))))
+              ;; (pprint (add addr (list name)))
               (trace_choices
                 oper
                 (rest values)

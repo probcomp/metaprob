@@ -23,6 +23,7 @@
     (let [sym (symbol name)
           r (ns-resolve the-ns sym)
           r (if r r (binding [*ns* the-ns]
+                      (print (format "Assigning %s in %s" sym the-ns))
                       (eval `(def ~sym))
                       (ns-resolve the-ns sym)))]
       (ref-set r value)

@@ -180,10 +180,12 @@
 
   (subtrace-location-at [_ addr]
     (assert (address? addr) addr)
-    (if (empty? addr)
-      _
-      (let [[head & tail] addr]
-        (subtrace-location-at (subtrace-location _ head) tail))))
+    (letfn [(re [_ addr]
+              (if (empty? addr)
+                _
+                (let [[head & tail] addr]
+                  (re (subtrace-location _ head) tail))))]
+      (re _ addr)))
 
   (trace-keys [_] 
     (let [ks (keys subtries)]
@@ -228,10 +230,8 @@
   (if (empty? addr)
     tr
     (let [[head & tail] addr]
-      (if (has-subtrace? tr head)
-        (subtrace tr head)
-        (ensure-subtrie-at (ensure-subtrie tr head)
-                           tail)))))
+      (ensure-subtrie-at (ensure-subtrie tr head)
+                         tail))))
 
 (deftype Locative
   [trie-or-locative this-key]

@@ -16,7 +16,6 @@
                             print])
   (:require [metaprob.environment :refer :all])
   (:require [metaprob.trace :refer :all])
-  (:require [clojure.test.check.random :as random])
   (:require [kixi.stats.distribution :as dist])
   (:require [kixi.stats.math :as math]))
 
@@ -84,7 +83,8 @@
   (if (metaprob-pair? things)
     (cons (value things)
           (metaprob-list-to-seq (subtrace things rest-marker)))
-    '()))
+    (do (clojure.core/assert (empty-trace? things))
+        '())))
 
 ;; metaprob-collection-to-seq - convert metaprob collection=sequence
 ;; to clojure sequence.
@@ -403,7 +403,7 @@
 
 ;; Other builtins
 
-(def rng (random/make-random 42))
+(def rng (java.util.Random. 42))
 
 ;; Code translated from class BernoulliOutputPSP(DiscretePSP):
 ;;
@@ -412,8 +412,8 @@
 
 (define-nondeterministic-primitive flip
   (fn
-    ([] (<= (random/rand-double rng) 0.5))
-    ([weight] (<= (random/rand-double rng) weight)))
+    ([] (<= (.nextDouble rng) 0.5))
+    ([weight] (<= (.nextDouble rng) weight)))
   (fn [sample params]
     (let [weight (apply (fn ([] 0.5) ([weight] weight))
                         params)]
@@ -455,7 +455,7 @@
     ;;   (/ u (+ u (rand-gamma beta r2))))
     ;; rand-gamma is hairy. but defined in same file.
     (dist/draw (dist/beta :alpha a :beta b)
-               :seed (random/rand-long rng)))
+               :seed (.nextLong rng)))
   (fn [x [a b]]
     ;; Venture does:
     ;; def logDensityNumeric(self, x, params):

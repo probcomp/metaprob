@@ -22,11 +22,8 @@
   (program
     [n]
     (define root_addr this)
-    (print "yow")
     (define tricky (flip 0.1))
-    (pprint tricky)
     (define weight (if tricky (block (uniform 0 1)) (block 0.5)))
-    (pprint weight)
     (map
       (program
         [i]

@@ -111,20 +111,25 @@
 
 ;; 
 
-(deftest junk-1
-  (testing "foo"
-    (if false
-      (let [flip_coins (ez-eval '(program [n]
-                                          (define r (range n))
-                                          (pprint r)
-                                          (map (program [tag] (flip))
-                                               r)))]
-        (let [output (b/mk_nil)
-              choices (trace_choices flip_coins (tuple 5) (b/mk_nil) output)]
-          (print "Output trace:")
-          (b/pprint output)
-          (print "Result:")
-          (b/pprint choices)
-          true)))))
+(deftest flip-1
+  (testing "is flip working?"
+    (let [flip_coins (ez-eval '(program [n]
+                                        (define r (range n))
+                                        (map (program [tag] (flip))
+                                             r)))]
+      (let [output (b/mk_nil)
+            choices (trace_choices flip_coins (tuple 10) (b/mk_nil) output)]
+        (let [number-of-trues (apply + (map (fn [x] (if x 1 0)) (b/metaprob-list-to-seq choices)))]
+          (is (> number-of-trues 0)))))))
 
-        
+(deftest address-1
+  (testing "is trace_choices forming addresses properly?"
+    (let [foo (ez-eval '(program []
+                                 (block (add 16 1)
+                                        (define r (add 3 7))
+                                        19)))]
+      (let [output (b/mk_nil)
+            result (trace_choices foo (tuple) (b/mk_nil) output)]
+        (is (= result 19))
+        (is (has-value-at? output '(0 "add")))
+        (is (has-value-at? output '(1 "r" "add")))))))

@@ -74,8 +74,6 @@
       (set-value-at! place '(b) 17)
       (is (= (value-at trace '(a b)) 17)))))
 
-(def suppress? true)
-
 (deftest store-fetch-value-at-2b
   (testing "If you store a value at some address, is it there?"
     (let [trace (new-trace)
@@ -109,4 +107,8 @@
     (let [trace (new-trace)
           place (subtrace-location-at trace '(a b))]
       (set-value-at! place '(c d) 17)
+      (is (has-subtrace-at? place '(c)))
+      (is (has-subtrace-at? place '(c d)))
+      (is (has-subtrace-at? trace '(a b c)))
+      (is (has-subtrace-at? trace '(a b c d)))
       (is (= (value-at trace '(a b c d)) 17)))))
