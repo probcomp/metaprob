@@ -252,6 +252,9 @@
 (def mul (make-deterministic-primitive 'mul *))
 (def div (make-deterministic-primitive 'div /))
 
+;; (def cos (make-deterministic-primitive 'cos clojure.core/cos))
+;; (def sin (make-deterministic-primitive 'sin clojure.core/sin))
+
 (define-deterministic-primitive log [x]
   (math/log x))
 
