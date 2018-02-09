@@ -22,8 +22,11 @@
   (program
     [n]
     (define root_addr this)
+    (print "yow")
     (define tricky (flip 0.1))
+    (pprint tricky)
     (define weight (if tricky (block (uniform 0 1)) (block 0.5)))
+    (pprint weight)
     (map
       (program
         [i]
@@ -62,6 +65,7 @@
     (trace_choices flip_coins (tuple 5) (mk_nil) a_trace)
     (if do_print
       (block
+        (pprint a_trace)
         (print (trace_get (lookup a_trace (list 1 "tricky" "flip")))))
       "ok")
     a_trace))

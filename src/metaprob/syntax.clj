@@ -52,11 +52,11 @@
   (let [exp (from-clojure `(~'program ~params ~@body))
         env (env/make-top-level-env ns)]
     (with-meta fun {:name name
-                    :trace (trace-from-map {"name" (new-trace exp)
-                                           "source" exp
-                                           "environment"
-                                             (new-trace env)}
-                                          "prob prog")})))
+                    :trace (trace-from-map {"name" (new-trace exp)  ;suspect
+                                            "source" exp
+                                            "environment"
+                                               (new-trace env)}
+                                           "prob prog")})))
 
 (defmacro named-program [name params & body]
   `(make-program (fn ~params (block ~@body))
@@ -225,9 +225,9 @@
 (defn from-clojure-if [exp]
   (let [[_ pred thn els] exp]
     (trace-from-map {"predicate" (from-clojure pred)
-                    "then" (from-clojure thn)
-                    "else" (from-clojure els)}
-                   "if")))
+                     "then" (from-clojure thn)
+                     "else" (from-clojure els)}
+                    "if")))
 
 (defn from-clojure-block [exp]
   (from-clojure-seq (rest exp) "block"))
@@ -235,8 +235,8 @@
 (defn from-clojure-with-address [exp]
   (let [[_ tag ex] exp]
     (trace-from-map {"tag" (from-clojure tag)
-                    "expression" (from-clojure ex)}
-                   "with_address")))
+                     "expression" (from-clojure ex)}
+                    "with_address")))
 
 ; This doesn't handle _ properly.  Fix later.
 
@@ -244,8 +244,8 @@
   (let [[_ pattern rhs] exp
         key (if (symbol? pattern) (str pattern) "definiens")]
     (trace-from-map {"pattern" (from-clojure pattern)
-                    key (from-clojure rhs)}
-                   "definition")))
+                     key (from-clojure rhs)}
+                    "definition")))
 
 (defn from-clojure-application [exp]
   (from-clojure-seq exp "application"))

@@ -54,6 +54,7 @@
   (or (number? val)
       (string? val)
       (boolean? val)
+      (= val nil)     ; needed?
       (trace? val)                      ;possibly a locative
       (environment? val)
       (and (instance? clojure.lang.IFn val)

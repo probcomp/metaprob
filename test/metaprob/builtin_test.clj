@@ -62,6 +62,14 @@
   (testing "Does a program appear to be a trace?"
     (is (= (b/trace_get (program [] 7)) "prob prog"))))
 
+(deftest range-1
+  (testing "range smoke test"
+    (let [r (b/range 5)]
+      (is (= (b/length r) 5))
+      (is (= (b/length (b/metaprob-list-to-seq r)) 5))
+      (is (= (b/first r) 0))
+      (is (= (b/last r) 4)))))
+
 ;; The real `map` is now in the prelude, but keeping the old one
 ;; because hard to throw away code I worked on!
 
@@ -115,3 +123,14 @@
                                "y" (new-trace "d")})
           sites (b/trace_sites tree)]
       (is (= (b/length sites) 3)))))
+
+;; match_bind
+
+;; (deftest match_bind-1
+;;   (testing "match_bind smoke"
+;;     (let [env (make_env ... what a pain in the ass ...)]
+;;       (b/match_bind (from_clojure '[a b])
+;;                     [1 2]
+;;                     env)
+;;       (is (= (env_lookup env "a") 1))
+;;       (is (= (env_lookup env "b") 2)))))

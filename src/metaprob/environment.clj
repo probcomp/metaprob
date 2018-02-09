@@ -21,9 +21,10 @@
   (env-bind! [_ name value]
     ;; how to create a new binding in a namespace (a la def)???
     (let [sym (symbol name)
-          r (ns-resolve the-ns sym value)
+          r (ns-resolve the-ns sym)
           r (if r r (binding [*ns* the-ns]
-                      (eval `(def ~sym))))]
+                      (eval `(def ~sym))
+                      (ns-resolve the-ns sym)))]
       (ref-set r value)
       nil)))
 

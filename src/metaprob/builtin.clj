@@ -130,18 +130,27 @@
 ;; which is defined in sp.py.  'params' (elsewhere called 'args') are
 ;; the parameters to the particular distribution we're sampling.
 
-(defn apply-nondeterministic [fun params log-density intervene target output]
+(defn apply-nondeterministic [fun params logpdf intervene target output]
   (let [params (metaprob-collection-to-seq params)]
     (let [[ans score]
           (if (has-value? target)
             (let [ans (value target)]
-              [ans (log-density ans params)])
+              ;; Compute score
+              [ans (logpdf ans params)])
             (let [ans (if (has-value? intervene)
                         (value intervene)
                         (apply fun params))]
               [ans 0]))]
       (set-value! output ans)
       (metaprob-cons ans (metaprob-cons score (mk_nil))))))
+
+(defn apply-nondeterministic-scoreless [fun params intervene output]
+  (let [params (metaprob-collection-to-seq params)]
+    (let [ans (if (has-value? intervene)
+                (value intervene)
+                (apply fun params))]
+      (set-value! output ans)
+      ans)))
 
 ;; Nondeterministic primitives have to have a suite of custom
 ;; application methods, one for each meta-circular interpreter.
@@ -155,49 +164,51 @@
 ;;     ptc=python_ptc_prob_prog(sp.py_propose)) # TODO Name the proposer?
 ;; p-a-t-c, in particular, looks for "custom_choice_tracing_proposer".
 
-(defn make-nondeterministic-primitive [name sampler logdensity]
+(defn make-nondeterministic-primitive [name sampler logpdf]
   (let [name (if (symbol? name) (str name) name)]
     (clojure.core/assert (string? name))
     (clojure.core/assert (instance? clojure.lang.IFn sampler))
-    (clojure.core/assert (instance? clojure.lang.IFn logdensity))
+    (clojure.core/assert (instance? clojure.lang.IFn logpdf))
     (letfn [(execute [args]          ;sp.simulate
               (apply sampler args))
-            (p-a-t-c [args intervene target output]
-              (apply-nondeterministic sampler args logdensity intervene target output))
-            (interpret [args intervene]
-              (p-a-t-c args intervene (mk_nil) (mk_nil)))
-            (propose [args intervene target]
-              (p-a-t-c args intervene target (mk_nil)))
+            ;; Without score
             (trace [args intervene output]
-              (p-a-t-c args intervene (mk_nil) output))]
+              (apply-nondeterministic-scoreless sampler args intervene output))
+            (interpret [args intervene]
+              (trace args intervene (mk_nil)))
+            ;; With score
+            (p-a-t-c [args intervene target output]
+              (apply-nondeterministic sampler args logpdf intervene target output))
+            (propose [args intervene target]
+              (p-a-t-c args intervene target (mk_nil)))]
       (with-meta sampler
         {:trace (trace-from-map
                  {"name" (new-trace name)
                   ;; The execute property is always a clojure function (non-trace)
                   "executable" (new-trace execute)
                   "custom_interpreter" (new-trace (make-deterministic-primitive name interpret))
-                  "custom_choice_trace" (new-trace (make-deterministic-primitive name trace))
+                  "custom_choice_tracer" (new-trace (make-deterministic-primitive name trace))
                   "custom_proposer" (new-trace (make-deterministic-primitive name propose))
                   "custom_choice_tracing_proposer"
                   (new-trace (make-deterministic-primitive name p-a-t-c))}
                  "prob prog")}))))
 
 (defmacro ^:private define-nondeterministic-primitive [mp-name
-                                                       sample-fun
-                                                       logdensity-fun]
-  (let [sample-name (symbol (str mp-name '|sampler))
-        logdensity-name (symbol (str mp-name '|logdensity))]
+                                                       sampler-fun
+                                                       logpdf-fun]
+  (let [sampler-name (symbol (str mp-name '|sampler))
+        logpdf-name (symbol (str mp-name '|logpdf))]
     `(do (declare ~mp-name)
          ;; It would be better if these were defns instead of defs, but
          ;; that would require work.
-         ;; sample-fun takes the distribution parameters as arguments
-         (def ~sample-name ~sample-fun)
-         ;; logdensity-fun takes 2 args, a sample and the list of parameters
-         (def ~logdensity-name ~logdensity-fun)
+         ;; sampler-fun takes the distribution parameters as arguments
+         (def ~sampler-name ~sampler-fun)
+         ;; logpdf-fun takes 2 args, a sample and the list of parameters
+         (def ~logpdf-name ~logpdf-fun)
          (def ~mp-name
            (make-nondeterministic-primitive '~mp-name
-                                            ~sample-name
-                                            ~logdensity-name)))))
+                                            ~sampler-name
+                                            ~logpdf-name)))))
 
 
 
@@ -229,9 +240,13 @@
     (if (trace? x)
       (do (clojure.core/assert (trace? y))
           (append x y))
-      (if (clojure.core/and (seqable? x) (seqable? y))
+      (if (clojure.core/and (string? x) (string? y))
         (concat x y)
-        (clojure.core/assert false ["invalid argument for add" x y])))))
+        (if (clojure.core/and (seqable? x) (seqable? y))
+          (let [x (if (string? x) (clojure.core/list x) x)
+                y (if (string? y) (clojure.core/list y) y)]
+            (concat x y))
+          (clojure.core/assert false ["invalid argument for add" x y]))))))
 
 (def sub (make-deterministic-primitive 'sub -))
 (def mul (make-deterministic-primitive 'mul *))
@@ -266,6 +281,11 @@
           tr)
         (clojure.core/assert false
                              ["can't coerce this to a trace" x])))))
+
+(defn tracish? [x]
+  (clojure.core/or (trace? x)
+                   (let [m (meta x)]
+                     (clojure.core/and (map? m) (contains? m :trace)))))
 
 (define-deterministic-primitive trace_get [tr] (value (tracify tr)))        ; *e
 (define-deterministic-primitive trace_has [tr] (has-value? (tracify tr)))
@@ -345,23 +365,41 @@
 
 ;; Prettyprint
 
+(defn pprint-atom [a]
+  (if (tracish? a)
+    (let [x (tracify a)
+          keys (trace-keys x)]
+      (if (has-value? x)
+        (if (empty? keys)
+          (clojure.core/print (format "{{%s}}" (value x)))
+          (clojure.core/print (format "{{%s, %s: ...}}" (value x) (first keys))))
+        (if (empty? keys)
+          (clojure.core/print "{{}}")
+          (clojure.core/print (format "{{%s: ...}}" (first keys))))))
+    (if (string? a)
+      (clojure.core/print a)    ;without quotes
+      (pr a))))
+
 (define-deterministic-primitive pprint [x]
-  (let [tr (tracify x)]
-    (if (not (= tr x))
-      (clojure.core/print x)
-    (if (trace? tr)
+  (if (tracish? x)
+    (let [tr (tracify x)]
+      (if (not (= tr x))
+        (clojure.core/print "*"))
       (letfn [(re [tr indent tag]
                 (clojure.core/print indent)
-                (clojure.core/print tag)
+                (pprint-atom tag)
+                (if (clojure.core/or (has-value? tr)
+                                     (not (empty? (trace-keys tr))))
+                  (clojure.core/print ": "))
                 ;; If it has a value, clojure-print the value
                 (if (has-value? tr)
-                  (do (clojure.core/print " ")
-                      (pr (value tr))))
+                  (pprint-atom (value tr)))
                 (newline)
                 (let [indent (str indent "  ")]
                   (doseq [key (trace-keys tr)]
                     (re (subtrace tr key) indent key))))]
-        (re tr "" "trace:"))))))
+        (re tr "" "trace")))
+    (do (clojure.core/print x) (newline))))
 
 ;; Other builtins
 
@@ -490,10 +528,10 @@
 (define-deterministic-primitive is_metaprob_array [x]
   (metaprob-tuple? x))
 
-;; dummy, no longer needed
+;; dummy, no longer needed (used in examples and/or prelude?)
 
 (define-deterministic-primitive dereify_tag [x]
-  x)
+  false)
 
 ;; In metaprob, these are strict functions.
 
@@ -584,7 +622,9 @@
 (define-deterministic-primitive range [n]
   (_range n 0))
 
-;; map - overrides original prelude - BUT DON'T DO THIS.
+;; map - overrides original prelude - BUT DON'T DO THIS - we need the
+;; metaprob form so that we can feed it through the meta-circular
+;; interpreters.
 
 ;; Attempt to make type of result be the same as type of input.
 ;; --> We'll want to use the version from the original prelude so that
@@ -646,10 +686,13 @@
 ;; Overrides definition in prelude.clj.
 
 (define-deterministic-primitive capture_tag_address [i t o]
+  (clojure.core/assert (clojure.core/and (trace? i) (trace? t) (trace? o)))
   (trace-from-map {"intervention" (new-trace i)
                    "target" (new-trace t)
                    "output" (new-trace o)}
                   "captured tag address"))
+
+;; resolve_tag_address - original is in builtin.py
 
 (define-deterministic-primitive resolve_tag_address [quasi_addr]
   (let [captured (first quasi_addr)
@@ -659,7 +702,6 @@
     (let [i (value (subtrace captured "intervention"))
           t (value (subtrace captured "target"))
           o (value (subtrace captured "output"))]
-      (clojure.core/assert (clojure.core/and (trace? i) (trace? t) (trace? o)))
       (let [i2 (subtrace-location-at i addr)
             t2 (subtrace-location-at t addr)
             o2 (subtrace-location-at o addr)]
@@ -690,7 +732,9 @@
 (define-deterministic-primitive make_env [parent]
   (make-sub-environment parent))
 
-;; match_bind - overrides original prelude
+;; match_bind - overrides original prelude.
+;; Liberal in what it accepts: the input can be either a list or a
+;; tuple, at any level.
 
 (defn match-bind [pattern input env]
   ;; pattern is a trace (variable or list, I think, maybe seq)
@@ -699,9 +743,15 @@
     "variable" (env-bind! env (value (subtrace pattern "name")) input)
     "tuple"
     ;; input is either a metaprob list or a metaprob tuple
-    (doseq [p (subtraces-to-seq pattern)
-            i (metaprob-collection-to-seq input)]
-      (match-bind p i env))))
+    (let [subpatterns (subtraces-to-seq pattern)
+          parts (metaprob-collection-to-seq input)]
+      (clojure.core/assert
+       (= (count subpatterns) (count parts))
+       ["number of subpatterns differs from number of input parts"
+        (count subpatterns) (count parts)])
+      ;; Ugh. https://stackoverflow.com/questions/9121576/clojure-how-to-execute-a-function-on-elements-of-two-seqs-concurently
+      (doseq [[p i] (map clojure.core/list subpatterns parts)]
+        (match-bind p i env)))))
 
 (define-deterministic-primitive match_bind [pattern input env]
   (dosync (match-bind pattern input env))
