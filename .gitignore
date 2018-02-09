@@ -13,7 +13,6 @@ pom.xml.asc
 .lein_classpath
 .nrepl-port
 TAGS
-converted
 parsings
 *.tmp
 *~
