@@ -62,11 +62,17 @@
   (testing "Does a program appear to be a trace?"
     (is (= (b/trace_get (program [] 7)) "prob prog"))))
 
+(deftest length-1
+  (testing "length smoke test"
+    (is (= (b/length (b/mk_nil)) 0))
+    (is (= (b/length (b/pair 0 (b/mk_nil))) 1))
+    (is (= (b/length (b/seq-to-metaprob-list [1 2 3 4])) 4))))
+
 (deftest range-1
   (testing "range smoke test"
     (let [r (b/range 5)]
       (is (= (b/length r) 5))
-      (is (= (b/length (b/metaprob-list-to-seq r)) 5))
+      (is (= (count (b/metaprob-list-to-seq r)) 5))
       (is (= (b/first r) 0))
       (is (= (b/last r) 4)))))
 
@@ -134,3 +140,27 @@
 ;;                     env)
 ;;       (is (= (env_lookup env "a") 1))
 ;;       (is (= (env_lookup env "b") 2)))))
+
+
+(deftest list-contains-1
+  (testing "smoke test metaprob-list-contains"
+    (is (b/metaprob-list-contains? (b/seq-to-metaprob-list '(3 5 7))
+                                   5))))
+
+(deftest list-contains-2
+  (testing "smoke test metaprob-list-contains"
+    (is (not (b/metaprob-list-contains? (b/seq-to-metaprob-list '(3 5 7))
+                                        11)))))
+
+(deftest set_difference-1
+  (testing "smoke test set_difference"
+    (let [a (b/seq-to-metaprob-list '(3 5 7))
+          b (b/seq-to-metaprob-list '(5 7 11 13))]
+      (is (b/metaprob-list-contains? a 5) "5 in a")
+      (let [a-b (b/set_difference a b)
+            b-a (b/set_difference b a)]
+        (is (b/metaprob-list-contains? a-b 3) "3 in a-b")
+        (is (b/metaprob-list-contains? b-a 13) "13 in b-a")
+        (is (not (b/metaprob-list-contains? a-b 7)) "7 not in a-b")
+        (is (not (b/metaprob-list-contains? b-a 7)) "7 not in b-a")))))
+

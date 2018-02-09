@@ -17,17 +17,17 @@
   (:require [metaprob.environment :refer :all])
   (:require [metaprob.trace :refer :all])
   (:require [kixi.stats.distribution :as dist])
-  (:require [kixi.stats.math :as math]))
+  (:require [kixi.stats.math :as math])
+  (:require [clojure.set :as set]))
 
 (declare length nth)
 
 ;; empty-trace? - is this trace a metaprob representation of an empty tuple/list?
 
 (defn empty-trace? [x]
-  (let [x (normalize x)]
-    (clojure.core/and (trace? x)
-                      (= (trace-count x) 0)
-                      (clojure.core/not (has-value? x)))))
+  (clojure.core/and (trace? x)
+                    (= (trace-count x) 0)
+                    (clojure.core/not (has-value? x))))
 
 ;; --------------------
 ;; Let's start with metaprob tuples (= arrays), which are needed
@@ -54,6 +54,8 @@
 ;; --------------------
 ;; Next, the minimal pair support that will be needed in order to
 ;; define primitives.
+
+(declare first rest)
 
 (def rest-marker "rest")
 
@@ -82,7 +84,7 @@
 (defn metaprob-list-to-seq [things]
   (if (metaprob-pair? things)
     (cons (value things)
-          (metaprob-list-to-seq (subtrace things rest-marker)))
+          (metaprob-list-to-seq (rest things)))
     (do (clojure.core/assert (empty-trace? things))
         '())))
 
@@ -260,8 +262,6 @@
 
 (def mk_nil (make-deterministic-primitive 'mk_nil mk_nil))
 
-(declare first rest)
-
 ;; addr is a metaprob list. The trace library wants clojure sequences.
 ;; TBD: permit tuple etc. here?  (metaprob-collection-to-seq?)
 
@@ -308,6 +308,7 @@
   (subtrace-location-at (tracify tr) (addrify addr)))  ; e[e]
 
 ;; Translation of .sites method from trace.py.
+;; Also known as addresses_of.
 ;; Returns a list of addresses, I believe.  (and addresses are themselves lists.)
 
 (define-deterministic-primitive trace_sites [trace]
@@ -548,23 +549,32 @@
   (assert false "what is exactly, exactly?"))
 
 ;; ----------------------------------------------------------------------
+
+(defn diagnose-nonpair [mp-list]
+  (if (trace? mp-list)
+    (if (has-value? mp-list)
+      (if (has-subtrace? mp-list rest-marker)
+        "ok"
+        ["no rest marker" (trace-keys mp-list)])
+      ["no value" (trace-keys mp-list)])
+    ["not a trace" mp-list]))
+
 ;; Defined in original prelude (if they are here, then there should be
 ;; some good reason not to use the prelude version)
 
 ;; first - overrides original prelude (performance + generalization)
 
 (define-deterministic-primitive first [mp-list]
-  (if (trace? mp-list)
+  (if (metaprob-pair? mp-list)
     (value mp-list)
-    (clojure.core/first mp-list)))
+    (clojure.core/assert false (diagnose-nonpair mp-list))))
 
 ;; rest - overrides original prelude (performance + generalization)
 
 (define-deterministic-primitive rest [mp-list]
-  (if (trace? mp-list)
-    (do (clojure.core/assert (metaprob-pair? mp-list))
-        (subtrace mp-list rest-marker))
-    (clojure.core/rest mp-list)))
+  (if (metaprob-pair? mp-list)
+    (subtrace mp-list rest-marker)
+    (clojure.core/assert false (diagnose-nonpair mp-list))))
 
 ;; is_pair - overrides original prelude (performance + generalization)
 
@@ -574,15 +584,11 @@
 ;; length - overrides original prelude (performance + generalization)
 
 (define-deterministic-primitive length [x]
-  (if (trace? x)
-    (if (metaprob-pair? x)
-      (letfn [(scan [x]
-                (if (metaprob-pair? x)
-                  (+ 1 (scan (rest x)))
-                  0))]
-        (scan x))
-      (trace-count x))
-    (count x)))
+  (letfn [(scan [x]
+            (if (metaprob-pair? x)
+              (+ 1 (scan (rest x)))
+              0))]
+    (scan x)))
 
 ;; drop - use prelude version?
 
@@ -597,21 +603,22 @@
     mp-list))
 
 (define-deterministic-primitive last [mp-list]
-  (if (trace? mp-list)
+  (if (metaprob-pair? mp-list)
     (mp-list-last mp-list)
-    (clojure.core/last mp-list)))
+    (clojure.core/assert false (diagnose-nonpair mp-list))))
 
 ;; nth - overrides original prelude (performance + generalization)
-
-(defn mp-list-nth [mp-list i]
-  (if (= i 0)
-    (first mp-list)
-    (mp-list-nth (rest mp-list) (- i 1))))
 
 (define-deterministic-primitive nth [thing i]
   (if (trace? thing)
     (if (metaprob-pair? thing)
-      (mp-list-nth thing i)
+      (letfn [(re [l i]
+                (if (metaprob-pair? l)
+                  (if (= i 0)
+                    (first l)
+                    (re (rest l) (- i 1)))
+                  (clojure.core/assert false [(diagnose-nonpair l) i (length thing)])))]
+        (re thing (int i)))
       (value (subtrace thing i)))
     (clojure.core/nth thing i)))
 
@@ -620,7 +627,7 @@
 ;; range - overrides original prelude (performance + generalization)
 
 (defn _range [n k]
-  (if (gte k n) (mk_nil) (pair k (_range n (add k 1)))))
+  (if (>= k n) (mk_nil) (pair k (_range n (+ k 1)))))
 
 (define-deterministic-primitive range [n]
   (_range n 0))
@@ -763,19 +770,31 @@
 
 ;; Random stuff
 
+;; Does list s contain element x?
+;; Not used
+
 (defn metaprob-list-contains? [s x]
   (if (empty-trace? s)
     false
-    (if (= x (value s))
+    (if (= x (first s))
       true
       (metaprob-list-contains? (rest s) x))))
 
+;; All the members of s1 that are *not* in s2
+;; Translation of version found in builtin.py.
+
 (define-deterministic-primitive set_difference [s1 s2]
+  (seq-to-metaprob-list
+   (seq (set/difference (set (metaprob-collection-to-seq s1))
+                        (set (metaprob-collection-to-seq s2))))))
+
+;; Unfortunately this does work.
+(defn setdiff-alternative-method [s1 s2]
   (if (empty-trace? s1)
     s1
     (if (metaprob-list-contains? s2 (first s1))
-      (pair (first s1) (set_difference (rest s1) s2))
-      (set_difference (rest s1) s2))))
+      (set_difference (rest s1) s2)
+      (pair (first s1) (set_difference (rest s1) s2)))))
 
 ;; Maybe print trace contents in the future...
 
