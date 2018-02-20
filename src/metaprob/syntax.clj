@@ -63,7 +63,10 @@
                                            "prob prog")})))
 
 (defmacro named-program [name params & body]
-  `(make-program (fn ~params (block ~@body))
+  `(make-program (fn
+                   ~@(if name `(~name) `())
+                   ~params
+                   (block ~@body))
                  '~name
                  '~params
                  '~body
@@ -75,7 +78,7 @@
 (defmacro program
   "like fn, but for metaprob programs"
   [params & body]
-  `(named-program unnamed ~params ~@body))
+  `(named-program nil ~params ~@body))
 
 ;; Oddly, the source s-expressions don't seem to answer true to list?
 

@@ -65,7 +65,8 @@
   (let [x (proper-trace x)]
     (clojure.core/and x
                       (has-value? x)
-                      (has-subtrace? x rest-marker))))
+                      (has-subtrace? x rest-marker)
+                      (= (trace-count x) 1))))
 
 (defn metaprob-cons [thing mp-list]
   (clojure.core/assert (clojure.core/or (empty-trace? mp-list)
@@ -265,12 +266,30 @@
 
 (def mk_nil (make-deterministic-primitive 'mk_nil mk_nil))
 
+;; Convert a value to be used as a key to a pure clojure value so that
+;; hash and = will work on it.
+
+(defn detracify [x]
+  (if (trace? x)
+    (if (empty-trace? x)
+      '()
+      (if (metaprob-pair? x)
+        (apply clojure.core/list (map detracify (metaprob-list-to-seq x))) ;cf. metaprob-value?
+        (if (metaprob-tuple? x)
+          (vec (map detracify (metaprob-tuple-to-seq x)))
+          (let [keys (trace-keys x)
+                maap (into {} (for [key keys] [key (detracify (subtrace x key))]))]
+            (if (has-value? x)
+              (assoc maap :value (detracify (value x)))
+              maap)))))
+    x))
+
 ;; addr is a metaprob list. The trace library wants clojure sequences.
 ;; TBD: permit tuple etc. here?  (metaprob-collection-to-seq?)
 
 (defn addrify [addr]
   (if (trace? addr)
-    (metaprob-list-to-seq addr)
+    (map detracify (metaprob-list-to-seq addr))
     addr))
 
 ;; If an object (e.g. a function) has a :trace meta-property, then
@@ -287,6 +306,8 @@
           tr)
         (clojure.core/assert false
                              ["can't coerce this to a trace" x])))))
+
+;; OK as an argument to tracify?
 
 (defn tracish? [x]
   (clojure.core/or (trace? x)
@@ -305,7 +326,7 @@
   (set-subtrace-at! (tracify tr) (addrify addr) sub)
   "do not use this value")
 (define-deterministic-primitive trace_has_key [tr key]
-  (has-subtrace? (tracify tr) key))
+  (has-subtrace? (tracify tr) (detracify key)))
 (define-deterministic-primitive trace_subkeys [tr]
   (seq-to-metaprob-list (trace-keys (tracify tr))))
 (define-deterministic-primitive lookup [tr addr]
@@ -799,8 +820,10 @@
 
 (define-deterministic-primitive set_difference [s1 s2]
   (seq-to-metaprob-list
-   (seq (set/difference (set (metaprob-collection-to-seq s1))
-                        (set (metaprob-collection-to-seq s2))))))
+   (seq (set/difference (set (map detracify
+                                  (metaprob-collection-to-seq s1)))
+                        (set (map detracify
+                                  (metaprob-collection-to-seq s2)))))))
 
 ;; Unfortunately this does work.
 (defn setdiff-alternative-method [s1 s2]

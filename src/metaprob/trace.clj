@@ -56,47 +56,65 @@
 
 (defn address? [x] (seqable? x))
 
-(defn metaprob-value? [val]
+;; Useable as a key
+
+(defn ok-key? [val]
   (or (number? val)
       (string? val)
       (boolean? val)
-      (= val nil)     ; needed?
+      (= val nil)      ; needed?
+      (= val '())      ; needed?
+      (list? val)      ; from detracify
+      (vector? val)    ; from detracify
+      (map? val)))     ; from detracify
+
+;; Storable as a value
+
+(defn metaprob-value? [val]
+  (or (ok-key? val)
       (trace? val)                      ;possibly a locative
       (environment? val)
       (and (instance? clojure.lang.IFn val)
            ;; ugh
            (not (seq? val))
-           (not (map? val))
            (not (symbol? val)))))
+
+;; Is key acceptable for use in storing sub as a subtrie?
 
 (defn acceptable? [key sub]
   ;; Really stupid type system.  Functions should be stored, and only
   ;; be stored, under the "executable" property.
-  (if (trie? sub)
-    (if (has-value? sub)
-      (let [val (value sub)]
-        (if (instance? clojure.lang.IFn val)
-          (or (= key "executable")
-              (meta val))
-          (metaprob-value? val)))
-      true)
+  (if (ok-key? key)
+    (if (trie? sub)
+      (if (has-value? sub)
+        (let [val (value sub)]
+          (if (= key "executable")
+            (or (instance? clojure.lang.IFn val)
+                (meta val))
+            (metaprob-value? val)))
+        true)
+      false)
     false))
 
+;; This is for debugging
+
 (defn reason-unacceptable [key sub]
-  (if (trie? sub)
-    (if (has-value? sub)
-      (let [val (value sub)]
-        (if (= key "executable")
-          (or (instance? clojure.lang.IFn val)
-              ["exec non-IFn" key sub val])
-          (if (instance? clojure.lang.IFn val)
-            (or (meta val)
-                ["non-exec non-meta IFn" key sub val])    ;incl. seq, map
+  (if (ok-key? key)
+    (if (trie? sub)
+      (if (has-value? sub)
+        (let [val (value sub)]
+          (if (= key "executable")
+            (if (instance? clojure.lang.IFn val)
+              ["acceptable - executable IFn" key sub val]
+              (if (meta val)
+                ["acceptable - executable meta" key sub val]
+                ["not IFn and not meta" key sub val]))
             (if (metaprob-value? val)
-              true
-              ["not a metaprob value" key sub val]))))
-      true)
-    ["non-trie" key sub (type sub)]))
+              ["acceptable" key sub val]
+              ["not a metaprob value" key sub val])))
+        ["acceptable - no sub-value" key sub])
+      ["subtrie is a non-trie" key sub (type sub)])
+    ["not to be used as a key" key sub]))
 
 (deftype Trie
   [^:volatile-mutable the-value
@@ -335,6 +353,7 @@
       (ensure-subtrie tr this-key))))
 
 (defn new-locative [tl key]
+  (assert (not (trace? key)))
   (Locative. tl key))
 
 (defn locative? [x]
