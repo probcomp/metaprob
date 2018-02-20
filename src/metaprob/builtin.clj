@@ -25,20 +25,22 @@
 ;; empty-trace? - is this trace a metaprob representation of an empty tuple/list?
 
 (defn empty-trace? [x]
-  (clojure.core/and (trace? x)
-                    (= (trace-count x) 0)
-                    (clojure.core/not (has-value? x))))
+  (let [x (proper-trace x)]
+    (clojure.core/and x
+                      (= (trace-count x) 0)
+                      (clojure.core/not (has-value? x)))))
 
 ;; --------------------
 ;; Let's start with metaprob tuples (= arrays), which are needed
 ;; for defining primitives.
 
 (defn metaprob-tuple? [x]
-  (clojure.core/and (trace? x)
-                    (let [n (trace-count x)]
-                      (clojure.core/or (= n 0)
-                                       (clojure.core/and (has-subtrace? x 0)
-                                                         (has-subtrace? x (- n 1)))))))
+  (let [x (proper-trace x)]    ; nil if not a trace with either value or subtrace
+    (clojure.core/and x
+                      (let [n (trace-count x)]
+                        (clojure.core/or (= n 0)
+                                         (clojure.core/and (has-subtrace? x 0)
+                                                           (has-subtrace? x (- n 1))))))))
 
 (defn metaprob-tuple-to-seq [tup]
   (clojure.core/assert (metaprob-tuple? tup))
@@ -60,9 +62,10 @@
 (def rest-marker "rest")
 
 (defn metaprob-pair? [x]
-  (clojure.core/and (trace? x)
-                    (has-value? x)
-                    (has-subtrace? x rest-marker)))
+  (let [x (proper-trace x)]
+    (clojure.core/and x
+                      (has-value? x)
+                      (has-subtrace? x rest-marker))))
 
 (defn metaprob-cons [thing mp-list]
   (clojure.core/assert (clojure.core/or (empty-trace? mp-list)
@@ -303,7 +306,8 @@
   "do not use this value")
 (define-deterministic-primitive trace_has_key [tr key]
   (has-subtrace? (tracify tr) key))
-(define-deterministic-primitive trace_subkeys [tr] (trace-keys (tracify tr)))
+(define-deterministic-primitive trace_subkeys [tr]
+  (seq-to-metaprob-list (trace-keys (tracify tr))))
 (define-deterministic-primitive lookup [tr addr]
   (subtrace-location-at (tracify tr) (addrify addr)))  ; e[e]
 
@@ -323,7 +327,10 @@
               (if (has-value? tr)
                 (cons (mk_nil) site-list)
                 site-list)))]       
-    (seq-to-metaprob-list (sites (normalize trace)))))
+    (let [s (sites (normalize trace))]
+      (doseq [site s]
+        (assert (has-value-at? trace (addrify site)) ["missing value at" site]))
+      (seq-to-metaprob-list s))))
 
 (define-deterministic-primitive prob_prog_name [pp]
   (let [tr (tracify pp)]
@@ -376,10 +383,10 @@
       (if (has-value? x)
         (if (empty? keys)
           (clojure.core/print (format "{{%s}}" (value x)))
-          (clojure.core/print (format "{{%s, %s: ...}}" (value x) (first keys))))
+          (clojure.core/print (format "{{%s, %s: ...}}" (value x) (clojure.core/first keys))))
         (if (empty? keys)
           (clojure.core/print "{{}}")
-          (clojure.core/print (format "{{%s: ...}}" (first keys))))))
+          (clojure.core/print (format "{{%s: ...}}" (clojure.core/first keys))))))
     (if (string? a)
       (clojure.core/print a)    ;without quotes
       (pr a))))
@@ -403,7 +410,8 @@
                   (doseq [key (trace-keys tr)]
                     (re (subtrace tr key) indent key))))]
         (re tr "" "trace")))
-    (do (clojure.core/print x) (newline))))
+    (do (clojure.core/print x) (newline)))
+  (flush))
 
 ;; Other builtins
 
@@ -584,11 +592,17 @@
 ;; length - overrides original prelude (performance + generalization)
 
 (define-deterministic-primitive length [x]
-  (letfn [(scan [x]
-            (if (metaprob-pair? x)
-              (+ 1 (scan (rest x)))
-              0))]
-    (scan x)))
+  (clojure.core/assert (trace? x))
+  (if (empty-trace? x)
+    0
+    (if (metaprob-pair? x)
+      (letfn [(scan [x]
+                (if (metaprob-pair? x)
+                  (+ 1 (scan (rest x)))
+                  0))]
+        (scan x))
+      (do (clojure.core/assert (metaprob-tuple? x))
+        (trace-count x)))))
 
 ;; drop - use prelude version?
 

@@ -33,6 +33,12 @@
 (defn trace? [x]
   (satisfies? ITrace x))
 
+;; Should this throw an error if x is not a trace?  I don't know.
+
+(defn proper-trace [x]
+  (and (trace? x)
+       (maybe-normalize x)))
+
 (defn normalize
   ([tr]
    (normalize tr nil))
@@ -199,8 +205,7 @@
 
   (blaze [_] _))
 
-
-; Not clear whether this is the most idiomatic / best approach.
+;; Not clear whether this is the most idiomatic / best approach.
 (defn trie? [x]
   (instance? Trie x)
   ;; (= (type x) Trie)

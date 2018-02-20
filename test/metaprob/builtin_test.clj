@@ -164,3 +164,21 @@
         (is (not (b/metaprob-list-contains? a-b 7)) "7 not in a-b")
         (is (not (b/metaprob-list-contains? b-a 7)) "7 not in b-a")))))
 
+(deftest hairy-key-1
+  (testing "does it work to use a probprog name as a trace"
+    (let [pp (program [x] x)
+          pt (b/tracify pp)
+          key (value (subtrace pt "name"))
+          tr (trace-from-map {key (new-trace 17)})]
+      (is (= (value (subtrace tr key)) 17)))))
+
+(deftest trace_sites-1
+  (testing "trace_sites (addresses_of)"
+    (let [tr (trace-from-map {"a" (new-trace 17)
+                              "b" (new-trace 31)
+                              "c" (trace-from-map {"d" (new-trace 71)})})
+          sites (b/metaprob-collection-to-seq (b/trace_sites tr))
+          vals  (map (fn [site] (value (b/lookup tr site))) sites)
+          has? (fn [val] (some (fn [x] (= x val)) vals))]
+      (has? 17)
+      (has? 71))))

@@ -49,11 +49,15 @@
 (declare from-clojure from-clojure-pattern)
 
 (defn make-program [fun name params body ns]
-  (let [exp (from-clojure `(~'program ~params ~@body))
-        env (env/make-top-level-env ns)]
+  (let [exp `(~'program ~params ~@body)
+        exp-trace (from-clojure exp)
+        env (env/make-top-level-env ns)
+        key (if true
+              (hash exp)                ;JAR invention
+              exp-trace)]               ;original metaprob
     (with-meta fun {:name name
-                    :trace (trace-from-map {"name" (new-trace exp)  ;suspect
-                                            "source" exp
+                    :trace (trace-from-map {"name" (new-trace key)
+                                            "source" exp-trace
                                             "environment"
                                                (new-trace env)}
                                            "prob prog")})))
