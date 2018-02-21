@@ -14,7 +14,7 @@
                             nth
                             range
                             print])
-  (:require [metaprob.environment :refer :all])
+  (:require [metaprob.environment :as env])
   (:require [metaprob.trace :refer :all])
   (:require [kixi.stats.distribution :as dist])
   (:require [kixi.stats.math :as math])
@@ -314,20 +314,53 @@
                    (let [m (meta x)]
                      (clojure.core/and (map? m) (contains? m :trace)))))
 
-(define-deterministic-primitive trace_get [tr]
+;; VKM name
+(define-deterministic-primitive trace-get [tr]
   (cond (list? tr) (first tr)
         true (value (tracify tr))))        ; *e
 
-(define-deterministic-primitive trace_has [tr] (has-value? (tracify tr)))
-(define-deterministic-primitive trace_set [tr val]            ; e[e] := e
+(define-deterministic-primitive trace_get [tr] ; backward compatibility name
+  (trace-get tr))
+
+(define-deterministic-primitive trace_has [tr]
+  (cond (list? tr) (not (empty? tr))
+        (vector? tr) false
+        true (has-value? (tracify tr))))
+
+;; VKM name
+(define-deterministic-primitive trace-set [tr val]            ; e[e] := e
   (set-value! (tracify tr) val))
-(define-deterministic-primitive trace_clear [tr]            ; del e[e]
+
+(define-deterministic-primitive trace_set [tr val] ; backward compatibility name
+  (trace-set tr val))
+
+;; VKM name
+(define-deterministic-primitive trace-subtrace [tr addr]
+  (let [addr (addrify addr)]
+    (if (empty? addr)
+      tr
+      (let [[key more-addr] addr]
+        (cond (list? tr) (trace-subtrace (rest tr) more-addr)
+              (vector? tr) (trace-subtrace (clojure.core/nth tr key) more-addr)
+              true (subtrace-location-at (tracify tr) addr))))))   ; e[e]
+
+(define-deterministic-primitive lookup [tr addr] ; backward compatibility name
+  (trace-subtrace tr addr))
+
+;; VKM proposed
+(define-deterministic-primitive trace-delete [tr addr]   ; del e[e]
+  (clear-value! (trace-subtrace tr addr)))
+
+(define-deterministic-primitive trace_clear [tr] ; backward compatibility name
   (clear-value! (tracify tr)))
+
 (define-deterministic-primitive trace_set_at [tr addr val]
   (set-value-at! (tracify tr) (addrify addr) val))
+
 (define-deterministic-primitive trace_set_subtrace_at [tr addr sub]
   (set-subtrace-at! (tracify tr) (addrify addr) sub)
   "do not use this value")
+
 (define-deterministic-primitive trace_has_key [tr key]
   (let [key (purify key)]
     (cond (list? tr) (clojure.core/and (not (empty? tr)) (= key 'first))
@@ -335,16 +368,15 @@
                             (>= key 0)
                             (< key (length tr)))
           true (has-subtrace? (tracify tr) key))))
+
 (define-deterministic-primitive trace_subkeys [tr]
   (seq-to-metaprob-list (trace-keys (tracify tr))))
-(define-deterministic-primitive lookup [tr addr]
-  (subtrace-location-at (tracify tr) (addrify addr)))  ; e[e]
 
 ;; Translation of .sites method from trace.py.
 ;; Also known as addresses_of.
 ;; Returns a list of addresses, I believe.  (and addresses are themselves lists.)
 
-(define-deterministic-primitive trace_sites [trace]
+(define-deterministic-primitive trace-get-addresses [trace]
   (letfn [(sites [tr]
             ;; returns a seq of traces
             (let [site-list
@@ -360,6 +392,9 @@
       (doseq [site s]
         (assert (has-value-at? trace (addrify site)) ["missing value at" site]))
       (seq-to-metaprob-list s))))
+
+(define-deterministic-primitive trace_sites [trace] ; backward compatility
+  (trace-get-addresses trace))
 
 (define-deterministic-primitive prob_prog_name [pp]
   (let [tr (tracify pp)]
@@ -789,12 +824,12 @@
 ;; env_lookup - overrides original prelude
 
 (define-deterministic-primitive env_lookup [env name]
-  (env-lookup env (str name)))
+  (env/env-lookup env (str name)))
 
 ;; make_env - overrides original prelude
 
 (define-deterministic-primitive make_env [parent]
-  (make-sub-environment parent))
+  (env/make-sub-environment parent))
 
 ;; match_bind - overrides original prelude.
 ;; Liberal in what it accepts: the input can be either a list or a
@@ -804,7 +839,7 @@
   ;; pattern is a trace (variable or list, I think, maybe seq)
   (clojure.core/assert trace? pattern)
   (case (value pattern)
-    "variable" (env-bind! env (value (subtrace pattern "name")) input)
+    "variable" (env/env-bind! env (value (subtrace pattern "name")) input)
     "tuple"
     ;; input is either a metaprob list or a metaprob tuple
     (let [subpatterns (subtraces-to-seq pattern)
@@ -837,10 +872,17 @@
 ;; All the members of s1 that are *not* in s2
 ;; Translation of version found in builtin.py.
 
-(define-deterministic-primitive set_difference [s1 s2]
+(define-deterministic-primitive set-difference [s1 s2]
   (seq-to-metaprob-list
    (seq (set/difference (set (map purify
                                   (metaprob-collection-to-seq s1)))
                         (set (map purify
                                   (metaprob-collection-to-seq s2)))))))
 
+(define-deterministic-primitive set_difference [s1 s2] ;backward compatibility
+  (set-difference s1 s2))
+
+;; -----------------------------------------------------------------------------
+
+(define-deterministic-primitive binned-histogram [& {:keys [name samples overlay-densities]}]
+  'foo)

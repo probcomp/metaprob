@@ -186,8 +186,10 @@
 (defn form-to-clojure-1 [tr def-ok?]
   (let [tr (if (trie? tr) tr (new-trace tr))]
     (case (value tr)
-      "application" (to-list
-                     (subexpressions-to-clojure tr))
+      "application" (let [form (subexpressions-to-clojure tr)]
+                      (to-list (if (= (first form) 'mk_nil)
+                                 (cons 'empty-trace (rest form))
+                                 form)))
       "variable" (to-symbol (subvalue tr "name"))
       "literal" (subvalue tr "value")
       "program" (program-to-clojure (subtrace tr "pattern")
