@@ -194,6 +194,9 @@
 (defmacro with-address [addr & body]
   `(with-addr ~addr ~@body))
 
+(defmacro &this []
+  "(&this) makes no sense when clojure-compiled")
+
 (defmacro mp-splice [x]
   (assert false ["splice used in evaluated position!?" x]))
 
@@ -274,7 +277,8 @@
 (defn literal-exp? [exp]
   (or (number? exp)
       (string? exp)
-      (boolean? exp)))
+      (boolean? exp)
+      (keyword? exp)))
 
 ;; Don't create variables with these names...
 ;;   (tbd: look for :meta on a Var in this namespace ??)
@@ -282,6 +286,7 @@
 
 (defn from-clojure-1 [exp]
   (cond (vector? exp) (from-clojure-tuple exp)    ;; Pattern - shouldn't happen
+
         (literal-exp? exp)    ;; including string
           (trace-from-map {"value" (new-trace exp)} "literal")
 
@@ -296,6 +301,7 @@
         ;; I don't know why this is sometimes a non-list seq.
         ;; TBD: check that (first exp) is a non-namespaced symbol.
         (seqable? exp) (case (first exp)
+                         probprog (from-clojure-program exp)
                          program (from-clojure-program exp)
                          if (from-clojure-if exp)
                          block (from-clojure-block exp)
@@ -303,6 +309,7 @@
                          mp-unquote (trace-from-map {"expression" (from-clojure exp)} "unquote")
                          tuple (from-clojure-seq exp "tuple")
                          with-address (from-clojure-with-address exp)
+                         with-addr (from-clojure-with-address exp)
                          define (from-clojure-definition exp)
                          &this (trace-from-map {} "this")
                          ;; else
