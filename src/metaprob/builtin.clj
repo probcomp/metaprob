@@ -260,8 +260,9 @@
 ;; (def cos (make-deterministic-primitive 'cos clojure.core/cos))
 ;; (def sin (make-deterministic-primitive 'sin clojure.core/sin))
 
-(define-deterministic-primitive log [x]
-  (math/log x))
+(define-deterministic-primitive log [x] (math/log x))
+(define-deterministic-primitive cos [x] (math/cos x))
+(define-deterministic-primitive sin [x] (math/sin x))
 
 (define-deterministic-primitive empty-trace []
   (new-trace))

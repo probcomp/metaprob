@@ -9,3 +9,8 @@
 (defn interpret [& {:keys [program inputs interventions]}]
   (interpret/interpret program inputs interventions))
 
+(defn propose-and-trace-choices [& {:keys [probprog inputs intervention-trace
+                                           target-trace output-trace]}]
+  (propose_and_trace_choices/propose_and_trace_choices probprog inputs
+                                                       intervention-trace
+                                                       target-trace output-trace))
