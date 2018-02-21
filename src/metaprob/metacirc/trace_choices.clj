@@ -25,7 +25,7 @@
               program-noncolliding
               (list "custom_choice_tracer")))
           tc_inputs
-          (mk_nil)))
+          (empty-trace)))
       (if (trace_has_key program-noncolliding "source")
         (block
           (define
@@ -63,7 +63,7 @@
     (define
       walk
       (program
-        [exp addr]
+        [exp address]
         (define
           v
           (if (eq (trace_get exp) "application")
@@ -74,16 +74,16 @@
                 (map
                   (program
                     [i]
-                    (walk (lookup exp (list i)) (add addr (list i))))
+                    (walk (lookup exp (list i)) (add address (list i))))
                   (range n)))
               (define oper (first values))
               (define name (trace_get (lookup oper (list "name"))))
-              ;; (pprint (add addr (list name)))
+              ;; (pprint (add address (list name)))
               (trace_choices
                 oper
                 (rest values)
-                (lookup intervention_trace (add addr (list name)))
-                (lookup output_trace (add addr (list name)))))
+                (lookup intervention_trace (add address (list name)))
+                (lookup output_trace (add address (list name)))))
             (if (eq (trace_get exp) "variable")
               (block
                 (env_lookup
@@ -94,7 +94,7 @@
                 (if (eq (trace_get exp) "program")
                   (block
                     (block
-                      (define __trace_0__ (mk_nil))
+                      (define __trace_0__ (empty-trace))
                       (trace_set __trace_0__ "prob prog")
                       (trace_set
                         (lookup __trace_0__ (list "name"))
@@ -113,16 +113,16 @@
                         pred
                         (walk
                           (lookup exp (list "predicate"))
-                          (add addr (list "predicate"))))
+                          (add address (list "predicate"))))
                       (if pred
                         (block
                           (walk
                             (lookup exp (list "then"))
-                            (add addr (list "then"))))
+                            (add address (list "then"))))
                         (block
                           (walk
                             (lookup exp (list "else"))
-                            (add addr (list "else"))))))
+                            (add address (list "else"))))))
                     (if (eq (trace_get exp) "block")
                       (block
                         (define n (length (trace_subkeys exp)))
@@ -133,11 +133,11 @@
                               [i]
                               (walk
                                 (lookup exp (list i))
-                                (add addr (list i))))
+                                (add address (list i))))
                             (range n)))
                         (if (gt (length values) 0)
                           (last values)
-                          (mk_nil)))
+                          (empty-trace)))
                       (if (eq (trace_get exp) "tuple")
                         (block
                           (define n (length (trace_subkeys exp)))
@@ -148,7 +148,7 @@
                                 [i]
                                 (walk
                                   (lookup exp (list i))
-                                  (add addr (list i))))
+                                  (add address (list i))))
                               (range n)))
                           (list_to_array values))
                         (if (eq (trace_get exp) "definition")
@@ -161,7 +161,7 @@
                               val
                               (walk
                                 (lookup exp subaddr)
-                                (add addr subaddr)))
+                                (add address subaddr)))
                             (match_bind
                               (lookup exp (list "pattern"))
                               val
@@ -170,7 +170,7 @@
                             (block
                               (capture_tag_address
                                 intervention_trace
-                                (mk_nil)
+                                (empty-trace)
                                 output_trace))
                             (if (eq (trace_get exp) "with_address")
                               (block
@@ -178,7 +178,7 @@
                                   tag_addr
                                   (walk
                                     (lookup exp (list "tag"))
-                                    (add addr (list "tag"))))
+                                    (add address (list "tag"))))
                                 (define
                                   [new_intervene _ new_output]
                                   (resolve_tag_address tag_addr))
@@ -191,8 +191,8 @@
                                 (pprint exp)
                                 (error
                                   "Not a code expression")))))))))))))
-        (if (trace_has (lookup intervention_trace addr))
-          (block (trace_get (lookup intervention_trace addr)))
+        (if (trace_has (lookup intervention_trace address))
+          (block (trace_get (lookup intervention_trace address)))
           (block v))))
     (walk exp (list))))
 

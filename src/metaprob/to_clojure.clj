@@ -171,7 +171,14 @@
               ;; For readability, allow x y instead of (block x y)
               (form-to-formlist (to-clojure body-trace)))))
 
-                                        ; Convert a top level form (expression or definition)
+(defn with-address-to-clojure [tr]
+  (list 'with-addr
+        ;; Not directly executable in clojure
+        (subexpression-to-clojure tr "tag")
+        (subexpression-to-clojure tr "expression")))
+
+
+;; Convert a top level form (expression or definition)
 
 (defn to-clojure [tr]
   (form-to-clojure tr true))
@@ -193,14 +200,12 @@
                (block-to-clojure (subtraces-to-seq tr) def-ok?) "blah")
       "splice" (list 'mp-splice
                      (subexpression-to-clojure tr "expression"))
-      "this" 'this
+      "this" '(&this)
       "tuple" (qons 'tuple (subexpressions-to-clojure tr))
       "unquote" (list 'ml-unquote
                       (subexpression-to-clojure tr "expression"))
-      "with_address" (list 'with-address
-                           ;; Not directly executable in clojure
-                           (subexpression-to-clojure tr "tag")
-                           (subexpression-to-clojure tr "expression"))
+      "with_address" (with-address-to-clojure tr)
+      "with-addr" (with-address-to-clojure tr)
       "definition" (do (if (not def-ok?)
                          (print (format "** definition not allowed here: %s\n"
                                         (definition-pattern tr))))

@@ -34,7 +34,7 @@
   constrain_coin_flipper_trace
   (program
     [n]
-    (define t1 (mk_nil))
+    (define t1 (empty-trace))
     (for_each
       (range n)
       (program
@@ -58,8 +58,8 @@
   transcript1
   (program
     [do_print]
-    (define a_trace (mk_nil))
-    (trace_choices flip_coins (tuple 5) (mk_nil) a_trace)
+    (define a_trace (empty-trace))
+    (trace_choices flip_coins (tuple 5) (empty-trace) a_trace)
     (if do_print
       (block
         (pprint a_trace)

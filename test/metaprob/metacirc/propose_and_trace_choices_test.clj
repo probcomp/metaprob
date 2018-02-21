@@ -8,7 +8,7 @@
             [metaprob.builtin :as builtin]
             [metaprob.metacirc.propose-and-trace-choices :refer :all]))
 
-(defn mk_nil [] (builtin/mk_nil))
+(defn mk_nil [] (builtin/empty-trace))
 
 (defn ez-apply [prob-prog & args]
   (let [[value score]
@@ -21,7 +21,7 @@
 (deftest apply-1
   (testing "Apply a probprog to no args"
     (is (builtin/empty-trace?
-         (ez-apply builtin/mk_nil)))))
+         (ez-apply builtin/empty-trace)))))
 
 (deftest apply-2
   (testing "Apply a probprog to one arg"

@@ -45,7 +45,7 @@
     [lst index]
     (block (if (gt index 0) (drop (rest lst) (sub index 1)) lst))))
 
-(define reverse (program [lst] (_reverse lst (mk_nil))))
+(define reverse (program [lst] (_reverse lst (empty-trace))))
 
 (define
   _reverse
@@ -102,7 +102,7 @@
         (block
           (define val (with-address (list root i) (f (first l))))
           (pair val (_map f (rest l) (add i 1) root)))
-        (mk_nil)))))
+        (empty-trace)))))
 
 (define
   _imap
@@ -110,7 +110,7 @@
     [f i l]
     (if (is_pair l)
       (pair (f i (first l)) (_imap f (add i 1) (rest l)))
-      (mk_nil))))
+      (empty-trace))))
 
 (define
   imap
@@ -126,7 +126,7 @@
     [f l1 l2]
     (if (and (is_pair l1) (is_pair l2))
       (pair (f (first l1) (first l2)) (zipmap f (rest l1) (rest l2)))
-      (mk_nil))))
+      (empty-trace))))
 
 (define
   for_each
@@ -166,13 +166,13 @@
       (if (pred (first l))
         (pair (first l) (filter pred (rest l)))
         (block (filter pred (rest l))))
-      (mk_nil))))
+      (empty-trace))))
 
 (define
   concat
   (program
     [ll]
-    (if (is_pair ll) (append (first ll) (concat (rest ll))) (mk_nil))))
+    (if (is_pair ll) (append (first ll) (concat (rest ll))) (empty-trace))))
 
 (define
   lookup_chain
@@ -198,21 +198,21 @@
       interpreter
       (program
         [args intervene]
-        (define [v _] (proposer args intervene (mk_nil) (mk_nil)))
+        (define [v _] (proposer args intervene (empty-trace) (empty-trace)))
         v))
     (define
       tracer
       (program
         [args intervene output]
-        (define [v _] (proposer args intervene (mk_nil) output))
+        (define [v _] (proposer args intervene (empty-trace) output))
         v))
     (define
       non_tracing_proposer
       (program
         [args intervene target]
-        (proposer args intervene target (mk_nil))))
+        (proposer args intervene target (empty-trace))))
     (block
-      (define __trace_0__ (mk_nil))
+      (define __trace_0__ (empty-trace))
       (trace_set __trace_0__ "prob prog")
       (trace_set (lookup __trace_0__ (list "name")) name)
       (trace_set
@@ -245,7 +245,7 @@
     (program
       [args t1 t2 t3]
       (define score (trace_get (lookup args (list 0))))
-      (tuple (mk_nil) score))))
+      (tuple (empty-trace) score))))
 
 ;; Manual edit: moved from interpret.clj
 

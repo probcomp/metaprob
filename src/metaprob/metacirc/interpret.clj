@@ -29,7 +29,7 @@
                 program-noncolliding
                 (list "custom_interpreter")))
             i_inputs
-            (mk_nil)))
+            (empty-trace)))
         (if (trace_has_key program-noncolliding "source")
           (block
             (define
@@ -85,7 +85,7 @@
                 (if (eq (trace_get exp) "program")
                   (block
                     (block
-                      (define __trace_0__ (mk_nil))
+                      (define __trace_0__ (empty-trace))
                       (trace_set __trace_0__ "prob prog")
                       (trace_set
                         (lookup __trace_0__ (list "name"))
@@ -128,7 +128,7 @@
                             (range n)))
                         (if (gt (length values) 0)
                           (last values)
-                          (mk_nil)))
+                          (empty-trace)))
                       (if (eq (trace_get exp) "tuple")
                         (block
                           (define n (length (trace_subkeys exp)))
@@ -161,8 +161,8 @@
                             (block
                               (capture_tag_address
                                 intervention_trace
-                                (mk_nil)
-                                (mk_nil)))
+                                (empty-trace)
+                                (empty-trace)))
                             (if (eq (trace_get exp) "with_address")
                               (block
                                 (define
@@ -192,7 +192,7 @@
     [name source env]
     (block
       (block
-        (define __trace_1__ (mk_nil))
+        (define __trace_1__ (empty-trace))
         (trace_set __trace_1__ "prob prog")
         (trace_set (lookup __trace_1__ (list "name")) name)
         (trace_set_subtrace_at __trace_1__ (list "source") source)

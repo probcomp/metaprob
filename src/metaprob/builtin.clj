@@ -46,8 +46,7 @@
   (clojure.core/assert (metaprob-tuple? tup))
   (subtrace-values-to-seq tup))
 
-;; [n.v. seq-to-metaprob-tuple seems to not be needed yet; included
-;; here for completeness]
+;; Convert clojure seq to metaprob tuple
 
 (defn seq-to-metaprob-tuple [things]
   (trace-from-seq (map new-trace things)))
@@ -73,15 +72,12 @@
                                         (metaprob-pair? mp-list)))
   (trace-from-map {rest-marker mp-list} thing))
 
-(defn mk_nil [] (new-trace))                 ; {{ }}
-
 ;; seq-to-metaprob-list - convert clojure sequence to metaprob list.
-;; (n.b. seq-to-metaprob-tuple is defined in trace.clj)
 
 (defn seq-to-metaprob-list [things]
   (let [things (seq things)]
     (if (empty? things)
-      (mk_nil)
+      (new-trace)
       (metaprob-cons (clojure.core/first things)
                      (seq-to-metaprob-list (clojure.core/rest things))))))
 
@@ -148,7 +144,7 @@
                         (apply fun params))]
               [ans 0]))]
       (set-value! output ans)
-      (metaprob-cons ans (metaprob-cons score (mk_nil))))))
+      (metaprob-cons ans (metaprob-cons score (new-trace))))))
 
 (defn apply-nondeterministic-scoreless [fun params intervene output]
   (let [params (metaprob-collection-to-seq params)]
@@ -181,12 +177,12 @@
             (trace [args intervene output]
               (apply-nondeterministic-scoreless sampler args intervene output))
             (interpret [args intervene]
-              (trace args intervene (mk_nil)))
+              (trace args intervene (new-trace)))
             ;; With score
             (p-a-t-c [args intervene target output]
               (apply-nondeterministic sampler args logpdf intervene target output))
             (propose [args intervene target]
-              (p-a-t-c args intervene target (mk_nil)))]
+              (p-a-t-c args intervene target (new-trace)))]
       (with-meta sampler
         {:trace (trace-from-map
                  {"name" (new-trace name)
@@ -238,21 +234,24 @@
 (def lte (make-deterministic-primitive 'lte <=))
 (def lt (make-deterministic-primitive 'lt <))
 
-(declare append)
+(declare append purify)
+
+;; Purity is contagious.
 
 (define-deterministic-primitive add [x y]
   (if (number? x)
     (+ x y)
-    (if (trace? x)
-      (do (clojure.core/assert (trace? y))
-          (append x y))
+    (if (clojure.core/and (trace? x) (trace? y))
+      (append x y)
       (if (clojure.core/and (string? x) (string? y))
         (concat x y)
-        (if (clojure.core/and (seqable? x) (seqable? y))
-          (let [x (if (string? x) (clojure.core/list x) x)
-                y (if (string? y) (clojure.core/list y) y)]
-            (concat x y))
-          (clojure.core/assert false ["invalid argument for add" x y]))))))
+        (let [to-seq (fn [x]
+                       (if (string? x)
+                         (clojure.core/list x) ;????
+                         (let [p (purify x)]
+                           (clojure.core/assert (seqable? p) ["invalid argument for add" x y])
+                           p)))]
+          (concat (to-seq x) (to-seq y)))))))
 
 (def sub (make-deterministic-primitive 'sub -))
 (def mul (make-deterministic-primitive 'mul *))
@@ -264,23 +263,24 @@
 (define-deterministic-primitive log [x]
   (math/log x))
 
-(def mk_nil (make-deterministic-primitive 'mk_nil mk_nil))
+(define-deterministic-primitive empty-trace []
+  (new-trace))
 
 ;; Convert a value to be used as a key to a pure clojure value so that
 ;; hash and = will work on it.
 
-(defn detracify [x]
+(defn purify [x]
   (if (trace? x)
     (if (empty-trace? x)
       '()
       (if (metaprob-pair? x)
-        (apply clojure.core/list (map detracify (metaprob-list-to-seq x))) ;cf. metaprob-value?
+        (apply clojure.core/list (map purify (metaprob-list-to-seq x))) ;cf. metaprob-value?
         (if (metaprob-tuple? x)
-          (vec (map detracify (metaprob-tuple-to-seq x)))
+          (vec (map purify (metaprob-tuple-to-seq x)))
           (let [keys (trace-keys x)
-                maap (into {} (for [key keys] [key (detracify (subtrace x key))]))]
+                maap (into {} (for [key keys] [key (purify (subtrace x key))]))]
             (if (has-value? x)
-              (assoc maap :value (detracify (value x)))
+              (assoc maap :value (purify (value x)))
               maap)))))
     x))
 
@@ -289,7 +289,7 @@
 
 (defn addrify [addr]
   (if (trace? addr)
-    (map detracify (metaprob-list-to-seq addr))
+    (map purify (metaprob-list-to-seq addr))
     addr))
 
 ;; If an object (e.g. a function) has a :trace meta-property, then
@@ -314,7 +314,10 @@
                    (let [m (meta x)]
                      (clojure.core/and (map? m) (contains? m :trace)))))
 
-(define-deterministic-primitive trace_get [tr] (value (tracify tr)))        ; *e
+(define-deterministic-primitive trace_get [tr]
+  (cond (list? tr) (first tr)
+        true (value (tracify tr))))        ; *e
+
 (define-deterministic-primitive trace_has [tr] (has-value? (tracify tr)))
 (define-deterministic-primitive trace_set [tr val]            ; e[e] := e
   (set-value! (tracify tr) val))
@@ -326,7 +329,12 @@
   (set-subtrace-at! (tracify tr) (addrify addr) sub)
   "do not use this value")
 (define-deterministic-primitive trace_has_key [tr key]
-  (has-subtrace? (tracify tr) (detracify key)))
+  (let [key (purify key)]
+    (cond (list? tr) (clojure.core/and (not (empty? tr)) (= key 'first))
+          (vector? tr) (clojure.core/and (integer? key)
+                            (>= key 0)
+                            (< key (length tr)))
+          true (has-subtrace? (tracify tr) key))))
 (define-deterministic-primitive trace_subkeys [tr]
   (seq-to-metaprob-list (trace-keys (tracify tr))))
 (define-deterministic-primitive lookup [tr addr]
@@ -346,7 +354,7 @@
                                  (sites (subtrace tr key))))
                           (trace-keys tr))]
               (if (has-value? tr)
-                (cons (mk_nil) site-list)
+                (cons (new-trace) site-list)
                 site-list)))]       
     (let [s (sites (normalize trace))]
       (doseq [site s]
@@ -433,6 +441,8 @@
         (re tr "" "trace")))
     (do (clojure.core/print x) (newline)))
   (flush))
+
+(def print (make-deterministic-primitive 'print prn))
 
 ;; Other builtins
 
@@ -544,6 +554,11 @@
 (define-deterministic-primitive list [& things]
   (seq-to-metaprob-list things))
 
+;; addr - like list
+
+(define-deterministic-primitive addr [& things]
+  (seq-to-metaprob-list things))
+
 ;; array_to_list - builtin - metaprob array/tuple to metaprob list
 
 (define-deterministic-primitive array_to_list [tup]
@@ -551,7 +566,7 @@
     (letfn [(scan [i]
               (if (has-subtrace? tup i)
                 (pair (value (subtrace tup i)) (scan (+ i 1)))
-                (mk_nil)))]
+                (new-trace)))]
       (scan 0))
     ;; seqable?
     (apply list tup)))
@@ -596,14 +611,18 @@
 (define-deterministic-primitive first [mp-list]
   (if (metaprob-pair? mp-list)
     (value mp-list)
-    (clojure.core/assert false (diagnose-nonpair mp-list))))
+    (if (seqable? mp-list)              ;e.g. an address
+      (clojure.core/first mp-list)
+      (clojure.core/assert false (diagnose-nonpair mp-list)))))
 
 ;; rest - overrides original prelude (performance + generalization)
 
 (define-deterministic-primitive rest [mp-list]
   (if (metaprob-pair? mp-list)
     (subtrace mp-list rest-marker)
-    (clojure.core/assert false (diagnose-nonpair mp-list))))
+    (if (seqable? mp-list)              ;e.g. an address
+      (clojure.core/rest mp-list)
+      (clojure.core/assert false (diagnose-nonpair mp-list)))))
 
 ;; is_pair - overrides original prelude (performance + generalization)
 
@@ -662,7 +681,7 @@
 ;; range - overrides original prelude (performance + generalization)
 
 (defn _range [n k]
-  (if (>= k n) (mk_nil) (pair k (_range n (+ k 1)))))
+  (if (>= k n) (new-trace) (pair k (_range n (+ k 1)))))
 
 (define-deterministic-primitive range [n]
   (_range n 0))
@@ -820,19 +839,8 @@
 
 (define-deterministic-primitive set_difference [s1 s2]
   (seq-to-metaprob-list
-   (seq (set/difference (set (map detracify
+   (seq (set/difference (set (map purify
                                   (metaprob-collection-to-seq s1)))
-                        (set (map detracify
+                        (set (map purify
                                   (metaprob-collection-to-seq s2)))))))
 
-;; Unfortunately this does work.
-(defn setdiff-alternative-method [s1 s2]
-  (if (empty-trace? s1)
-    s1
-    (if (metaprob-list-contains? s2 (first s1))
-      (set_difference (rest s1) s2)
-      (pair (first s1) (set_difference (rest s1) s2)))))
-
-;; Maybe print trace contents in the future...
-
-(def print (make-deterministic-primitive 'print prn))

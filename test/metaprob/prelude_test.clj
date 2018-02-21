@@ -52,7 +52,7 @@
     (is (= (builtin/first
             (builtin/rest
              (prelude/map (fn [x] (+ x 1))
-                       (builtin/pair 6 (builtin/pair 7 (builtin/pair 8 (builtin/mk_nil)))))))
+                       (builtin/pair 6 (builtin/pair 7 (builtin/pair 8 (builtin/empty-trace)))))))
            8))))
 
 (deftest map-3

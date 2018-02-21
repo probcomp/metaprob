@@ -6,7 +6,7 @@
             [metaprob.builtin :as b]
             [metaprob.metacirc.trace-choices :refer :all]))
 
-(defn mk_nil [] (b/mk_nil))
+(defn mk_nil [] (b/empty-trace))
 
 (defn ez-apply [prob-prog & args]
   (trace_choices prob-prog
@@ -17,7 +17,7 @@
 (deftest apply-1
   (testing "Apply a probprog to no args"
     (is (b/empty-trace?
-         (ez-apply b/mk_nil)))))
+         (ez-apply b/empty-trace)))))
 
 (deftest apply-2
   (testing "Apply a probprog to one arg"
@@ -96,7 +96,7 @@
                                      (block
                                       (define val (with-address (list root i) (f (first l))))
                                       (pair val (_map f (rest l) (add i 1) root)))
-                                     (mk_nil)))))
+                                     (empty-trace)))))
                                (_map f l 0 root))))]
       ;; (print "Result:\n") (b/pprint result)
       (is (b/is_pair result))
@@ -117,8 +117,8 @@
                                         (define r (range n))
                                         (map (program [tag] (flip))
                                              r)))]
-      (let [output (b/mk_nil)
-            choices (trace_choices flip_coins (tuple 10) (b/mk_nil) output)]
+      (let [output (mk_nil)
+            choices (trace_choices flip_coins (tuple 10) (mk_nil) output)]
         (let [number-of-trues (apply + (map (fn [x] (if x 1 0)) (b/metaprob-list-to-seq choices)))]
           (is (> number-of-trues 0)))))))
 
@@ -128,8 +128,8 @@
                                  (block (add 16 1)
                                         (define r (add 3 7))
                                         19)))]
-      (let [output (b/mk_nil)
-            result (trace_choices foo (tuple) (b/mk_nil) output)]
+      (let [output (mk_nil)
+            result (trace_choices foo (tuple) (mk_nil) output)]
         (is (= result 19))
         (is (has-value-at? output '(0 "add")))
         (is (has-value-at? output '(1 "r" "add")))))))

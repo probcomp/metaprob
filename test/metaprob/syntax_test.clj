@@ -5,7 +5,7 @@
 
 (deftest program-1
   (testing "Smoke test for program macro"
-    (is (= ((program [x] x) 1) 1))))
+    (is (= ((probprog [x] x) 1) 1))))
 
 (deftest block-1
   (testing "Smoke test 1 for block macro"
@@ -25,11 +25,11 @@
 
 (deftest block-letfn-1
   (testing "Smoke test for block macro"
-    (is (= (block (define foo (program [x] x)) (foo 7)) 7))))
+    (is (= (block (define foo (probprog [x] x)) (foo 7)) 7))))
 
 (deftest block-mixed-1
   (testing "Smoke test for block macro"
-    (is (= (block (define foo (program [x] x)) (define bar 7) (foo bar)) 7))))
+    (is (= (block (define foo (probprog [x] x)) (define bar 7) (foo bar)) 7))))
 
 (deftest block-1
   (testing "Define inside block is local"
@@ -40,7 +40,7 @@
 
 (deftest block-2
   (testing "Function definition becomes letfn"
-    (is (= (block (define foo (program [x] (if (= x 4) 5 (foo 4))))
+    (is (= (block (define foo (probprog [x] (if (= x 4) 5 (foo 4))))
                   (foo 3))
            5))))
 
@@ -52,7 +52,7 @@
 
 (deftest block-3a
   (testing "Pattern in let"
-    (is (= ((program []
+    (is (= ((probprog []
                      (define [v _] [6 7])
                      v))
            6))))
@@ -72,7 +72,7 @@
 
 (deftest define-2
   (testing "Program definition"
-    (let [form '(define foo (program [x] x))]
+    (let [form '(define foo (probprog [x] x))]
       (binding [*ns* (find-ns 'metaprob.syntax)]
         (eval form)
         (let [probprog (eval 'foo)]

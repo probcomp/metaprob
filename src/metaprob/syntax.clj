@@ -75,6 +75,11 @@
                  ;; (should be lexical, not dynamic.)
                  *ns*))
 
+(defmacro probprog
+  "like fn, but for metaprob programs"
+  [params & body]
+  `(named-program nil ~params ~@body))
+
 (defmacro program
   "like fn, but for metaprob programs"
   [params & body]
@@ -101,7 +106,8 @@
                  (let [rhs (definition-rhs form)]
                    (and (seqable? rhs)
                         (symbol? (first rhs))
-                        (= (name (first rhs)) "program")))))
+                        (or (= (name (first rhs)) "probprog")
+                            (= (name (first rhs)) "program"))))))
           (qons [x y]
             (if (list? y)
               (conj y x)
@@ -182,8 +188,11 @@
   `(trace-from-map ~(zipmap (range (count members))
                            (map (fn [x] `(new-trace ~x)) members))))
 
-(defmacro with-address [addr & body]
+(defmacro with-addr [addr & body]
   `(do ~addr ~@body))
+
+(defmacro with-address [addr & body]
+  `(with-addr ~addr ~@body))
 
 (defmacro mp-splice [x]
   (assert false ["splice used in evaluated position!?" x]))
@@ -295,6 +304,7 @@
                          tuple (from-clojure-seq exp "tuple")
                          with-address (from-clojure-with-address exp)
                          define (from-clojure-definition exp)
+                         &this (trace-from-map {} "this")
                          ;; else
                          (from-clojure-application exp))
         ;; Literal

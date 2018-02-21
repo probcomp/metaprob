@@ -64,8 +64,8 @@
 
 (deftest length-1
   (testing "length smoke test"
-    (is (= (b/length (b/mk_nil)) 0))
-    (is (= (b/length (b/pair 0 (b/mk_nil))) 1))
+    (is (= (b/length (b/empty-trace)) 0))
+    (is (= (b/length (b/pair 0 (b/empty-trace))) 1))
     (is (= (b/length (b/seq-to-metaprob-list [1 2 3 4])) 4))))
 
 (deftest range-1
@@ -93,7 +93,7 @@
     (is (= (b/first
             (b/rest
              (b/mp-map (fn [x] (+ x 1))
-                       (b/pair 6 (b/pair 7 (b/pair 8 (b/mk_nil)))))))
+                       (b/pair 6 (b/pair 7 (b/pair 8 (b/empty-trace)))))))
            8))))
 
 (deftest map-3
@@ -113,7 +113,7 @@
           target-val true
           target (new-trace target-val)
           ;; Args to prop are: params intervene target output
-          result (proposer (b/mk_nil) (b/mk_nil) target (b/mk_nil))
+          result (proposer (b/empty-trace) (b/empty-trace) target (b/empty-trace))
           [val score] (b/metaprob-list-to-seq result)]
       (is (= val target-val))
       (is (> score -2))

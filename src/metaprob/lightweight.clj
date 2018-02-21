@@ -28,13 +28,13 @@
     (define initial_value (trace_get (lookup trace target_address)))
     (define initial_num_choices (length candidates))
     (trace_clear (lookup trace target_address))
-    (define new_trace (mk_nil))
+    (define new_trace (empty-trace))
     (define
       [_ forward_score]
       (propose_and_trace_choices
         program-noncolliding
         inputs
-        (mk_nil)
+        (empty-trace)
         trace
         new_trace))
     (define new_value (trace_get (lookup new_trace target_address)))
@@ -46,7 +46,7 @@
     (define
       restoring_trace
       (block
-        (define __trace_0__ (mk_nil))
+        (define __trace_0__ (empty-trace))
         (trace_set (lookup __trace_0__ target_address) initial_value)
         __trace_0__))
     (for_each
@@ -88,7 +88,7 @@
   infer_lightweight_chain
   (program
     [sp args target num_steps]
-    (define candidate (mk_nil))
+    (define candidate (empty-trace))
     (define constraints (addresses_of target))
     (trace_choices sp args target candidate)
     (repeat
@@ -106,7 +106,7 @@
   infer_lightweight_mcmc
   (program
     [sp args target num_steps query]
-    (define state (mk_nil))
+    (define state (empty-trace))
     (define constraints (trace_sites target))
     (trace_choices sp args target state)
     (define first_val (query state))

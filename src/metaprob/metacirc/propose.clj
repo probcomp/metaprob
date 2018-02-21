@@ -23,7 +23,7 @@
           (trace_get
             (lookup program-noncolliding (list "custom_proposer")))
           propose_inputs
-          (mk_nil)))
+          (empty-trace)))
       (if (trace_has_key program-noncolliding "source")
         (block
           (define
@@ -73,7 +73,7 @@
               (define
                 subscore
                 (block
-                  (define __trace_0__ (mk_nil))
+                  (define __trace_0__ (empty-trace))
                   (trace_set __trace_0__ 0)
                   __trace_0__))
               (define
@@ -111,7 +111,7 @@
                   (block
                     (tuple
                       (block
-                        (define __trace_1__ (mk_nil))
+                        (define __trace_1__ (empty-trace))
                         (trace_set __trace_1__ "prob prog")
                         (trace_set
                           (lookup __trace_1__ (list "name"))
@@ -153,7 +153,7 @@
                         (define
                           subscore
                           (block
-                            (define __trace_2__ (mk_nil))
+                            (define __trace_2__ (empty-trace))
                             (trace_set __trace_2__ 0)
                             __trace_2__))
                         (define
@@ -175,14 +175,14 @@
                           (block
                             (tuple (last values) (trace_get subscore)))
                           (block
-                            (tuple (mk_nil) (trace_get subscore)))))
+                            (tuple (empty-trace) (trace_get subscore)))))
                       (if (eq (trace_get exp) "tuple")
                         (block
                           (define n (length (trace_subkeys exp)))
                           (define
                             subscore
                             (block
-                              (define __trace_3__ (mk_nil))
+                              (define __trace_3__ (empty-trace))
                               (trace_set __trace_3__ 0)
                               __trace_3__))
                           (define
@@ -226,7 +226,7 @@
                                 (capture_tag_address
                                   intervention_trace
                                   target_trace
-                                  (mk_nil))
+                                  (empty-trace))
                                 0))
                             (if (eq (trace_get exp) "with_address")
                               (block
