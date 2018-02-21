@@ -23,8 +23,8 @@
 ;; associating the gaussian probabilistic program with a
 ;; meta-program for evaluating its density
 
-(trace_set
-  (lookup gaussian (addr "log_output_probability_density"))
+(trace-set
+  (lookup gaussian (addr "log-output-probability-density"))
   (probprog [x mu sigma]
     (define standard-gaussian-log-density
       (probprog [x]
@@ -36,7 +36,7 @@
 ;; associating invocations of the Gaussian with
 ;; user-interpretable names
 
-(trace_set
+(trace-set
   (lookup gaussian (addr "name")) "gaussian")
 
 ;; defining a latent variable model using this new
