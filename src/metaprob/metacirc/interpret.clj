@@ -13,41 +13,42 @@
 (define
   interpret
   (program
-    [program-noncolliding inputs intervention_trace]
-    (if (trace_has_key program-noncolliding "executable")
-      (block
-        (interpret_prim
-          (trace_get (lookup program-noncolliding (list "executable")))
-          inputs
-          intervention_trace))
-      (if (trace_has_key program-noncolliding "custom_interpreter")
-        (block
-          (define i_inputs (tuple inputs intervention_trace))
-          (interpret
-            (trace_get
-              (lookup
-                program-noncolliding
-                (list "custom_interpreter")))
-            i_inputs
-            (empty-trace)))
-        (if (trace_has_key program-noncolliding "source")
-          (block
-            (define
-              new_env
-              (make_env
-                (trace_get
-                  (lookup program-noncolliding (list "environment")))))
-            (match_bind
-              (lookup program-noncolliding (list "source" "pattern"))
-              inputs
-              new_env)
-            (interpret_eval
-              (lookup program-noncolliding (list "source" "body"))
-              new_env
-              intervention_trace))
-          (block
-            (pprint program-noncolliding)
-            (error "Not a prob prog")))))))
+   [program-noncolliding inputs intervention_trace]
+   (if (trace_has_key program-noncolliding "custom_interpreter")
+     (block
+      (define i_inputs (tuple inputs intervention_trace))
+      (interpret
+       (trace_get
+        (lookup
+         program-noncolliding
+         (list "custom_interpreter")))
+       i_inputs
+       (empty-trace)))
+     (if (trace_has_key program-noncolliding "source")
+       (block
+        (define
+          new_env
+          (make_env
+           (trace_get
+            (lookup program-noncolliding (list "environment")))))
+        (match_bind
+         (lookup program-noncolliding (list "source" "pattern"))
+         inputs
+         new_env)
+        (interpret_eval
+         (lookup program-noncolliding (list "source" "body"))
+         new_env
+         intervention_trace))
+       ;; Had to move this case
+       (if (trace_has_key program-noncolliding "executable")
+         (block
+          (interpret_prim
+           (trace_get (lookup program-noncolliding (list "executable")))
+           inputs
+           intervention_trace))
+         (block
+          (pprint program-noncolliding)
+          (error "Not a prob prog")))))))
 
 (define
   interpret_eval

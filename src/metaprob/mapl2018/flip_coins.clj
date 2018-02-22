@@ -1,3 +1,5 @@
+;; #1.
+
 (ns metaprob.mapl2018.flip-coins
   (:refer-clojure :only [ns declare])
   (:require [metaprob.syntax :refer :all]
@@ -33,7 +35,7 @@
 	   true)
 (trace-set (lookup ensure-tricky-and-biased
                    (addr 2 "weight" "then" 0 "uniform"))
-	   0.99)
+	   0.1)
 (trace-set (lookup ensure-tricky-and-biased
 	   	   (addr "datum" 3 "flip"))
            false)
@@ -44,4 +46,11 @@
                                 :inputs  (tuple 10)
                                 :interventions ensure-tricky-and-biased)))
 
-
+(define go+ (probprog []
+                      (define target (empty-trace))
+                      (define output (empty-trace))
+                      (propose-and-trace-choices :probprog flip-n-coins
+                                 :inputs  (tuple 10)
+                                 :intervention-trace ensure-tricky-and-biased
+                                 :target-trace target
+                                 :output-trace output)))

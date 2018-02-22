@@ -128,6 +128,16 @@
            (make-deterministic-primitive '~mp-name
                                          ~aux-name)))))
 
+;; utility for below
+
+(defn maybe-intervene [fun params intervene]
+  (if (has-value? intervene)
+    (do (clojure.core/print (format "intervene -> %s\n" (value intervene)))
+        (value intervene))
+    (let [ans (apply fun params)]
+      (clojure.core/print (format "no intervene -> %s\n" ans))
+      ans)))
+
 ;; This corresponds to the py_propose method of the SPFromLite class,
 ;; which is defined in sp.py.  'params' (elsewhere called 'args') are
 ;; the parameters to the particular distribution we're sampling.
@@ -139,19 +149,14 @@
             (let [ans (value target)]
               ;; Compute score
               [ans (logpdf ans params)])
-            (let [ans (if (has-value? intervene)
-                        (value intervene)
-                        (apply fun params))]
-              [ans 0]))]
-      (set-value! output ans)
+            [(maybe-intervene fun params intervene) 0])]
+      (if output (set-value! output ans))
       (metaprob-cons ans (metaprob-cons score (new-trace))))))
 
 (defn apply-nondeterministic-scoreless [fun params intervene output]
   (let [params (metaprob-collection-to-seq params)]
-    (let [ans (if (has-value? intervene)
-                (value intervene)
-                (apply fun params))]
-      (set-value! output ans)
+    (let [ans (maybe-intervene fun params intervene)]
+      (if output (set-value! output ans))
       ans)))
 
 ;; Nondeterministic primitives have to have a suite of custom
@@ -174,22 +179,22 @@
     (letfn [(execute [args]          ;sp.simulate
               (apply sampler args))
             ;; Without score
-            (trace [args intervene output]
+            (trace-choices [args intervene output]
               (apply-nondeterministic-scoreless sampler args intervene output))
             (interpret [args intervene]
-              (trace args intervene (new-trace)))
+              (apply-nondeterministic-scoreless sampler args intervene nil))
             ;; With score
             (p-a-t-c [args intervene target output]
               (apply-nondeterministic sampler args logpdf intervene target output))
             (propose [args intervene target]
-              (p-a-t-c args intervene target (new-trace)))]
+              (apply-nondeterministic sampler args logpdf intervene target nil))]
       (with-meta sampler
         {:trace (trace-from-map
                  {"name" (new-trace name)
                   ;; The execute property is always a clojure function (non-trace)
                   "executable" (new-trace execute)
                   "custom_interpreter" (new-trace (make-deterministic-primitive name interpret))
-                  "custom_choice_tracer" (new-trace (make-deterministic-primitive name trace))
+                  "custom_choice_tracer" (new-trace (make-deterministic-primitive name trace-choices))
                   "custom_proposer" (new-trace (make-deterministic-primitive name propose))
                   "custom_choice_tracing_proposer"
                   (new-trace (make-deterministic-primitive name p-a-t-c))}
@@ -492,7 +497,10 @@
 (define-nondeterministic-primitive flip
   (fn
     ([] (<= (.nextDouble rng) 0.5))
-    ([weight] (<= (.nextDouble rng) weight)))
+    ([weight]
+     (let [answer (<= (.nextDouble rng) weight)]
+       (clojure.core/print (format "flip %s -> %s\n" weight answer))
+       answer)))
   (fn [sample params]
     (let [weight (apply (fn ([] 0.5) ([weight] weight))
                         params)]
