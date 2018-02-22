@@ -29,4 +29,5 @@
       (map (probprog [p] (trace_get (lookup p (addr 1)))) particles))
 
     ;; return a trace with probability proportional to (exp score)
-    (log_categorical scores traces)))
+    (define which (log-categorical scores))
+    (nth traces which)))

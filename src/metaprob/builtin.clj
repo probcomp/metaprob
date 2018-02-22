@@ -18,6 +18,7 @@
   (:require [metaprob.trace :refer :all])
   (:require [kixi.stats.distribution :as dist])
   (:require [kixi.stats.math :as math])
+  (:require [clojure.java.io :as io])
   (:require [clojure.set :as set]))
 
 (declare length nth)
@@ -135,7 +136,7 @@
     (do (clojure.core/print (format "intervene -> %s\n" (value intervene)))
         (value intervene))
     (let [ans (apply fun params)]
-      (clojure.core/print (format "no intervene -> %s\n" ans))
+      ;; (clojure.core/print (format "no intervene -> %s\n" ans))
       ans)))
 
 ;; This corresponds to the py_propose method of the SPFromLite class,
@@ -508,12 +509,12 @@
         (math/log weight)
         (java.lang.Math/log1p (- 0 weight))))))
 
-(defn exp [x] (java.lang.Math/exp x))
-(defn sqrt [x] (java.lang.Math/sqrt x))
+(define-deterministic-primitive exp [x] (java.lang.Math/exp x))
+(define-deterministic-primitive sqrt [x] (java.lang.Math/sqrt x))
 
 (defn pi [x] (java.lang.Math/acos -1))
 
-(defn normal [mu variance]
+(define-deterministic-primitive normal [mu variance]
   (let [two*variance (* 2.0 variance)]
     (fn [x]
       (let [x-mu (- x mu)]
@@ -576,6 +577,25 @@
       (- (math/log (count (filter (fn [x] (= x item)) items)))
          (math/log (count items))))))
 
+;; 
+
+(define-nondeterministic-primitive log-categorical
+  (fn [scores]
+    (let [weights (map exp (metaprob-collection-to-seq scores))
+          normalizer (reduce + 0 weights)
+          probabilities (map (fn [w] (/ w normalizer)) weights)
+          sample (uniform_continuous 0 1)]
+      ;; iterate over probabilities, accumulate running sum, stop when cum prob > sample.
+      (letfn [(scan [i probs running]
+                (if (> running sample)
+                  i
+                  (scan (+ i 1) (rest probs) (+ (first probs) running))))]
+        (scan 0 probabilities 0.0))))
+  (fn [i [scores]]
+    (let [weights (map exp (metaprob-collection-to-seq scores))
+          normalizer (reduce + 0 weights)
+          probabilities (map (fn [w] (/ w normalizer)) weights)]
+      (log (clojure.core/nth probabilities i)))))
 
 ;; pair - not defined in prelude
 
@@ -894,4 +914,12 @@
 ;; -----------------------------------------------------------------------------
 
 (define-deterministic-primitive binned-histogram [& {:keys [name samples overlay-densities]}]
-  'foo)
+  (clojure.core/prn "Binned histogram")
+  (let [samples (metaprob-collection-to-seq samples)
+        path (clojure.string/replace name " " "_")]
+    (prn name)
+    (prn (purify overlay-densities))
+    (with-open [writor (io/writer (str path ".samples"))]
+      (doseq [sample samples]
+        (.write writor (str sample))
+        (.write writor "\n")))))
