@@ -5,6 +5,6 @@
             :url "http://www.gnu.org/licenses/"}
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [kixi/stats "0.4.0"]]
-  :aot [metaprob.environment])
+  :aot [metaprob.environment metaprob.trace])
 
 
