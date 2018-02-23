@@ -16,9 +16,11 @@
   (probprog [mu sigma]
     (define u1 (uniform 0 1))
     (define u2 (uniform 0 1))
-    (add mu (mul (mul (sqrt (mul (sub 0 2) (log u1)))    ;CHECK THIS
+    (define answer
+     (add mu (mul (mul (sqrt (mul (sub 0 2) (log u1)))    ;CHECK THIS
     	              (cos (mul (mul 2 3.14159265) u2)))
-		      sigma)) ))
+		      sigma)))
+    answer))
 
 ;; associating the gaussian probabilistic program with a
 ;; meta-program for evaluating its density

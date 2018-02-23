@@ -43,12 +43,15 @@
             (lookup program-noncolliding (list "source" "pattern"))
             inputs
             new_env)
-          (ptc_eval
-            (lookup program-noncolliding (list "source" "body"))
-            new_env
-            intervention_trace
-            target_trace
-            output_trace))
+          (define answer+score
+            (ptc_eval
+             (lookup program-noncolliding (list "source" "body"))
+             new_env
+             intervention_trace
+             target_trace
+             output_trace))
+          (trace-set output_trace (nth answer+score 0))
+          answer+score)
         (if (trace_has_key program-noncolliding "executable")
           (block
             (define

@@ -327,7 +327,8 @@
         true (value (tracify tr))))        ; *e
 
 (define-deterministic-primitive trace_get [tr] ; backward compatibility name
-  (trace-get tr))
+  (cond (list? tr) (first tr)
+        true (value (tracify tr))))        ; *e
 
 (define-deterministic-primitive trace_has [tr]
   (cond (list? tr) (not (empty? tr))
@@ -339,7 +340,7 @@
   (set-value! (tracify tr) val))
 
 (define-deterministic-primitive trace_set [tr val] ; backward compatibility name
-  (trace-set tr val))
+  (set-value! (tracify tr) val))
 
 ;; VKM name
 (define-deterministic-primitive trace-subtrace [tr addr]
@@ -587,9 +588,10 @@
           sample (uniform_continuous 0 1)]
       ;; iterate over probabilities, accumulate running sum, stop when cum prob > sample.
       (letfn [(scan [i probs running]
-                (if (> running sample)
-                  i
-                  (scan (+ i 1) (rest probs) (+ (first probs) running))))]
+                (let [running (+ (first probs) running)]
+                  (if (> running sample)
+                    i
+                    (scan (+ i 1) (rest probs) running))))]
         (scan 0 probabilities 0.0))))
   (fn [i [scores]]
     (let [weights (map exp (metaprob-collection-to-seq scores))
@@ -919,7 +921,9 @@
         path (clojure.string/replace name " " "_")]
     (prn name)
     (prn (purify overlay-densities))
-    (with-open [writor (io/writer (str path ".samples"))]
+    (with-open [writor (io/writer (str "results/" path ".samples"))]
       (doseq [sample samples]
+        (prn sample)
         (.write writor (str sample))
-        (.write writor "\n")))))
+        (.write writor "\n"))
+      (.close writor))))

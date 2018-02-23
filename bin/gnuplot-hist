@@ -1,0 +1,7 @@
+data=$1
+echo Data file is $data
+
+cp -p "$data" gnuplot-hist.tmp
+
+gnuplot bin/gnuplot-hist.gp && open gnuplot-hist-tmp.png
+
