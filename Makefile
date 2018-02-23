@@ -37,5 +37,11 @@ convert: src/metaprob/main.clj src/metaprob/to_clojure.clj .lein_classpath
 .lein_classpath:
 	lein classpath > $@
 
+# If you get errors with 'lein compile :all' try just 'lein
+# compile'. I don't understand the difference.
+mapl:
+	lein compile :all
+	lein run -m metaprob.mapl2018.main
+
 tags:
 	etags --language=lisp `find src -name "*.clj"` `find test -name "*.clj"`

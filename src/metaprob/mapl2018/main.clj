@@ -8,6 +8,6 @@
   (inf/get-samples)
   (inf/rejection-assay)
   (inf/importance-assay)
-  ;; (inf/MH-assay)
+  ;; (inf/MH-assay)  WNA
   )
 

@@ -923,7 +923,6 @@
     (prn (purify overlay-densities))
     (with-open [writor (io/writer (str "results/" path ".samples"))]
       (doseq [sample samples]
-        (prn sample)
         (.write writor (str sample))
         (.write writor "\n"))
       (.close writor))))

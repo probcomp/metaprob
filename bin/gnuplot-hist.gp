@@ -1,7 +1,7 @@
 reset
-n=100 #number of intervals
-max=2. #max value
-min=-2. #min value
+n=20 #number of intervals
+max=5. #max value
+min=-5. #min value
 width=(max-min)/n #interval width
 #function used to map a value to the intervals
 hist(x,width)=width*floor(x/width)+width/2.0
