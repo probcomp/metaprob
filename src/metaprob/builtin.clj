@@ -910,8 +910,7 @@
                         (set (map purify
                                   (metaprob-collection-to-seq s2)))))))
 
-(define-deterministic-primitive set_difference [s1 s2] ;backward compatibility
-  (set-difference s1 s2))
+(def set_difference set-difference)
 
 ;; -----------------------------------------------------------------------------
 

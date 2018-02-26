@@ -1,3 +1,4 @@
+# https://gnuplot-surprising.blogspot.com/2011/09/statistic-analysis-and-histogram.html
 reset
 n=20 #number of intervals
 max=5. #max value
