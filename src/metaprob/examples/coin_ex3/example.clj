@@ -86,7 +86,7 @@
             flip_coins
             (tuple 5)
             a_trace
-            (set_difference
+            (set-difference
               (addresses_of a_trace)
               (tuple
                 (list 1 "tricky" "flip")

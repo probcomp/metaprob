@@ -13,7 +13,7 @@
     ;; choose an address to modify, uniformly at random
     
     (define choice-addresses (addresses_of trace))
-    (define candidates (set_difference choice-addresses constraint-addresses))
+    (define candidates (set-difference choice-addresses constraint-addresses))
     (define target-address (uniform_categorical candidates))
 
     ;; generate a proposal trace
@@ -35,7 +35,7 @@
     ;; now calculate the Metropolis-Hastings acceptance ratio
 
     (define new-choice-addresses (addresses_of new-trace))
-    (define new-candidates (set_difference new-choice-addresses constraint-addresses))
+    (define new-candidates (set-difference new-choice-addresses constraint-addresses))
     (define new-num-choices (length new-candidates))
 
     ;; make a trace that can be used to restore the original trace
@@ -43,7 +43,7 @@
     (define restoring-trace (empty-trace))
     (trace_set (lookup restoring-trace target-address)
     	       initial-value)
-    (for_each (set_difference choice-addresses new-choice-addresses)
+    (for_each (set-difference choice-addresses new-choice-addresses)
     	      (probprog [initial-addr] ;; initial-addr in original but not proposed trace
 	      		(trace_set (lookup restoring-trace initial-addr)
 				   (trace_get trace initial-addr))))
@@ -63,7 +63,7 @@
     	    			       	    (add reverse-score (log initial-num-choices))))
     (if (lt (log (uniform 0 1)) log-acceptance-probability)
         (block
-	    (for_each (set_difference choice-addresses new-choice-addresses)
+	    (for_each (set-difference choice-addresses new-choice-addresses)
 	              (probprog [initial-addr] (trace_clear trace initial-addr)))
 	    (for_each new-choice-addresses
 	    	      (probprog [new-addr]

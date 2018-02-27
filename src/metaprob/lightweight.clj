@@ -23,7 +23,7 @@
     (define choice_addresses (addresses_of trace))
     (define
       candidates
-      (set_difference choice_addresses constraint_addresses))
+      (set-difference choice_addresses constraint_addresses))
     (define target_address (uniform_sample candidates))
     (define initial_value (trace_get (lookup trace target_address)))
     (define initial_num_choices (length candidates))
@@ -41,7 +41,7 @@
     (define new_choice_addresses (addresses_of new_trace))
     (define
       new_candidates
-      (set_difference new_choice_addresses constraint_addresses))
+      (set-difference new_choice_addresses constraint_addresses))
     (define new_num_choices (length new_candidates))
     (define
       restoring_trace
@@ -50,7 +50,7 @@
         (trace_set (lookup __trace_0__ target_address) initial_value)
         __trace_0__))
     (for_each
-      (set_difference choice_addresses new_choice_addresses)
+      (set-difference choice_addresses new_choice_addresses)
       (program
         [addr]
         (block
@@ -72,7 +72,7 @@
     (if (lt (log (uniform 0 1)) log_p_accept)
       (block
         (for_each
-          (set_difference choice_addresses new_choice_addresses)
+          (set-difference choice_addresses new_choice_addresses)
           (program [addr] (block (trace_clear (lookup trace addr)))))
         (for_each
           new_choice_addresses

@@ -152,13 +152,13 @@
     (is (not (b/metaprob-list-contains? (b/seq-to-metaprob-list '(3 5 7))
                                         11)))))
 
-(deftest set_difference-1
-  (testing "smoke test set_difference"
+(deftest set-difference-1
+  (testing "smoke test set-difference"
     (let [a (b/seq-to-metaprob-list '(3 5 7))
           b (b/seq-to-metaprob-list '(5 7 11 13))]
       (is (b/metaprob-list-contains? a 5) "5 in a")
-      (let [a-b (b/set_difference a b)
-            b-a (b/set_difference b a)]
+      (let [a-b (b/set-difference a b)
+            b-a (b/set-difference b a)]
         (is (b/metaprob-list-contains? a-b 3) "3 in a-b")
         (is (b/metaprob-list-contains? b-a 13) "13 in b-a")
         (is (not (b/metaprob-list-contains? a-b 7)) "7 not in a-b")
