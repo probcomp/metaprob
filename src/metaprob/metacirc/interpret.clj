@@ -40,10 +40,10 @@
          new_env
          intervention_trace))
        ;; Had to move this case
-       (if (trace_has_key program-noncolliding "executable")
+       (if (trace_has_key program-noncolliding "foreign-generate")
          (block
           (interpret_prim
-           (trace_get (lookup program-noncolliding (list "executable")))
+           (trace_get (lookup program-noncolliding (list "foreign-generate")))
            inputs
            intervention_trace))
          (block

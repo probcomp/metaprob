@@ -1,5 +1,6 @@
 (ns metaprob.trace
-  (:require [metaprob.environment :refer :all]))
+  (:require [clojure.string :as string]
+            [metaprob.environment :refer :all]))
 
 (def no-value '**no-value**)
 
@@ -83,12 +84,12 @@
 
 (defn acceptable? [key sub]
   ;; Really stupid type system.  Functions should be stored, and only
-  ;; be stored, under the "executable" property.
+  ;; be stored, under the "foreign-generate" or "foreign-query" property.
   (if (ok-key? key)
     (if (trie? sub)
       (if (has-value? sub)
         (let [val (value sub)]
-          (if (= key "executable")
+          (if (string/starts-with? key "foreign-")
             (or (instance? clojure.lang.IFn val)
                 (meta val))
             (metaprob-value? val)))
@@ -103,7 +104,7 @@
     (if (trie? sub)
       (if (has-value? sub)
         (let [val (value sub)]
-          (if (= key "executable")
+          (if (string/starts-with? key "foreign-")
             (if (instance? clojure.lang.IFn val)
               ["acceptable - executable IFn" key sub val]
               (if (meta val)

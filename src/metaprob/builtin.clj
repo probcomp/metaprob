@@ -114,7 +114,7 @@
               (apply fun (metaprob-collection-to-seq args)))]
       (with-meta fun
         {:trace (trace-from-map {"name" (new-trace (str name))
-                                 "executable" (new-trace execute)}
+                                 "foreign-generate" (new-trace execute)}
                                 "prob prog")}))))
 
 ;; The aux-name is logically unnecessary but helps with debugging.
@@ -193,7 +193,7 @@
         {:trace (trace-from-map
                  {"name" (new-trace name)
                   ;; The execute property is always a clojure function (non-trace)
-                  "executable" (new-trace execute)
+                  "foreign-generate" (new-trace execute)
                   "custom_interpreter" (new-trace (make-deterministic-primitive name interpret))
                   "custom_choice_tracer" (new-trace (make-deterministic-primitive name trace-choices))
                   "custom_proposer" (new-trace (make-deterministic-primitive name propose))
@@ -411,7 +411,7 @@
       nil)))
 
 ;; Deterministic apply, like 'simulate' in the python version.
-;; exec is the value of something's "executable" property and is
+;; exec is the value of something's "foreign-generate" property and is
 ;; supposed to be a clojure function taking one argument, a metaprob
 ;; collection of arguments.
 
@@ -424,8 +424,8 @@
 ;; Experimental code... probably not too hard to regenerate; flush.
 ;;       (let [tr (tracify exec)]
 ;;         (assert trace? tr)
-;;         (if (has-subtrace? tr "executable")
-;;           (let [f (subtrace tr "executable")]
+;;         (if (has-subtrace? tr "foreign-generate")
+;;           (let [f (subtrace tr "foreign-generate")]
 ;;             (assert (instance? clojure.lang.IFn f)
 ;;                     "executable property should be a clojure function")
 ;;             (f args))
@@ -438,7 +438,7 @@
 ;;             ;; but need to convert list to metaprob list
 ;;             )))
 
-;; Used for the "executable" case in propose_and_trace_choices.
+;; Used for the "foreign-generate" case in propose_and_trace_choices.
 ;; From metaprob/src/builtin.py :
 ;; def interpret_prim(f, args, intervention_trace):
 ;;   if intervention_trace.has():

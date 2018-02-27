@@ -43,13 +43,13 @@
             new_env
             intervention_trace
             target_trace))
-        (if (trace_has_key program-noncolliding "executable")
+        (if (trace_has_key program-noncolliding "foreign-generate")
           (block
             (define
               val
               (interpret_prim
                 (trace_get
-                  (lookup program-noncolliding (list "executable")))
+                  (lookup program-noncolliding (list "foreign-generate")))
                 inputs
                 intervention_trace))
             (tuple val 0))

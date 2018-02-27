@@ -52,13 +52,13 @@
              output_trace))
           (trace-set output_trace (nth answer+score 0))
           answer+score)
-        (if (trace_has_key program-noncolliding "executable")
+        (if (trace_has_key program-noncolliding "foreign-generate")
           (block
             (define
               val
               (interpret_prim
                 (trace_get
-                  (lookup program-noncolliding (list "executable")))
+                  (lookup program-noncolliding (list "foreign-generate")))
                 inputs
                 intervention_trace))
             (trace_set output_trace val)
