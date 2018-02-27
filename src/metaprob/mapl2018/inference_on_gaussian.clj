@@ -11,7 +11,7 @@
             [metaprob.mapl2018.metropolis-hastings-step :refer [lightweight-single-site-MH-sampling]]
             [metaprob.mapl2018.interpreters :refer :all]))
 
-(define number-of-runs 1000)
+(define number-of-runs 25)
 
 (define prior-density
   (probprog [x]
@@ -77,6 +77,8 @@
       :name    "samples from lightweight single-site MH with 20 iterations"
       :samples (replicate
                  number-of-runs
-                 (lightweight-single-site-MH-sampling 20 target-trace))
+                 (lightweight-single-site-MH-sampling 20
+                                                      two-variable-gaussian-model
+                                                      target-trace))
       :overlay-densities (list (tuple "prior" prior-density)
                                (tuple "target" target-density)))))

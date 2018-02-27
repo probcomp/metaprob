@@ -41,7 +41,12 @@ convert: src/metaprob/main.clj src/metaprob/to_clojure.clj .lein_classpath
 # compile'. I don't understand the difference.
 mapl:
 	lein compile :all
-	lein run -m metaprob.mapl2018.main
+	time lein run -m metaprob.mapl2018.main
+
+histograms:
+	bin/gnuplot-hist results/samples_from_the_prior.samples
+	bin/gnuplot-hist results/samples_from_the_target.samples 
+	bin/gnuplot-hist results/samples_from_importance_sampling_with_20_particles.samples 
 
 tags:
 	etags --language=lisp `find src -name "*.clj"` `find test -name "*.clj"`

@@ -181,7 +181,7 @@
 (defmacro ^:private define-nondeterministic-primitive [mp-name
                                                        generator-fun
                                                        logpdf-fun]
-  (let [generator-name (symbol (str mp-name '|generator))
+  (let [generator-name (symbol (str mp-name '|generate))
         logpdf-name (symbol (str mp-name '|logpdf))]
     `(do (declare ~mp-name)
          ;; It would be better if these were defns instead of defs, but
@@ -329,9 +329,7 @@
   (cond (list? tr) (first tr)
         true (value (tracify tr))))        ; *e
 
-(define-deterministic-primitive trace_get [tr] ; backward compatibility name
-  (cond (list? tr) (first tr)
-        true (value (tracify tr))))        ; *e
+(def trace_get trace-get)   ; backward compatibility name
 
 (define-deterministic-primitive trace_has [tr]
   (cond (list? tr) (not (empty? tr))
@@ -351,9 +349,16 @@
     (if (empty? addr)
       tr
       (let [[key more-addr] addr]
-        (cond (list? tr) (trace-subtrace (rest tr) more-addr)
-              (vector? tr) (trace-subtrace (clojure.core/nth tr key) more-addr)
-              true (subtrace-location-at (tracify tr) addr))))))   ; e[e]
+        ;; Make clojure lists and vectors look like traces
+        (cond (list? tr)
+              (do (assert (= key "rest"))
+                  (trace-subtrace (rest tr) more-addr))
+
+              (vector? tr)
+              (trace-subtrace (clojure.core/nth tr key) more-addr)
+
+              true
+              (subtrace-location-at (tracify tr) addr))))))   ; e[e]
 
 (define-deterministic-primitive lookup [tr addr] ; backward compatibility name
   (trace-subtrace tr addr))
@@ -362,8 +367,10 @@
 (define-deterministic-primitive trace-delete [tr addr]   ; del e[e]
   (clear-value! (trace-subtrace tr addr)))
 
-(define-deterministic-primitive trace_clear [tr] ; backward compatibility name
+(define-deterministic-primitive trace-clear [tr] ; backward compatibility name
   (clear-value! (tracify tr)))
+
+(def trace_clear trace-clear) ; backward compatibility name
 
 (define-deterministic-primitive trace_set_at [tr addr val]
   (set-value-at! (tracify tr) (addrify addr) val))

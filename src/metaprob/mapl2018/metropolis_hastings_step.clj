@@ -18,9 +18,9 @@
 
     ;; generate a proposal trace
 
-    (define initial-value (trace_get trace target-address))
+    (define initial-value (trace-get (lookup trace target-address)))
     (define initial-num-choices (length candidates))
-    (trace_clear trace target-address)
+    (trace-delete trace target-address)
     (define new-trace (empty-trace))
 
     (define (_ forward-score) (propose-and-trace-choices
@@ -49,7 +49,7 @@
 				   (trace_get trace initial-addr))))
 
     ;; remove the new value
-    (trace_clear new-trace target-address)								   
+    (trace-delete new-trace target-address)
 
     (define (__ reverse-score) (propose-and-trace-choices
                                    :probprog model-probprog
@@ -64,7 +64,7 @@
     (if (lt (log (uniform 0 1)) log-acceptance-probability)
         (block
 	    (for_each (set-difference choice-addresses new-choice-addresses)
-	              (probprog [initial-addr] (trace_clear trace initial-addr)))
+	              (probprog [initial-addr] (trace-delete trace initial-addr)))
 	    (for_each new-choice-addresses
 	    	      (probprog [new-addr]
 		      		(trace_set (lookup trace new-addr)
@@ -84,8 +84,9 @@
             (repeat N
 	            (probprog
 		      []
+                      ;; VKM had keywords :probprog :inputs :trace :constraint-addresses
 		      (single-site-metropolis-hastings-step
-		        :probprog model-probprog
-			:inputs (tuple)
-			:trace state
-			:constraint-addresses (addresses_of target-trace))))))
+		        model-probprog
+			(tuple)
+			state
+			(addresses_of target-trace))))))
