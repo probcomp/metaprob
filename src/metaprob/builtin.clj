@@ -133,40 +133,43 @@
                        0])]
                 (if output (set-value! output answer))
                 ;; (tuple answer score) - tuple isn't defined yet
-                (trace-from-map {0 (new-trace answer) 1 (new-trace score)})))
-
-            ;; --Deprecated--
-            (interpret [args intervene]
-              (nth (query args intervene nil nil)
-                   0))
-            (trace-choices [args intervene output]
-              (nth (query args intervene nil output)
-                   0))
-            (propose [args intervene target]
-              (query args intervene target nil))]
+                (trace-from-map {0 (new-trace answer) 1 (new-trace score)})))]
 
       (with-meta spread-generator
         {:trace (trace-from-map
-                 ;; Kuldgey, will be simpler after removal of deprecated stuff
-                 (if (= logpdf default-logpdf)
-                   {"name" (new-trace name)
-                    ;; The execute property is always a clojure function (non-trace)
-                    "foreign-generate" (new-trace generate)
-                    "foreign-query" (new-trace query)
-                    }
-                   {"name" (new-trace name)
-                    ;; The execute property is always a clojure function (non-trace)
-                    "foreign-generate" (new-trace generate)
-                    "foreign-query" (new-trace query)
+                  ;; Compatibility kludge - will be simpler after removal of 
+                  ;; deprecated stuff
+                  (if (= logpdf default-logpdf)
+                    {"name" (new-trace name)
+                     "foreign-generate" (new-trace generate)
+                     "foreign-query" (new-trace query)
+                     }
+                    {"name" (new-trace name)
+                     "foreign-generate" (new-trace generate)
+                     "foreign-query" (new-trace query)
 
-                    ;; --Deprecated--
-                    "custom_interpreter" (new-trace (make-simple-foreign-probprog name interpret))
-                    "custom_choice_tracer" (new-trace (make-simple-foreign-probprog name trace-choices))
-                    "custom_proposer" (new-trace (make-simple-foreign-probprog name propose))
-                    "custom_choice_tracing_proposer"
-                    (new-trace (make-simple-foreign-probprog name query))
-                    })
-                 "prob prog")}))))
+                     ;; --Deprecated--
+                     "custom_interpreter"
+                       (new-trace (make-simple-foreign-probprog name
+                                                                (fn [args intervene]
+                                                                  (nth (query args intervene nil nil)
+                                                                       0))))
+                     "custom_choice_tracer"
+                       (new-trace (make-simple-foreign-probprog name
+                                                                (fn [args intervene output]
+                                                                  (nth (query args intervene nil output)
+                                                                       0))))
+                     "custom_proposer"
+                       (new-trace (make-simple-foreign-probprog name
+                                                                (fn [args intervene target]
+                                                                  (query args intervene target nil))))
+                     ;; Recommended: change the interpreters so that
+                     ;; they invoke the foreign-query property directly,
+                     ;; using
+                     "custom_choice_tracing_proposer"
+                       (new-trace (make-simple-foreign-probprog name query))
+                     })
+                  "prob prog")}))))
 
 (defn make-simple-foreign-probprog [name spread-generator]
   (make-foreign-probprog name spread-generator default-logpdf))
@@ -197,27 +200,27 @@
 
 ;; Metaprob interface to 'foreign' probprogs.
 
-;; Invoke a simple 'foreign' probprog, like 'simulate' in the python version.
-;; generator is the value of something's "foreign-generate" property and is
-;; supposed to be a clojure function taking one argument, a metaprob
-;; collection of arguments.
+;; Invoke a simple 'foreign' probprog.  Two cases:
+;; 1. generate - like 'simulate' in the python version.
+;;    fun is the value of a probprog's "foreign-generate" property and is
+;;    supposed to be a clojure function taking one argument, a metaprob
+;;    collection of arguments.
+;; 2. query - similar to `py_propose` in the python code.  fun is the value
+;;    of a probprog's "foreign-query" property, and takes four arguments
+;;    (metprob arg list + 3 traces), and returns 2 values (answer + score)
+;;    as a metprob tuple.
 
-(define-deterministic-primitive apply-foreign-generate [generator inputs]
-  (generator inputs))
+(define-deterministic-primitive call-foreign [fun & args]
+  (clojure.core/assert (instance? clojure.lang.IFn fun))
+  (apply fun args))
 
-;; Invoke a sophisticated 'foreign' probprog, similar to `py_propose`
-;; in the python code.
+;; Deprecated...
 
-(define-deterministic-primitive apply-foreign-query [querier inputs intervene target output]
-  (querier inputs intervene target output))
-
-;; Deprecated.
-
-(define-deterministic-primitive interpret_prim [generator inputs intervention-trace]
-  (clojure.core/assert (instance? clojure.lang.IFn generator))
+(define-deterministic-primitive interpret_prim [generate inputs intervention-trace]
+  (clojure.core/assert (instance? clojure.lang.IFn generate))
   (if (has-value? intervention-trace)
     (value intervention-trace)
-    (generator (metaprob-collection-to-seq inputs))))
+    (generate inputs)))
 
 
 ;; ----------------------------------------------------------------------
