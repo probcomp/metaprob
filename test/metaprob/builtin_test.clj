@@ -114,7 +114,7 @@
           target (new-trace target-val)
           ;; Args to prop are: params intervene target output
           result (proposer (b/empty-trace) (b/empty-trace) target (b/empty-trace))
-          [val score] (b/metaprob-list-to-seq result)]
+          [val score] (b/metaprob-collection-to-seq result)]
       (is (= val target-val))
       (is (> score -2))
       (is (< score 0)))))

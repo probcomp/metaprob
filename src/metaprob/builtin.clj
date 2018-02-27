@@ -104,120 +104,120 @@
 ;; --------------------
 ;; Now ready to start defining primitives.
 
-;; Similar to sp_to_prob_prog
+;; Default logpdf function
 
-(defn make-deterministic-primitive [name fun]
+(defn default-logpdf [params answer] 0)
+
+(declare make-simple-foreign-probprog)
+
+;; A generator takes one argument, the metaprob parameter list.  A
+;; spread-generator takes the values in the metaprob parameter list as
+;; its arguments.  Think of a better name.
+
+(defn make-foreign-probprog [name spread-generator logpdf]
   (let [name (if (symbol? name) (str name) name)]
-    (clojure.core/assert (string? name) name)
-    (clojure.core/assert (instance? clojure.lang.IFn fun))
-    (letfn [(execute [args]          ;sp.simulate
-              (apply fun (metaprob-collection-to-seq args)))]
-      (with-meta fun
-        {:trace (trace-from-map {"name" (new-trace (str name))
-                                 "foreign-generate" (new-trace execute)}
-                                "prob prog")}))))
+    (clojure.core/assert (string? name))
+    (clojure.core/assert (instance? clojure.lang.IFn spread-generator))
+    (clojure.core/assert (instance? clojure.lang.IFn logpdf))
+    (letfn [(generate [args]          ;sp.simulate
+              (apply spread-generator (metaprob-collection-to-seq args)))
+            (query [args intervene target output]
+              (let [params (metaprob-collection-to-seq args)
+                    [answer score]
+                    (if (clojure.core/and target (has-value? target))
+                      [(value target) (logpdf (value target) params)]
+                      [(if (clojure.core/and intervene (has-value? intervene))
+                         (do (clojure.core/print (format "intervene -> %s\n" (value intervene)))
+                             (value intervene))
+                         (apply spread-generator params))
+                       0])]
+                (if output (set-value! output answer))
+                ;; (tuple answer score) - tuple isn't defined yet
+                (trace-from-map {0 (new-trace answer) 1 (new-trace score)})))
+
+            ;; --Deprecated--
+            (interpret [args intervene]
+              (nth (query args intervene nil nil)
+                   0))
+            (trace-choices [args intervene output]
+              (nth (query args intervene nil output)
+                   0))
+            (propose [args intervene target]
+              (query args intervene target nil))]
+
+      (with-meta spread-generator
+        {:trace (trace-from-map
+                 ;; Kuldgey, will be simpler after removal of deprecated stuff
+                 (if (= logpdf default-logpdf)
+                   {"name" (new-trace name)
+                    ;; The execute property is always a clojure function (non-trace)
+                    "foreign-generate" (new-trace generate)
+                    "foreign-query" (new-trace query)
+                    }
+                   {"name" (new-trace name)
+                    ;; The execute property is always a clojure function (non-trace)
+                    "foreign-generate" (new-trace generate)
+                    "foreign-query" (new-trace query)
+
+                    ;; --Deprecated--
+                    "custom_interpreter" (new-trace (make-simple-foreign-probprog name interpret))
+                    "custom_choice_tracer" (new-trace (make-simple-foreign-probprog name trace-choices))
+                    "custom_proposer" (new-trace (make-simple-foreign-probprog name propose))
+                    "custom_choice_tracing_proposer"
+                    (new-trace (make-simple-foreign-probprog name query))
+                    })
+                 "prob prog")}))))
+
+(defn make-simple-foreign-probprog [name spread-generator]
+  (make-foreign-probprog name spread-generator default-logpdf))
 
 ;; The aux-name is logically unnecessary but helps with debugging.
 ;; mp-name is the name the primitive has in the metaprob namespace.
 ;; lib-name is deprecated.
 
-(defmacro ^:private define-deterministic-primitive [mp-name params & body]
-  (let [aux-name (symbol (str mp-name '|primitive))]
-    `(do (declare ~mp-name)
-         (defn ~aux-name ~params ~@body)
-         (def ~mp-name
-           (make-deterministic-primitive '~mp-name
-                                         ~aux-name)))))
-
-;; utility for below
-
-(defn maybe-intervene [fun params intervene]
-  (if (has-value? intervene)
-    (do (clojure.core/print (format "intervene -> %s\n" (value intervene)))
-        (value intervene))
-    (let [ans (apply fun params)]
-      ;; (clojure.core/print (format "no intervene -> %s\n" ans))
-      ans)))
-
-;; This corresponds to the py_propose method of the SPFromLite class,
-;; which is defined in sp.py.  'params' (elsewhere called 'args') are
-;; the parameters to the particular distribution we're sampling.
-
-(defn apply-nondeterministic [fun params logpdf intervene target output]
-  (let [params (metaprob-collection-to-seq params)]
-    (let [[ans score]
-          (if (has-value? target)
-            (let [ans (value target)]
-              ;; Compute score
-              [ans (logpdf ans params)])
-            [(maybe-intervene fun params intervene) 0])]
-      (if output (set-value! output ans))
-      (metaprob-cons ans (metaprob-cons score (new-trace))))))
-
-(defn apply-nondeterministic-scoreless [fun params intervene output]
-  (let [params (metaprob-collection-to-seq params)]
-    (let [ans (maybe-intervene fun params intervene)]
-      (if output (set-value! output ans))
-      ans)))
-
-;; Nondeterministic primitives have to have a suite of custom
-;; application methods, one for each meta-circular interpreter.
-;; def sp_to_prob_prog(name, sp):
-;;   return make_prob_prog(
-;;     name=name,
-;;     simulator=sp.simulate,
-;;     interpreter=python_interpreter_prob_prog(sp.py_propose),
-;;     tracer=python_tracer_prob_prog(sp.py_propose),
-;;     proposer=python_proposer_prob_prog(sp.py_propose),
-;;     ptc=python_ptc_prob_prog(sp.py_propose)) # TODO Name the proposer?
-;; p-a-t-c, in particular, looks for "custom_choice_tracing_proposer".
-
-(defn make-nondeterministic-primitive [name sampler logpdf]
-  (let [name (if (symbol? name) (str name) name)]
-    (clojure.core/assert (string? name))
-    (clojure.core/assert (instance? clojure.lang.IFn sampler))
-    (clojure.core/assert (instance? clojure.lang.IFn logpdf))
-    (letfn [(execute [args]          ;sp.simulate
-              (apply sampler args))
-            ;; Without score
-            (trace-choices [args intervene output]
-              (apply-nondeterministic-scoreless sampler args intervene output))
-            (interpret [args intervene]
-              (apply-nondeterministic-scoreless sampler args intervene nil))
-            ;; With score
-            (p-a-t-c [args intervene target output]
-              (apply-nondeterministic sampler args logpdf intervene target output))
-            (propose [args intervene target]
-              (apply-nondeterministic sampler args logpdf intervene target nil))]
-      (with-meta sampler
-        {:trace (trace-from-map
-                 {"name" (new-trace name)
-                  ;; The execute property is always a clojure function (non-trace)
-                  "foreign-generate" (new-trace execute)
-                  "custom_interpreter" (new-trace (make-deterministic-primitive name interpret))
-                  "custom_choice_tracer" (new-trace (make-deterministic-primitive name trace-choices))
-                  "custom_proposer" (new-trace (make-deterministic-primitive name propose))
-                  "custom_choice_tracing_proposer"
-                  (new-trace (make-deterministic-primitive name p-a-t-c))}
-                 "prob prog")}))))
-
 (defmacro ^:private define-nondeterministic-primitive [mp-name
-                                                       sampler-fun
+                                                       generator-fun
                                                        logpdf-fun]
-  (let [sampler-name (symbol (str mp-name '|sampler))
+  (let [generator-name (symbol (str mp-name '|generator))
         logpdf-name (symbol (str mp-name '|logpdf))]
     `(do (declare ~mp-name)
          ;; It would be better if these were defns instead of defs, but
          ;; that would require work.
-         ;; sampler-fun takes the distribution parameters as arguments
-         (def ~sampler-name ~sampler-fun)
+         ;; generator-fun takes the distribution parameters as arguments
+         (def ~generator-name ~generator-fun)
          ;; logpdf-fun takes 2 args, a sample and the list of parameters
          (def ~logpdf-name ~logpdf-fun)
          (def ~mp-name
-           (make-nondeterministic-primitive '~mp-name
-                                            ~sampler-name
-                                            ~logpdf-name)))))
+           (make-foreign-probprog '~mp-name
+                                  ~generator-name
+                                  ~logpdf-name)))))
 
+(defmacro ^:private define-deterministic-primitive [mp-name params & body]
+  `(define-nondeterministic-primitive ~mp-name (fn ~params ~@body) default-logpdf))
+
+;; Metaprob interface to 'foreign' probprogs.
+
+;; Invoke a simple 'foreign' probprog, like 'simulate' in the python version.
+;; generator is the value of something's "foreign-generate" property and is
+;; supposed to be a clojure function taking one argument, a metaprob
+;; collection of arguments.
+
+(define-deterministic-primitive apply-foreign-generate [generator inputs]
+  (generator inputs))
+
+;; Invoke a sophisticated 'foreign' probprog, similar to `py_propose`
+;; in the python code.
+
+(define-deterministic-primitive apply-foreign-query [querier inputs intervene target output]
+  (querier inputs intervene target output))
+
+;; Deprecated.
+
+(define-deterministic-primitive interpret_prim [generator inputs intervention-trace]
+  (clojure.core/assert (instance? clojure.lang.IFn generator))
+  (if (has-value? intervention-trace)
+    (value intervention-trace)
+    (generator (metaprob-collection-to-seq inputs))))
 
 
 ;; ----------------------------------------------------------------------
@@ -230,15 +230,15 @@
 (define-deterministic-primitive assert [condition complaint]
   (clojure.core/assert condition complaint))
 
-(def not (make-deterministic-primitive 'not clojure.core/not))
-(def eq (make-deterministic-primitive 'eq =))
+(def not (make-simple-foreign-probprog 'not clojure.core/not))
+(def eq (make-simple-foreign-probprog 'eq =))
 
 (define-deterministic-primitive neq [x y] (clojure.core/not (= x y)))
 
-(def gt (make-deterministic-primitive 'gt >))
-(def gte (make-deterministic-primitive 'gte >=))
-(def lte (make-deterministic-primitive 'lte <=))
-(def lt (make-deterministic-primitive 'lt <))
+(def gt (make-simple-foreign-probprog 'gt >))
+(def gte (make-simple-foreign-probprog 'gte >=))
+(def lte (make-simple-foreign-probprog 'lte <=))
+(def lt (make-simple-foreign-probprog 'lt <))
 
 (declare append purify)
 
@@ -259,12 +259,12 @@
                            p)))]
           (concat (to-seq x) (to-seq y)))))))
 
-(def sub (make-deterministic-primitive 'sub -))
-(def mul (make-deterministic-primitive 'mul *))
-(def div (make-deterministic-primitive 'div /))
+(def sub (make-simple-foreign-probprog 'sub -))
+(def mul (make-simple-foreign-probprog 'mul *))
+(def div (make-simple-foreign-probprog 'div /))
 
-;; (def cos (make-deterministic-primitive 'cos clojure.core/cos))
-;; (def sin (make-deterministic-primitive 'sin clojure.core/sin))
+;; (def cos (make-simple-foreign-probprog 'cos clojure.core/cos))
+;; (def sin (make-simple-foreign-probprog 'sin clojure.core/sin))
 
 (define-deterministic-primitive log [x] (math/log x))
 (define-deterministic-primitive cos [x] (math/cos x))
@@ -410,42 +410,6 @@
       (value (subtrace tr "name"))
       nil)))
 
-;; Deterministic apply, like 'simulate' in the python version.
-;; exec is the value of something's "foreign-generate" property and is
-;; supposed to be a clojure function taking one argument, a metaprob
-;; collection of arguments.
-
-(define-deterministic-primitive interpret_prim [exec inputs intervention-trace]
-  (clojure.core/assert (instance? clojure.lang.IFn exec))
-  (if (has-value? intervention-trace)
-    (value intervention-trace)
-    (exec (metaprob-collection-to-seq inputs))))
-
-;; Experimental code... probably not too hard to regenerate; flush.
-;;       (let [tr (tracify exec)]
-;;         (assert trace? tr)
-;;         (if (has-subtrace? tr "foreign-generate")
-;;           (let [f (subtrace tr "foreign-generate")]
-;;             (assert (instance? clojure.lang.IFn f)
-;;                     "executable property should be a clojure function")
-;;             (f args))
-;;           (if (clojure.core/and (has-subtrace? tr "pattern")
-;;                                 (has-subtrace? tr "source"))
-;;             ;; Using program-to-clojure here would be a cyclic dependency!
-;;             (assert false "clojure eval of probprog not yet implemented")
-;;             ;; (let [prog (program-to-clojure (trace_get (lookup tr (list "pattern"))))]
-;;             ;;   (apply prog args))
-;;             ;; but need to convert list to metaprob list
-;;             )))
-
-;; Used for the "foreign-generate" case in propose_and_trace_choices.
-;; From metaprob/src/builtin.py :
-;; def interpret_prim(f, args, intervention_trace):
-;;   if intervention_trace.has():
-;;     return intervention_trace.get()
-;;   else:
-;;     return f(metaprob_collection_to_python_list(args))
-
 ;; Prettyprint
 
 (defn pprint-atom [a]
@@ -485,7 +449,7 @@
     (do (clojure.core/print x) (newline)))
   (flush))
 
-(def print (make-deterministic-primitive 'print prn))
+(def print (make-simple-foreign-probprog 'print prn))
 
 ;; Other builtins
 
