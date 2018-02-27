@@ -26,18 +26,18 @@
               (list "custom_choice_tracer")))
           tc_inputs
           (empty-trace)))
-      (if (trace_has_key program-noncolliding "source")
+      (if (trace_has_key program-noncolliding "native-generate")
         (block
           (define
             new_exp
-            (lookup program-noncolliding (list "source" "body")))
+            (lookup program-noncolliding (list "native-generate" "body")))
           (define
             new_env
             (make_env
               (trace_get
                 (lookup program-noncolliding (list "environment")))))
           (match_bind
-            (lookup program-noncolliding (list "source" "pattern"))
+            (lookup program-noncolliding (list "native-generate" "pattern"))
             inputs
             new_env)
           (tc_eval new_exp new_env intervention_trace output_trace))
@@ -101,7 +101,7 @@
                         exp)
                       (trace_set_subtrace_at
                         __trace_0__
-                        (list "source")
+                        (list "native-generate")
                         exp)
                       (trace_set
                         (lookup __trace_0__ (list "environment"))

@@ -32,7 +32,7 @@
               (list "custom_choice_tracing_proposer")))
           ptc_inputs
           (empty-trace)))
-      (if (trace_has_key program-noncolliding "source")
+      (if (trace_has_key program-noncolliding "native-generate")
         (block
           (define
             new_env
@@ -40,12 +40,12 @@
               (trace_get
                 (lookup program-noncolliding (list "environment")))))
           (match_bind
-            (lookup program-noncolliding (list "source" "pattern"))
+            (lookup program-noncolliding (list "native-generate" "pattern"))
             inputs
             new_env)
           (define answer+score
             (ptc_eval
-             (lookup program-noncolliding (list "source" "body"))
+             (lookup program-noncolliding (list "native-generate" "body"))
              new_env
              intervention_trace
              target_trace
@@ -129,7 +129,7 @@
                           exp)
                         (trace_set_subtrace_at
                           __trace_1__
-                          (list "source")
+                          (list "native-generate")
                           exp)
                         (trace_set
                           (lookup __trace_1__ (list "environment"))

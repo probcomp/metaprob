@@ -50,7 +50,7 @@
     (if (trace_has (lookup state site1))
       (block (trace_get (lookup state site1)))
       (block
-        (define site2 (list "source" "body" 2 "weight" "else" 0))
+        (define site2 (list "native-generate" "body" 2 "weight" "else" 0))
         (trace_get
           (lookup (lookup flip_coins site2) (list "value")))))))
 

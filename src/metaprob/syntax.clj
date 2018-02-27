@@ -57,7 +57,7 @@
               exp-trace)]               ;original metaprob
     (with-meta fun {:name name
                     :trace (trace-from-map {"name" (new-trace key)
-                                            "source" exp-trace
+                                            "native-generate" exp-trace
                                             "environment"
                                                (new-trace env)}
                                            "prob prog")})))

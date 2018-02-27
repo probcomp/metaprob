@@ -24,7 +24,7 @@
          (list "custom_interpreter")))
        i_inputs
        (empty-trace)))
-     (if (trace_has_key program-noncolliding "source")
+     (if (trace_has_key program-noncolliding "native-generate")
        (block
         (define
           new_env
@@ -32,11 +32,11 @@
            (trace_get
             (lookup program-noncolliding (list "environment")))))
         (match_bind
-         (lookup program-noncolliding (list "source" "pattern"))
+         (lookup program-noncolliding (list "native-generate" "pattern"))
          inputs
          new_env)
         (interpret_eval
-         (lookup program-noncolliding (list "source" "body"))
+         (lookup program-noncolliding (list "native-generate" "body"))
          new_env
          intervention_trace))
        ;; Had to move this case
@@ -93,7 +93,7 @@
                         exp)
                       (trace_set_subtrace_at
                         __trace_0__
-                        (list "source")
+                        (list "native-generate")
                         exp)
                       (trace_set
                         (lookup __trace_0__ (list "environment"))
@@ -196,7 +196,7 @@
         (define __trace_1__ (empty-trace))
         (trace_set __trace_1__ "prob prog")
         (trace_set (lookup __trace_1__ (list "name")) name)
-        (trace_set_subtrace_at __trace_1__ (list "source") source)
+        (trace_set_subtrace_at __trace_1__ (list "native-generate") source)
         (trace_set (lookup __trace_1__ (list "environment")) env)
         __trace_1__))))
 

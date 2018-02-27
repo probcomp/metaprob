@@ -24,18 +24,18 @@
             (lookup program-noncolliding (list "custom_proposer")))
           propose_inputs
           (empty-trace)))
-      (if (trace_has_key program-noncolliding "source")
+      (if (trace_has_key program-noncolliding "native-generate")
         (block
           (define
             new_exp
-            (lookup program-noncolliding (list "source" "body")))
+            (lookup program-noncolliding (list "native-generate" "body")))
           (define
             new_env
             (make_env
               (trace_get
                 (lookup program-noncolliding (list "environment")))))
           (match_bind
-            (lookup program-noncolliding (list "source" "pattern"))
+            (lookup program-noncolliding (list "native-generate" "pattern"))
             inputs
             new_env)
           (propose_eval
@@ -118,7 +118,7 @@
                           exp)
                         (trace_set_subtrace_at
                           __trace_1__
-                          (list "source")
+                          (list "native-generate")
                           exp)
                         (trace_set
                           (lookup __trace_1__ (list "environment"))
