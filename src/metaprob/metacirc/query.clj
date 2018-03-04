@@ -4,9 +4,7 @@
   (:refer-clojure :only [declare ])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
-            [metaprob.prelude :refer :all]
-            ;; Added manually
-            [metaprob.metacirc.interpret :refer [interpret]]))
+            [metaprob.prelude :refer :all]))
 
 (declare query query-lifted query-foreign query-native ptc_eval)
 
@@ -40,7 +38,7 @@
                         target_trace
                         output_trace)
           (block (pprint prog)
-                 (assert false "Not a prob prog")))))))
+                 (assert false "Not a prob prog" prog)))))))
 
 ;; Query a 'lifted' probprog.
 ;; Pass the traces into the probprog, as well as the arguments.
@@ -91,12 +89,12 @@
 
             (define new_env (make_env environment))
 
-            (match_bind (trace-get source "pattern")
+            (match-bind (lookup source "pattern")
                         inputs
                         new_env)
 
             (define [answer score]
-              (ptc_eval (trace-get source "body")
+              (ptc_eval (lookup source "body")
                         new_env
                         ;; Do not let the interpreter affect any of the traces.
                         ;; Any changes to the traces needs to be made by the code

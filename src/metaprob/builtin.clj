@@ -110,7 +110,7 @@
   (with-meta ifn
     {:trace (trace-from-map
              {"name" (new-trace name)
-              "foreign-generate" (new-trace ifn)}
+              "foreign-generate-method" (new-trace ifn)}
              "prob prog")}))
 
 (defmacro ^:private define-foreign-probprog [mp-name & rest-of-defn]
@@ -143,8 +143,8 @@
   (let [prog (tracify prog)]
     (if (has-subtrace? prog "query-method")
       (mini-generate (value (subtrace prog "query-method")) argseq i t o)
-      (if (has-subtrace? prog "foreign-generate")
-        [(generate-foreign (value (subtrace prog "foreign-generate")) argseq) 0]
+      (if (has-subtrace? prog "foreign-generate-method")
+        [(generate-foreign (value (subtrace prog "foreign-generate-method")) argseq) 0]
         (clojure.core/assert false ["don't know how to query this kind of probprog" prog])))))
 
 ;; Lift a probprog (`query-method`) up to be a meta-probprog.
@@ -207,8 +207,16 @@
 ;; exceptions in the evaluation of its subforms, (2) it can show you
 ;; the source code for the subforms.
 
-(define-foreign-probprog assert [condition complaint]
-  (clojure.core/assert condition complaint))
+(define-foreign-probprog assert [condition complaint & irritants]
+  (binding [*out* *err*]
+    (doseq [irritant irritants]
+      (if (trace? irritant)
+        (do (clojure.core/print "Irritant:")
+            (pprint irritant)))))
+  (clojure.core/assert condition
+                       (if (empty? irritants)
+                         complaint
+                         (vec (cons complaint irritants)))))
 
 (def not (make-foreign-probprog "not" clojure.core/not))
 (def eq (make-foreign-probprog "eq" =))
@@ -842,25 +850,27 @@
 ;; tuple, at any level.
 
 (defn match-bind [pattern input env]
-  ;; pattern is a trace (variable or list, I think, maybe seq)
-  (clojure.core/assert trace? pattern)
-  (case (value pattern)
-    "variable" (env/env-bind! env (value (subtrace pattern "name")) input)
-    "tuple"
-    ;; input is either a metaprob list or a metaprob tuple
-    (let [subpatterns (subtraces-to-seq pattern)
-          parts (metaprob-collection-to-seq input)]
-      (clojure.core/assert
-       (= (count subpatterns) (count parts))
-       ["number of subpatterns differs from number of input parts"
-        (count subpatterns) (count parts)])
-      ;; Ugh. https://stackoverflow.com/questions/9121576/clojure-how-to-execute-a-function-on-elements-of-two-seqs-concurently
-      (doseq [[p i] (map clojure.core/list subpatterns parts)]
-        (match-bind p i env)))))
+  (letfn [(re [pattern input]
+            ;; pattern is a trace (variable or list, I think, maybe seq)
+            (clojure.core/assert trace? pattern)
+            (case (value pattern)
+              "variable" (env/env-bind! env (value (subtrace pattern "name")) input)
+              "tuple"
+              ;; input is either a metaprob list or a metaprob tuple
+              (let [subpatterns (subtraces-to-seq pattern)
+                    parts (metaprob-collection-to-seq input)]
+                (clojure.core/assert
+                 (= (count subpatterns) (count parts))
+                 ["number of subpatterns differs from number of input parts"
+                  (count subpatterns) (count parts)])
+                ;; Ugh. https://stackoverflow.com/questions/9121576/clojure-how-to-execute-a-function-on-elements-of-two-seqs-concurently
+                (doseq [[p i] (map clojure.core/list subpatterns parts)]
+                  (re p i)))))]
+    (dosync (re pattern input))
+    "return value of match_bind"))
 
 (define-foreign-probprog match_bind [pattern input env]
-  (dosync (match-bind pattern input env))
-  "return value of match_bind")
+  (match-bind pattern input env))
 
 
 ;; Random stuff
