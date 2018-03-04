@@ -55,12 +55,38 @@
           o2 (b/nth r 2)]
       (is (trace? o2))
       (b/trace_set o2 "value")
-      (is (= (b/trace_get o2) "value"))
-      (is (= (b/trace_get (b/lookup root a)) "value")))))
+      (is (= (b/trace-get o2) "value"))
+      (is (= (b/trace-get (b/lookup root a)) "value"))
+      (is (= (b/trace-get root a) "value")))))
+
+;; Probprog stuff
+
+(deftest foreign-probprog
+  (testing "create and call a foreign-probprog"
+    (let [pp (b/make-foreign-probprog "pp" (fn [x] (+ x 1)))]
+      (is (= (b/generate-foreign pp [6]) 7)))))
+
+(deftest basic-query
+  (testing "query a foreign-probprog"
+    (let [pp (b/make-foreign-probprog "pp" (fn [x] (+ x 1)))]
+      (let [[answer score] (b/mini-query pp [7] nil nil nil)]
+        (is (= score 0))
+        (is (= answer 8))))))
+
+(deftest lift-and-query
+  (testing "can we lift a probprog and then query it"
+    (let [qq (b/make-foreign-probprog "qq" (fn [argseq i t o]
+                                             [(+ (b/nth argseq 0) (b/nth argseq 1))
+                                              50]))
+          lifted (b/make-mini-lifted-probprog "lifted" qq)]
+      (let [[answer score] (b/mini-query lifted [7 8] nil nil nil)]
+        (is (= answer 15))
+        (is (= score 50))))))
 
 (deftest reification-1
-  (testing "Does a program appear to be a trace?"
-    (is (= (b/trace_get (program [] 7)) "prob prog"))))
+  (testing "Does a probprog appear to be a trace?"
+    (let [pp (b/make-foreign-probprog "pp" (fn [x] (+ x 1)))]
+      (is (= (b/trace-get pp) "prob prog")))))
 
 (deftest length-1
   (testing "length smoke test"
@@ -108,14 +134,12 @@
 (deftest flip-1
   (testing "Try doing a flip"
     (is (boolean? (b/flip)))
-    (is (boolean? (b/flip 0.5)))
-    (let [proposer (b/trace_get (b/lookup b/flip (b/list "custom_choice_tracing_proposer")))
-          target-val true
-          target (new-trace target-val)
-          ;; Args to prop are: params intervene target output
-          result (proposer (b/empty-trace) (b/empty-trace) target (b/empty-trace))
-          [val score] (b/metaprob-collection-to-seq result)]
-      (is (= val target-val))
+    (is (boolean? (b/flip 0.5)))))
+
+(deftest score-1
+  (testing "check the score for a flip"
+    (let [[answer score] (b/mini-query b/flip [] nil nil nil)]
+      (is (number? score))
       (is (> score -2))
       (is (< score 0)))))
 

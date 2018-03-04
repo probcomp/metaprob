@@ -1,4 +1,4 @@
-(ns metaprob.metacirc.propose-and-trace-choices-test
+(ns metaprob.metacirc.query-test
   (:refer-clojure :exclude [not assert pprint and or
                             list first rest last nth range])
   (:require [clojure.test :refer :all]
@@ -6,16 +6,16 @@
             [metaprob.trace :refer :all]
             [metaprob.syntax :refer :all]
             [metaprob.builtin :as builtin]
-            [metaprob.metacirc.propose-and-trace-choices :refer :all]))
+            [metaprob.metacirc.query :refer :all]))
 
 (defn mk_nil [] (builtin/empty-trace))
 
 (defn ez-apply [prob-prog & args]
   (let [[value score]
         (builtin/metaprob-collection-to-seq
-         (propose_and_trace_choices prob-prog
-                                    (builtin/seq-to-metaprob-tuple args)
-                                    (mk_nil) (mk_nil) (mk_nil)))]
+         (query prob-prog
+                (builtin/seq-to-metaprob-tuple args)
+                (mk_nil) (mk_nil) (mk_nil)))]
     value))
 
 (deftest apply-1
@@ -32,7 +32,7 @@
   (let [[value score]
         (builtin/metaprob-collection-to-seq
          (ptc_eval (from-clojure x)
-                   (environment/make-top-level-env 'metaprob.metacirc.propose-and-trace-choices)
+                   (environment/make-top-level-env 'metaprob.metacirc.query)
                    (mk_nil)
                    (mk_nil)
                    (mk_nil)))]

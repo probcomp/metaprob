@@ -10,11 +10,14 @@
   (probprog
     [model-probprog inputs trace constraint-addresses]
 
+    (print "Trace")
+    (pprint trace)
+
     ;; choose an address to modify, uniformly at random
     
     (define choice-addresses (addresses_of trace))
     (define candidates (set-difference choice-addresses constraint-addresses))
-    (define target-address (uniform_categorical candidates))
+    (define target-address (uniform-sample candidates))
 
     ;; generate a proposal trace
 
@@ -29,7 +32,9 @@
                                :intervention-trace (empty-trace)
                                :target-trace trace
                                :ouput-trace new-trace))
-    (define new-value (trace_get new-trace target-address))
+    (print "New trace")
+    (pprint new-trace)
+    (define new-value (trace-get new-trace target-address))
 
     ;; the proposal is to move from trace to new-trace
     ;; now calculate the Metropolis-Hastings acceptance ratio
@@ -46,7 +51,7 @@
     (for_each (set-difference choice-addresses new-choice-addresses)
     	      (probprog [initial-addr] ;; initial-addr in original but not proposed trace
 	      		(trace_set (lookup restoring-trace initial-addr)
-				   (trace_get trace initial-addr))))
+				   (trace-get (lookup trace initial-addr)))))
 
     ;; remove the new value
     (trace-delete new-trace target-address)
@@ -68,7 +73,7 @@
 	    (for_each new-choice-addresses
 	    	      (probprog [new-addr]
 		      		(trace_set (lookup trace new-addr)
-					   (trace_get new-trace new-addr)))))
+					   (trace-get (lookup new-trace new-addr))))))
 	(trace_set (lookup trace target-address) initial-value)) ))
 
 (define lightweight-single-site-MH-sampling
@@ -80,7 +85,6 @@
 	      :intervention-trace (empty-trace)
 	      :target-trace target-trace
 	      :output-trace state)
-	      
             (repeat N
 	            (probprog
 		      []

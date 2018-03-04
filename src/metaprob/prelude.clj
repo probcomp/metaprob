@@ -31,12 +31,6 @@
 
 (define addresses_of trace_sites)
 
-(define uniform_sample uniform_categorical)
-
-(define uniform uniform_continuous)
-
-(trace_set (lookup uniform (list "name")) "uniform")
-
 (trace_set (lookup flip (list "support")) (array_to_list (tuple true false)))
 
 (define

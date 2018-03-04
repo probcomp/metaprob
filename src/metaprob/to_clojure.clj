@@ -166,7 +166,7 @@
                "block"))
 
 (defn program-to-clojure [pat-trace body-trace]
-  (qons 'program
+  (qons 'probprog
         (qons (pattern-to-pattern pat-trace)
               ;; For readability, allow x y instead of (block x y)
               (form-to-formlist (to-clojure body-trace)))))

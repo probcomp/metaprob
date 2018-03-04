@@ -3,20 +3,20 @@ Metaprob implemented in Clojure
 
 ## Install Java
 
-You will of course need Java to run Leinigen and Clojure, e.g. OpenJDK
+You will of course need Java to run Leiningen and Clojure, e.g. OpenJDK
 version 8.  You need full Java, not just the VM.
 
-## Installing Leinigen and Clojure
+## Installing Leiningen and Clojure
 
-It is not necessary to separately install Clojure if Leinigen is
-installed.  Just install Leinigen, and let it take care of installing
+It is not necessary to separately install Clojure if Leiningen is
+installed.  Just install Leiningen, and let it take care of installing
 Clojure.
 
-Instructions for installing Leinigen are [here](https://leiningen.org/#install), but for a quick install use
+Instructions for installing Leiningen are [here](https://leiningen.org/#install), but for a quick install use
 the short script in the Makefile: `make lein`.
 This script assumes that `~/bin` is on your `PATH`.
 
-Leinigen keeps some state in the `~/.lein` directory.
+Leiningen keeps some state in the `~/.lein` directory.
 
 ## Parsing metaprob
 

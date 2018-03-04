@@ -7,7 +7,7 @@
             [metaprob.prelude :refer :all]
             ;; Added
             [metaprob.trace]
-            [metaprob.metacirc.propose-and-trace-choices :refer [propose_and_trace_choices]]
+            [metaprob.metacirc.query :refer [query]]
             [metaprob.metacirc.propose :refer [propose]]
             [metaprob.metacirc.trace-choices :refer [trace_choices]]))
 
@@ -24,14 +24,14 @@
     (define
       candidates
       (set-difference choice_addresses constraint_addresses))
-    (define target_address (uniform_sample candidates))
+    (define target_address (uniform-sample candidates))
     (define initial_value (trace_get (lookup trace target_address)))
     (define initial_num_choices (length candidates))
     (trace_clear (lookup trace target_address))
     (define new_trace (empty-trace))
     (define
       [_ forward_score]
-      (propose_and_trace_choices
+      (query
         program-noncolliding
         inputs
         (empty-trace)

@@ -21,7 +21,7 @@
   (:require [clojure.java.io :as io])
   (:require [clojure.set :as set]))
 
-(declare length nth)
+(declare length nth pprint)
 
 ;; empty-trace? - is this trace a metaprob representation of an empty tuple/list?
 
@@ -104,123 +104,100 @@
 ;; --------------------
 ;; Now ready to start defining primitives.
 
-;; Default logpdf function
+(defn make-foreign-probprog [name ifn]
+  (clojure.core/assert (clojure.core/or (string? name) (integer? name) (= name nil)) name)
+  (clojure.core/assert (instance? clojure.lang.IFn ifn) ifn)
+  (with-meta ifn
+    {:trace (trace-from-map
+             {"name" (new-trace name)
+              "foreign-generate" (new-trace ifn)}
+             "prob prog")}))
 
-(defn default-logpdf [params answer] 0)
-
-(declare make-simple-foreign-probprog)
-
-;; A generator takes one argument, the metaprob parameter list.  A
-;; spread-generator takes the values in the metaprob parameter list as
-;; its arguments.  Think of a better name.
-
-(defn make-foreign-probprog [name spread-generator logpdf]
-  (let [name (if (symbol? name) (str name) name)]
-    (clojure.core/assert (string? name))
-    (clojure.core/assert (instance? clojure.lang.IFn spread-generator))
-    (clojure.core/assert (instance? clojure.lang.IFn logpdf))
-    (letfn [(generate [args]          ;sp.simulate
-              (apply spread-generator (metaprob-collection-to-seq args)))
-            (query [args intervene target output]
-              (let [params (metaprob-collection-to-seq args)
-                    [answer score]
-                    (if (clojure.core/and target (has-value? target))
-                      [(value target) (logpdf (value target) params)]
-                      [(if (clojure.core/and intervene (has-value? intervene))
-                         (do (clojure.core/print (format "intervene -> %s\n" (value intervene)))
-                             (value intervene))
-                         (apply spread-generator params))
-                       0])]
-                (if output (set-value! output answer))
-                ;; (tuple answer score) - tuple isn't defined yet
-                (trace-from-map {0 (new-trace answer) 1 (new-trace score)})))]
-
-      (with-meta spread-generator
-        {:trace (trace-from-map
-                  ;; Compatibility kludge - will be simpler after removal of 
-                  ;; deprecated stuff
-                  (if (= logpdf default-logpdf)
-                    {"name" (new-trace name)
-                     "foreign-generate" (new-trace generate)
-                     "foreign-query" (new-trace query)
-                     }
-                    {"name" (new-trace name)
-                     "foreign-generate" (new-trace generate)
-                     "foreign-query" (new-trace query)
-
-                     ;; --Deprecated--
-                     "custom_interpreter"
-                       (new-trace (make-simple-foreign-probprog name
-                                                                (fn [args intervene]
-                                                                  (nth (query args intervene nil nil)
-                                                                       0))))
-                     "custom_choice_tracer"
-                       (new-trace (make-simple-foreign-probprog name
-                                                                (fn [args intervene output]
-                                                                  (nth (query args intervene nil output)
-                                                                       0))))
-                     "custom_proposer"
-                       (new-trace (make-simple-foreign-probprog name
-                                                                (fn [args intervene target]
-                                                                  (query args intervene target nil))))
-                     ;; Recommended: change the interpreters so that
-                     ;; they invoke the foreign-query property directly,
-                     ;; using
-                     "custom_choice_tracing_proposer"
-                       (new-trace (make-simple-foreign-probprog name query))
-                     })
-                  "prob prog")}))))
-
-(defn make-simple-foreign-probprog [name spread-generator]
-  (make-foreign-probprog name spread-generator default-logpdf))
-
-;; The aux-name is logically unnecessary but helps with debugging.
-;; mp-name is the name the primitive has in the metaprob namespace.
-;; lib-name is deprecated.
-
-(defmacro ^:private define-nondeterministic-primitive [mp-name
-                                                       generator-fun
-                                                       logpdf-fun]
-  (let [generator-name (symbol (str mp-name '|generate))
-        logpdf-name (symbol (str mp-name '|logpdf))]
+(defmacro ^:private define-foreign-probprog [mp-name & rest-of-defn]
+  (let [namestring (if (symbol? mp-name) (str mp-name) mp-name)
+        generator-name (symbol (str namestring '|generate))]
     `(do (declare ~mp-name)
          ;; It would be better if these were defns instead of defs, but
          ;; that would require work.
-         ;; generator-fun takes the distribution parameters as arguments
-         (def ~generator-name ~generator-fun)
-         ;; logpdf-fun takes 2 args, a sample and the list of parameters
-         (def ~logpdf-name ~logpdf-fun)
+         ;; generate-method takes the distribution parameters as arguments
+         (def ~generator-name (fn ~mp-name ~@rest-of-defn))
          (def ~mp-name
-           (make-foreign-probprog '~mp-name
-                                  ~generator-name
-                                  ~logpdf-name)))))
+           (make-foreign-probprog ~namestring
+                                  ~generator-name)))))
 
-(defmacro ^:private define-deterministic-primitive [mp-name params & body]
-  `(define-nondeterministic-primitive ~mp-name (fn ~params ~@body) default-logpdf))
+;; Invoke a foreign probprog.  Called from query-foreign in interpreter.
 
-;; Metaprob interface to 'foreign' probprogs.
+(define-foreign-probprog generate-foreign [ifn argseq]
+  (apply ifn (metaprob-collection-to-seq argseq)))
 
-;; Invoke a simple 'foreign' probprog.  Two cases:
-;; 1. generate - like 'simulate' in the python version.
-;;    fun is the value of a probprog's "foreign-generate" property and is
-;;    supposed to be a clojure function taking one argument, a metaprob
-;;    collection of arguments.
-;; 2. query - similar to `py_propose` in the python code.  fun is the value
-;;    of a probprog's "foreign-query" property, and takes four arguments
-;;    (metprob arg list + 3 traces), and returns 2 values (answer + score)
-;;    as a metprob tuple.
-
-(define-deterministic-primitive call-foreign [fun & args]
-  (clojure.core/assert (instance? clojure.lang.IFn fun))
+(defn mini-generate [fun & args]
   (apply fun args))
+
+;; Invoke a probprog, excluding the native case, which won't work yet,
+;; because the interpreter would be a forward reference and clojure
+;; hates forward references.
+
+(declare tracify)
+
+(defn mini-query [prog argseq i t o]
+  (let [prog (tracify prog)]
+    (if (has-subtrace? prog "query-method")
+      (mini-generate (value (subtrace prog "query-method")) argseq i t o)
+      (if (has-subtrace? prog "foreign-generate")
+        [(generate-foreign (value (subtrace prog "foreign-generate")) argseq) 0]
+        (clojure.core/assert false ["don't know how to query this kind of probprog" prog])))))
+
+;; Lift a probprog (`query-method`) up to be a meta-probprog.
+
+(defn make-mini-lifted-probprog [name query-method]
+  (with-meta (fn [& argseq]
+               (let [[answer ignore-score]
+                     ;; Later, once we have query, we will be able to do
+                     ;; (query query-method argseq nil nil nil), but not yet
+                     (mini-generate query-method argseq nil nil nil)]
+                 answer))
+    {:trace (trace-from-map
+             {"name" (new-trace name)
+              "query-method" (new-trace query-method)}
+             "prob prog")}))
+
+;; Provide a probprog with a score method.
+;; The score-method can be an IFn here, but it can also be a
+;; probprog with the appropriate meta magic to make it callable.
+
+;; Arguments to score-method are [sample params]
+
+(define-foreign-probprog provide-score-method [name prog score-method]
+  (let [namestring (if (symbol? name) (str name) name)]
+    (make-mini-lifted-probprog
+       namestring
+       (make-foreign-probprog namestring
+                              (fn [argseq i t o]
+                                (let [[answer score]
+                                      (mini-query prog argseq i t o)]
+                                  [answer (mini-generate score-method answer argseq)]))))))
+
+;; Convenience macro.  Generate-method and score-method are both IFns.
+
+(defmacro ^:private define-foreign-probprog-with-score [mp-name
+                                                        generate-method
+                                                        score-method]
+  (let [namestring (if (symbol? mp-name) (str mp-name) mp-name)]
+    `(def ~mp-name
+       (provide-score-method ~namestring
+                             (make-foreign-probprog ~(str namestring "|generate")
+                                                    ~generate-method)
+                             (make-foreign-probprog ~(str namestring "|score")
+                                                    ~score-method)))))
 
 ;; Deprecated...
 
-(define-deterministic-primitive interpret_prim [generate inputs intervention-trace]
-  (clojure.core/assert (instance? clojure.lang.IFn generate))
+(define-foreign-probprog interpret_prim [ifn inputs intervention-trace]
+  (clojure.core/assert (instance? clojure.lang.IFn ifn))
   (if (has-value? intervention-trace)
     (value intervention-trace)
-    (generate inputs)))
+    (generate-foreign ifn inputs)))
+
 
 
 ;; ----------------------------------------------------------------------
@@ -230,24 +207,24 @@
 ;; exceptions in the evaluation of its subforms, (2) it can show you
 ;; the source code for the subforms.
 
-(define-deterministic-primitive assert [condition complaint]
+(define-foreign-probprog assert [condition complaint]
   (clojure.core/assert condition complaint))
 
-(def not (make-simple-foreign-probprog 'not clojure.core/not))
-(def eq (make-simple-foreign-probprog 'eq =))
+(def not (make-foreign-probprog "not" clojure.core/not))
+(def eq (make-foreign-probprog "eq" =))
 
-(define-deterministic-primitive neq [x y] (clojure.core/not (= x y)))
+(define-foreign-probprog neq [x y] (clojure.core/not (= x y)))
 
-(def gt (make-simple-foreign-probprog 'gt >))
-(def gte (make-simple-foreign-probprog 'gte >=))
-(def lte (make-simple-foreign-probprog 'lte <=))
-(def lt (make-simple-foreign-probprog 'lt <))
+(def gt (make-foreign-probprog "gt" >))
+(def gte (make-foreign-probprog "gte" >=))
+(def lte (make-foreign-probprog "lte" <=))
+(def lt (make-foreign-probprog "lt" <))
 
 (declare append purify)
 
 ;; Purity is contagious.
 
-(define-deterministic-primitive add [x y]
+(define-foreign-probprog add [x y]
   (if (number? x)
     (+ x y)
     (if (clojure.core/and (trace? x) (trace? y))
@@ -262,18 +239,18 @@
                            p)))]
           (concat (to-seq x) (to-seq y)))))))
 
-(def sub (make-simple-foreign-probprog 'sub -))
-(def mul (make-simple-foreign-probprog 'mul *))
-(def div (make-simple-foreign-probprog 'div /))
+(def sub (make-foreign-probprog "sub" -))
+(def mul (make-foreign-probprog "mul" *))
+(def div (make-foreign-probprog "div" /))
 
-;; (def cos (make-simple-foreign-probprog 'cos clojure.core/cos))
-;; (def sin (make-simple-foreign-probprog 'sin clojure.core/sin))
+;; (def cos (make-foreign-probprog "cos" clojure.core/cos))
+;; (def sin (make-foreign-probprog "sin" clojure.core/sin))
 
-(define-deterministic-primitive log [x] (math/log x))
-(define-deterministic-primitive cos [x] (math/cos x))
-(define-deterministic-primitive sin [x] (math/sin x))
+(define-foreign-probprog log [x] (math/log x))
+(define-foreign-probprog cos [x] (math/cos x))
+(define-foreign-probprog sin [x] (math/sin x))
 
-(define-deterministic-primitive empty-trace []
+(define-foreign-probprog empty-trace []
   (new-trace))
 
 ;; Convert a value to be used as a key to a pure clojure value so that
@@ -300,7 +277,9 @@
 (defn addrify [addr]
   (if (trace? addr)
     (map purify (metaprob-list-to-seq addr))
-    addr))
+    (if (string? addr)
+      (clojure.core/list addr)
+      addr)))
 
 ;; If an object (e.g. a function) has a :trace meta-property, then
 ;; return that meta-property value.  Otherwise, just return the
@@ -324,62 +303,79 @@
                    (let [m (meta x)]
                      (clojure.core/and (map? m) (contains? m :trace)))))
 
+(declare trace-subtrace)
+
 ;; VKM name
-(define-deterministic-primitive trace-get [tr]
-  (cond (list? tr) (first tr)
-        true (value (tracify tr))))        ; *e
+(define-foreign-probprog trace-get
+  ([tr] (cond (list? tr) (first tr)     ; *e
+              true (value (tracify tr))))
+  ([tr addr]
+   (let [tr (tracify tr)
+         addr (addrify addr)]
+     (if (has-subtrace-at? tr addr)
+       (value (subtrace-at tr addr))
+       (do (pprint tr)
+           (clojure.core/assert false ["no such subtrace" tr addr])
+           )))))
 
 (def trace_get trace-get)   ; backward compatibility name
 
-(define-deterministic-primitive trace_has [tr]
+(define-foreign-probprog trace-has? [tr]
   (cond (list? tr) (not (empty? tr))
         (vector? tr) false
         true (has-value? (tracify tr))))
 
-;; VKM name
-(define-deterministic-primitive trace-set [tr val]            ; e[e] := e
-  (set-value! (tracify tr) val))
-
-(define-deterministic-primitive trace_set [tr val] ; backward compatibility name
-  (set-value! (tracify tr) val))
+(def trace_has trace-has?)   ; backward compatibility name
 
 ;; VKM name
-(define-deterministic-primitive trace-subtrace [tr addr]
-  (let [addr (addrify addr)]
-    (if (empty? addr)
-      tr
-      (let [[key more-addr] addr]
-        ;; Make clojure lists and vectors look like traces
-        (cond (list? tr)
-              (do (assert (= key "rest"))
-                  (trace-subtrace (rest tr) more-addr))
+(define-foreign-probprog trace-set
+  ([tr val]            ; e[e] := e
+   (set-value! (tracify tr) val))
+  ([tr addr val]
+   (clojure.core/print (format "setting %s := %s\n" addr val))
+   (set-value! (trace-subtrace tr addr) val)))
 
-              (vector? tr)
-              (trace-subtrace (clojure.core/nth tr key) more-addr)
+(def trace_set trace-set) ; backward compatibility name
 
-              true
-              (subtrace-location-at (tracify tr) addr))))))   ; e[e]
+;; VKM name
+(define-foreign-probprog trace-subtrace [tr addr]
+  (if tr
+    (let [addr (addrify addr)]
+      (if (empty? addr)
+        tr
+        (let [[key more-addr] addr]
+          ;; Make clojure lists and vectors look like traces
+          (cond (list? tr)
+                (do (assert (= key "rest"))
+                    (trace-subtrace (rest tr) more-addr))
 
-(define-deterministic-primitive lookup [tr addr] ; backward compatibility name
-  (trace-subtrace tr addr))
+                (vector? tr)
+                (trace-subtrace (clojure.core/nth tr key) more-addr)
+
+                true    ;a mutable trace
+                (subtrace-location-at (tracify tr) addr)))))   ; e[e]
+    ;; A subtrace of a nil trace is nil ...
+    tr))
+
+(def lookup trace-subtrace)  ; backward compatibility name
 
 ;; VKM proposed
-(define-deterministic-primitive trace-delete [tr addr]   ; del e[e]
+(define-foreign-probprog trace-delete [tr addr]   ; del e[e]
   (clear-value! (trace-subtrace tr addr)))
 
-(define-deterministic-primitive trace-clear [tr] ; backward compatibility name
+(define-foreign-probprog trace-clear [tr] ; backward compatibility name
   (clear-value! (tracify tr)))
 
 (def trace_clear trace-clear) ; backward compatibility name
 
-(define-deterministic-primitive trace_set_at [tr addr val]
+(define-foreign-probprog trace_set_at [tr addr val]
   (set-value-at! (tracify tr) (addrify addr) val))
 
-(define-deterministic-primitive trace_set_subtrace_at [tr addr sub]
+(define-foreign-probprog trace_set_subtrace_at [tr addr sub]
   (set-subtrace-at! (tracify tr) (addrify addr) sub)
   "do not use this value")
 
-(define-deterministic-primitive trace_has_key [tr key]
+(define-foreign-probprog trace-has-key? [tr key]
   (let [key (purify key)]
     (cond (list? tr) (clojure.core/and (not (empty? tr)) (= key 'first))
           (vector? tr) (clojure.core/and (integer? key)
@@ -387,14 +383,16 @@
                             (< key (length tr)))
           true (has-subtrace? (tracify tr) key))))
 
-(define-deterministic-primitive trace_subkeys [tr]
+(def trace_has_key trace-has-key?)
+
+(define-foreign-probprog trace_subkeys [tr]
   (seq-to-metaprob-list (trace-keys (tracify tr))))
 
 ;; Translation of .sites method from trace.py.
 ;; Also known as addresses_of.
 ;; Returns a list of addresses, I believe.  (and addresses are themselves lists.)
 
-(define-deterministic-primitive trace-get-addresses [trace]
+(define-foreign-probprog trace-get-addresses [trace]
   (letfn [(sites [tr]
             ;; returns a seq of traces
             (let [site-list
@@ -411,10 +409,10 @@
         (assert (has-value-at? trace (addrify site)) ["missing value at" site]))
       (seq-to-metaprob-list s))))
 
-(define-deterministic-primitive trace_sites [trace] ; backward compatility
+(define-foreign-probprog trace_sites [trace] ; backward compatility
   (trace-get-addresses trace))
 
-(define-deterministic-primitive prob_prog_name [pp]
+(define-foreign-probprog prob_prog_name [pp]
   (let [tr (tracify pp)]
     (if (has-subtrace? tr "name")
       (value (subtrace tr "name"))
@@ -437,7 +435,7 @@
       (clojure.core/print a)    ;without quotes
       (pr a))))
 
-(define-deterministic-primitive pprint [x]
+(define-foreign-probprog pprint [x]
   (if (tracish? x)
     (let [tr (tracify x)]
       (if (not (= tr x))
@@ -459,7 +457,9 @@
     (do (clojure.core/print x) (newline)))
   (flush))
 
-(def print (make-simple-foreign-probprog 'print prn))
+(define-foreign-probprog print [x]
+  (prn x)
+  (flush))
 
 ;; Other builtins
 
@@ -470,26 +470,27 @@
 ;; The larger the weight, the more likely it is that the sample is
 ;; true rather than false.
 
-(define-nondeterministic-primitive flip
-  (fn
+(define-foreign-probprog-with-score flip
+  (fn flip
     ([] (<= (.nextDouble rng) 0.5))
     ([weight]
      (let [answer (<= (.nextDouble rng) weight)]
        (clojure.core/print (format "flip %s -> %s\n" weight answer))
        answer)))
   (fn [sample params]
-    (let [weight (apply (fn ([] 0.5) ([weight] weight))
+    (let [weight (apply (fn ([] 0.5)
+                            ([weight] weight))
                         params)]
       (if sample
         (math/log weight)
         (java.lang.Math/log1p (- 0 weight))))))
 
-(define-deterministic-primitive exp [x] (java.lang.Math/exp x))
-(define-deterministic-primitive sqrt [x] (java.lang.Math/sqrt x))
+(define-foreign-probprog exp [x] (java.lang.Math/exp x))
+(define-foreign-probprog sqrt [x] (java.lang.Math/sqrt x))
 
 (defn pi [x] (java.lang.Math/acos -1))
 
-(define-deterministic-primitive normal [mu variance]
+(define-foreign-probprog normal [mu variance]
   (let [two*variance (* 2.0 variance)]
     (fn [x]
       (let [x-mu (- x mu)]
@@ -510,8 +511,8 @@
 ;; BetaOutputPSP(RandomPSP)
 ;; Please read the comments in lite/continuous.py in Venture
 
-(define-nondeterministic-primitive beta
-  (fn [a b]
+(define-foreign-probprog-with-score beta
+  (fn beta [a b]
     ;; From kixi/stats/distribution.cljc :
     ;; (let [[r1 r2] (split rng)
     ;;         u (rand-gamma alpha r1)]
@@ -533,8 +534,8 @@
 
 ;; Uniform
 
-(define-nondeterministic-primitive uniform_continuous
-  (fn [a b]
+(define-foreign-probprog-with-score uniform
+  (fn uniform [a b]
     (dist/draw (dist/uniform a b)))
   (fn [x [a b]]
     ;; return scipy.stats.uniform.logpdf(x, low, high-low)
@@ -542,8 +543,8 @@
 
 ;; Categorical
 
-(define-nondeterministic-primitive uniform_categorical
-  (fn [items]
+(define-foreign-probprog-with-score uniform-sample
+  (fn uniform-sample [items]
     ;; items is a metaprob list (or tuple??)
     (let [n (dist/draw (dist/uniform 0 (length items)))]
       (nth items (Math/floor n))))
@@ -554,12 +555,12 @@
 
 ;; 
 
-(define-nondeterministic-primitive log-categorical
-  (fn [scores]
+(define-foreign-probprog-with-score log-categorical
+  (fn log-categorical [scores]
     (let [weights (map exp (metaprob-collection-to-seq scores))
           normalizer (reduce + 0 weights)
           probabilities (map (fn [w] (/ w normalizer)) weights)
-          sample (uniform_continuous 0 1)]
+          sample (uniform 0 1)]
       ;; iterate over probabilities, accumulate running sum, stop when cum prob > sample.
       (letfn [(scan [i probs running]
                 (let [running (+ (first probs) running)]
@@ -575,12 +576,12 @@
 
 ;; pair - not defined in prelude
 
-(define-deterministic-primitive pair [thing mp-list]
+(define-foreign-probprog pair [thing mp-list]
   (metaprob-cons thing mp-list))
 
 ;; list_to_array - convert metaprob list to metaprob array/tuple
 
-(define-deterministic-primitive list_to_array [mp-list]
+(define-foreign-probprog list_to_array [mp-list]
   (letfn [(r [mp-list n]
             (if (empty-trace? mp-list)
               {}
@@ -591,17 +592,17 @@
 
 ;; list - builtin
 
-(define-deterministic-primitive list [& things]
+(define-foreign-probprog list [& things]
   (seq-to-metaprob-list things))
 
 ;; addr - like list
 
-(define-deterministic-primitive addr [& things]
+(define-foreign-probprog addr [& things]
   (seq-to-metaprob-list things))
 
 ;; array_to_list - builtin - metaprob array/tuple to metaprob list
 
-(define-deterministic-primitive array_to_list [tup]
+(define-foreign-probprog array_to_list [tup]
   (if (trace? tup)
     (letfn [(scan [i]
               (if (has-subtrace? tup i)
@@ -613,23 +614,23 @@
 
 ;; This is an approximation
 
-(define-deterministic-primitive is_metaprob_array [x]
+(define-foreign-probprog is_metaprob_array [x]
   (metaprob-tuple? x))
 
 ;; dummy, no longer needed (used in examples and/or prelude?)
 
-(define-deterministic-primitive dereify_tag [x]
+(define-foreign-probprog dereify_tag [x]
   false)
 
 ;; In metaprob, these are strict functions.
 
-(define-deterministic-primitive and [a b]
+(define-foreign-probprog and [a b]
   (clojure.core/and a b))
 
-(define-deterministic-primitive or [a b]
+(define-foreign-probprog or [a b]
   (clojure.core/or a b))
 
-(define-deterministic-primitive exactly [& body]
+(define-foreign-probprog exactly [& body]
   (assert false "what is exactly, exactly?"))
 
 ;; ----------------------------------------------------------------------
@@ -648,7 +649,7 @@
 
 ;; first - overrides original prelude (performance + generalization)
 
-(define-deterministic-primitive first [mp-list]
+(define-foreign-probprog first [mp-list]
   (if (metaprob-pair? mp-list)
     (value mp-list)
     (if (seqable? mp-list)              ;e.g. an address
@@ -657,7 +658,7 @@
 
 ;; rest - overrides original prelude (performance + generalization)
 
-(define-deterministic-primitive rest [mp-list]
+(define-foreign-probprog rest [mp-list]
   (if (metaprob-pair? mp-list)
     (subtrace mp-list rest-marker)
     (if (seqable? mp-list)              ;e.g. an address
@@ -666,12 +667,12 @@
 
 ;; is_pair - overrides original prelude (performance + generalization)
 
-(define-deterministic-primitive is_pair [x]
+(define-foreign-probprog is_pair [x]
   (metaprob-pair? x))
 
 ;; length - overrides original prelude (performance + generalization)
 
-(define-deterministic-primitive length [x]
+(define-foreign-probprog length [x]
   (clojure.core/assert (trace? x))
   (if (empty-trace? x)
     0
@@ -696,14 +697,14 @@
         (mp-list-last more)))
     mp-list))
 
-(define-deterministic-primitive last [mp-list]
+(define-foreign-probprog last [mp-list]
   (if (metaprob-pair? mp-list)
     (mp-list-last mp-list)
     (clojure.core/assert false (diagnose-nonpair mp-list))))
 
 ;; nth - overrides original prelude (performance + generalization)
 
-(define-deterministic-primitive nth [thing i]
+(define-foreign-probprog nth [thing i]
   (if (trace? thing)
     (if (metaprob-pair? thing)
       (letfn [(re [l i]
@@ -723,7 +724,7 @@
 (defn _range [n k]
   (if (>= k n) (new-trace) (pair k (_range n (+ k 1)))))
 
-(define-deterministic-primitive range [n]
+(define-foreign-probprog range [n]
   (_range n 0))
 
 ;; map - overrides original prelude - BUT DON'T DO THIS - we need the
@@ -734,7 +735,7 @@
 ;; --> We'll want to use the version from the original prelude so that
 ;; the traces can propagate through to calls to the function.
 
-(define-deterministic-primitive mp-map [mp-fn mp-seq]
+(define-foreign-probprog mp-map [mp-fn mp-seq]
   ;; Do something - need to thread the trace through.
   (let [mp-seq (tracify mp-seq)]
     (if (trace? mp-seq)
@@ -764,7 +765,7 @@
 ;; append - overrides original prelude (performance)
 ;; This is only for metaprob lists, not for tuples.
 
-(define-deterministic-primitive append [x y]
+(define-foreign-probprog append [x y]
   (if (metaprob-pair? x)
     (pair (first x) (append (rest x) y))
     (do (clojure.core/assert (or (empty-trace? y)
@@ -783,13 +784,13 @@
 
 ;; error - overrides original prelude (???)
 
-(define-deterministic-primitive error [& irritants]
+(define-foreign-probprog error [& irritants]
   (clojure.core/assert false irritants))                     ;from prelude.vnts
 
 ;; capture_tag_address - overrides original prelude - but definition is the same.
 ;; Overrides definition in prelude.clj.
 
-(define-deterministic-primitive capture_tag_address [i t o]
+(define-foreign-probprog capture_tag_address [i t o]
   (clojure.core/assert (clojure.core/and (trace? i) (trace? t) (trace? o)))
   (trace-from-map {"intervention" (new-trace i)
                    "target" (new-trace t)
@@ -798,7 +799,7 @@
 
 ;; resolve_tag_address - original is in builtin.py
 
-(define-deterministic-primitive resolve_tag_address [quasi_addr]
+(define-foreign-probprog resolve_tag_address [quasi_addr]
   (let [captured (first quasi_addr)
         addr (addrify (rest quasi_addr))]
     (clojure.core/assert (trace? captured))
@@ -828,12 +829,12 @@
 
 ;; env_lookup - overrides original prelude
 
-(define-deterministic-primitive env_lookup [env name]
+(define-foreign-probprog env_lookup [env name]
   (env/env-lookup env (str name)))
 
 ;; make_env - overrides original prelude
 
-(define-deterministic-primitive make_env [parent]
+(define-foreign-probprog make_env [parent]
   (env/make-sub-environment parent))
 
 ;; match_bind - overrides original prelude.
@@ -857,7 +858,7 @@
       (doseq [[p i] (map clojure.core/list subpatterns parts)]
         (match-bind p i env)))))
 
-(define-deterministic-primitive match_bind [pattern input env]
+(define-foreign-probprog match_bind [pattern input env]
   (dosync (match-bind pattern input env))
   "return value of match_bind")
 
@@ -877,7 +878,7 @@
 ;; All the members of s1 that are *not* in s2
 ;; Translation of version found in builtin.py.
 
-(define-deterministic-primitive set-difference [s1 s2]
+(define-foreign-probprog set-difference [s1 s2]
   (seq-to-metaprob-list
    (seq (set/difference (set (map purify
                                   (metaprob-collection-to-seq s1)))
@@ -888,7 +889,7 @@
 
 ;; -----------------------------------------------------------------------------
 
-(define-deterministic-primitive binned-histogram [& {:keys [name samples overlay-densities]}]
+(define-foreign-probprog binned-histogram [& {:keys [name samples overlay-densities]}]
   (clojure.core/prn "Binned histogram")
   (let [samples (metaprob-collection-to-seq samples)
         path (clojure.string/replace name " " "_")]

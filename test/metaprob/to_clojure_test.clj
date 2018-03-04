@@ -28,7 +28,7 @@
 (deftest convert-2
   (testing "Smoke test for trace-to-clojure"
     (let [expr (to-clojure (reconstruct-trace sample-trace-2))]
-      (is (= (first expr) 'program)))))
+      (is (= (first expr) 'probprog)))))
 
 (deftest convert-3
   (testing "Basic test of block"
@@ -44,6 +44,6 @@
 
 (deftest invert-2
   (testing "Smoke test 2 for from/to-clojure"
-    (let [sample '(program [x] 7 x)
+    (let [sample '(probprog [x] 7 x)
           probe (to-clojure (from-clojure sample))]
       (is (= sample probe)))))

@@ -22,7 +22,7 @@
 
           (form-def [name rhs]
             (let [rhs (if (and (seq? rhs) (= (first rhs) 'program))
-                        `(~'named-program ~name ~@(rest rhs))
+                        `(~'named-probprog ~name ~@(rest rhs))
                         rhs)]
               `(def ~name ~rhs)))
 
@@ -48,7 +48,7 @@
 
 (declare from-clojure from-clojure-pattern)
 
-(defn make-program [fun name params body ns]
+(defn make-probprog [fun name params body ns]
   (let [exp `(~'program ~params ~@body)
         exp-trace (from-clojure exp)
         env (env/make-top-level-env ns)
@@ -57,33 +57,33 @@
               exp-trace)]               ;original metaprob
     (with-meta fun {:name name
                     :trace (trace-from-map {"name" (new-trace key)
-                                            "native-generate" exp-trace
+                                            "native-generate-method" exp-trace
                                             "environment"
                                                (new-trace env)}
                                            "prob prog")})))
 
-(defmacro named-program [name params & body]
-  `(make-program (fn
-                   ~@(if name `(~name) `())
-                   ~params
-                   (block ~@body))
-                 '~name
-                 '~params
-                 '~body
-                 ;; *ns* will be ok at top level as a file is loaded,
-                 ;; but will be nonsense at other times.  Fix somehow.
-                 ;; (should be lexical, not dynamic.)
-                 *ns*))
+(defmacro named-probprog [name params & body]
+  `(make-probprog (fn
+                    ~@(if name `(~name) `())
+                    ~params
+                    (block ~@body))
+                  '~name
+                  '~params
+                  '~body
+                  ;; *ns* will be ok at top level as a file is loaded,
+                  ;; but will be nonsense at other times.  Fix somehow.
+                  ;; (should be lexical, not dynamic.)
+                  *ns*))
 
 (defmacro probprog
   "like fn, but for metaprob programs"
   [params & body]
-  `(named-program nil ~params ~@body))
+  `(named-probprog nil ~params ~@body))
 
 (defmacro program
   "like fn, but for metaprob programs"
   [params & body]
-  `(named-program nil ~params ~@body))
+  `(named-probprog nil ~params ~@body))
 
 ;; Oddly, the source s-expressions don't seem to answer true to list?
 
@@ -282,7 +282,8 @@
 
 ;; Don't create variables with these names...
 ;;   (tbd: look for :meta on a Var in this namespace ??)
-(def prohibited-names #{"block" "program" "define" "if"})
+;; tbd: add "tuple" - requires coordination
+(def prohibited-names #{"block" "program" "probprog" "define" "if"})
 
 (defn from-clojure-1 [exp]
   (cond (vector? exp) (from-clojure-tuple exp)    ;; Pattern - shouldn't happen

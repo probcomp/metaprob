@@ -44,11 +44,11 @@
 
 (deftest binding-1
   (testing "Bind a variable locally to a value (apply)"
-    (is (= (ez-apply (program [x] x) 5)
+    (is (= (ez-apply (probprog [x] x) 5)
            5))))
 
 (deftest binding-2
   (testing "Bind a variable locally to a value (eval)"
-    (is (= (ez-eval '((program [x] x) 5))
+    (is (= (ez-eval '((probprog [x] x) 5))
            5))))
 

@@ -40,7 +40,7 @@ convert: src/metaprob/main.clj src/metaprob/to_clojure.clj .lein_classpath
 # If you get errors with 'lein compile :all' try just 'lein
 # compile'. I don't understand the difference.
 mapl:
-	lein compile :all
+	lein compile 
 	time lein run -m metaprob.mapl2018.main
 
 histograms:

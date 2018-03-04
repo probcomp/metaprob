@@ -14,17 +14,17 @@
   interpret
   (program
    [program-noncolliding inputs intervention_trace]
-   (if (trace_has_key program-noncolliding "custom_interpreter")
+   (if (trace_has_key program-noncolliding "query_method")
      (block
       (define i_inputs (tuple inputs intervention_trace))
       (interpret
        (trace_get
         (lookup
          program-noncolliding
-         (list "custom_interpreter")))
+         (list "query_method")))
        i_inputs
        (empty-trace)))
-     (if (trace_has_key program-noncolliding "native-generate")
+     (if (trace_has_key program-noncolliding "native-generate-method")
        (block
         (define
           new_env
@@ -32,18 +32,18 @@
            (trace_get
             (lookup program-noncolliding (list "environment")))))
         (match_bind
-         (lookup program-noncolliding (list "native-generate" "pattern"))
+         (lookup program-noncolliding (list "native-generate-method" "pattern"))
          inputs
          new_env)
         (interpret_eval
-         (lookup program-noncolliding (list "native-generate" "body"))
+         (lookup program-noncolliding (list "native-generate-method" "body"))
          new_env
          intervention_trace))
        ;; Had to move this case
-       (if (trace_has_key program-noncolliding "foreign-generate")
+       (if (trace_has_key program-noncolliding "foreign-generate-method")
          (block
           (interpret_prim
-           (trace_get (lookup program-noncolliding (list "foreign-generate")))
+           (trace_get (lookup program-noncolliding (list "foreign-generate-method")))
            inputs
            intervention_trace))
          (block
