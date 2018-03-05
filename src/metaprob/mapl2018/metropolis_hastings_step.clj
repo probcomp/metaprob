@@ -5,13 +5,9 @@
             [metaprob.prelude :refer :all]
             [metaprob.mapl2018.interpreters :refer :all]))
 
-(define
-  single-site-metropolis-hastings-step
+(define single-site-metropolis-hastings-step
   (probprog
     [model-probprog inputs trace constraint-addresses]
-
-    (print "Trace")
-    (pprint trace)
 
     ;; choose an address to modify, uniformly at random
     
@@ -26,13 +22,15 @@
     (trace-delete trace target-address)
     (define new-trace (empty-trace))
 
-    (define (_ forward-score) (propose-and-trace-choices
+    (print "Start pass 2 (forward-score trace)")
+    (print new-trace)
+    (define (_ forward-score) (query
                                :probprog model-probprog
                                :inputs inputs
                                :intervention-trace (empty-trace)
                                :target-trace trace
-                               :ouput-trace new-trace))
-    (print "New trace")
+                               :output-trace new-trace))
+    (print "End pass 2 (forward-score trace)")
     (pprint new-trace)
     (define new-value (trace-get new-trace target-address))
 
@@ -56,7 +54,7 @@
     ;; remove the new value
     (trace-delete new-trace target-address)
 
-    (define (__ reverse-score) (propose-and-trace-choices
+    (define (__ reverse-score) (query
                                    :probprog model-probprog
 				   :inputs   inputs
 				   :intervention-trace restoring-trace
@@ -79,12 +77,15 @@
 (define lightweight-single-site-MH-sampling
   (probprog [N model-probprog target-trace]
   	    (define state (empty-trace))
-	    (propose-and-trace-choices
+            (print "Start pass 1 (state)")
+	    (query
 	      :probprog model-probprog
 	      :inputs (tuple)
 	      :intervention-trace (empty-trace)
 	      :target-trace target-trace
 	      :output-trace state)
+            (print "End pass 1 (state)")
+            (pprint state)
             (repeat N
 	            (probprog
 		      []

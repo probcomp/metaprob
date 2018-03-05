@@ -21,7 +21,9 @@
           ;; Insert name into function expression, if any
 
           (form-def [name rhs]
-            (let [rhs (if (and (seq? rhs) (= (first rhs) 'program))
+            (let [rhs (if (and (seq? rhs)
+                               (or (= (first rhs) 'program)
+                                   (= (first rhs) 'probprog)))
                         `(~'named-probprog ~name ~@(rest rhs))
                         rhs)]
               `(def ~name ~rhs)))
@@ -53,7 +55,9 @@
         exp-trace (from-clojure exp)
         env (env/make-top-level-env ns)
         key (if true
-              (hash exp)                ;JAR invention
+              (if name
+                (str (hash exp) "-" name)                ;JAR invention
+                (hash exp))
               exp-trace)]               ;original metaprob
     (with-meta fun {:name name
                     :trace (trace-from-map {"name" (new-trace key)

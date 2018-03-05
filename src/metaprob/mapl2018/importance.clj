@@ -17,7 +17,7 @@
     	    (replicate N
 	      (probprog []
                 (define candidate-trace (empty-trace))
-                (propose-and-trace-choices
+                (query
                   :probprog model-probprog
                   :inputs inputs
                   :intervention-trace (empty-trace)

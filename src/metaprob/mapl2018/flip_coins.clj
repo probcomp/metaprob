@@ -49,8 +49,8 @@
 (define go+ (probprog []
                       (define target (empty-trace))
                       (define output (empty-trace))
-                      (propose-and-trace-choices :probprog flip-n-coins
-                                 :inputs  (tuple 10)
-                                 :intervention-trace ensure-tricky-and-biased
-                                 :target-trace target
-                                 :output-trace output)))
+                      (query :probprog flip-n-coins
+                             :inputs  (tuple 10)
+                             :intervention-trace ensure-tricky-and-biased
+                             :target-trace target
+                             :output-trace output)))

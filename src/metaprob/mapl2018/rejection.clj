@@ -12,7 +12,7 @@
     (define candidate-trace (empty-trace))
     (define
       [_ score]
-      (propose-and-trace-choices
+      (query
         :probprog model-probprog
         :inputs inputs
         :intervention-trace (empty-trace)

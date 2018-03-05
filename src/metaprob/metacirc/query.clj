@@ -6,7 +6,7 @@
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]))
 
-(declare query query-lifted query-foreign query-native ptc_eval)
+(declare query query-lifted query-native ptc_eval)
 
 ;; query
 (define query
@@ -60,21 +60,6 @@
                      nil nil nil))
 
             result+score))
-
-;; Query a 'foreign' probprog.
-
-(define query-foreign
-  (probprog [ifn argseq intervene target output]
-    (define answer
-      (block (if (if target (trace-has? target) false)
-               (trace-get target)
-               (if (if intervene (trace-has? intervene) false)
-                 (trace-get intervene)
-                 (generate-foreign ifn argseq)))
-             (generate-foreign ifn argseq)))
-    (if output
-      (trace-set output answer))
-    [answer 0]))
 
 ;; Query a 'native' probprog (i.e. one written in metaprob and interpreted).
 ;; source and environment are traces.
@@ -141,8 +126,6 @@
       walk
       (program
         [exp addr]
-        (print (addrify addr))
-        (print (trace-get exp))
         (define
           [v score]
           (if (eq (trace_get exp) "application")

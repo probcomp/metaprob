@@ -130,76 +130,6 @@
 (define-foreign-probprog generate-foreign [ifn argseq]
   (apply ifn (metaprob-collection-to-seq argseq)))
 
-(defn mini-generate [fun & args]
-  (apply fun args))
-
-;; Invoke a probprog, excluding the native case, which won't work yet,
-;; because the interpreter would be a forward reference and clojure
-;; hates forward references.
-
-(declare tracify)
-
-(defn mini-query [prog argseq i t o]
-  (let [prog (tracify prog)]
-    (if (has-subtrace? prog "query-method")
-      (mini-generate (value (subtrace prog "query-method")) argseq i t o)
-      (if (has-subtrace? prog "foreign-generate-method")
-        [(generate-foreign (value (subtrace prog "foreign-generate-method")) argseq) 0]
-        (clojure.core/assert false ["don't know how to query this kind of probprog" prog])))))
-
-;; Lift a probprog (`query-method`) up to be a meta-probprog.
-
-(defn make-mini-lifted-probprog [name query-method]
-  (with-meta (fn [& argseq]
-               (let [[answer ignore-score]
-                     ;; Later, once we have query, we will be able to do
-                     ;; (query query-method argseq nil nil nil), but not yet
-                     (mini-generate query-method argseq nil nil nil)]
-                 answer))
-    {:trace (trace-from-map
-             {"name" (new-trace name)
-              "query-method" (new-trace query-method)}
-             "prob prog")}))
-
-;; Provide a probprog with a score method.
-;; The score-method can be an IFn here, but it can also be a
-;; probprog with the appropriate meta magic to make it callable.
-
-;; Arguments to score-method are [sample params]
-
-(define-foreign-probprog provide-score-method [name prog score-method]
-  (let [namestring (if (symbol? name) (str name) name)]
-    (make-mini-lifted-probprog
-       namestring
-       (make-foreign-probprog namestring
-                              (fn [argseq i t o]
-                                (let [[answer score]
-                                      (mini-query prog argseq i t o)]
-                                  [answer (mini-generate score-method answer argseq)]))))))
-
-;; Convenience macro.  Generate-method and score-method are both IFns.
-
-(defmacro ^:private define-foreign-probprog-with-score [mp-name
-                                                        generate-method
-                                                        score-method]
-  (let [namestring (if (symbol? mp-name) (str mp-name) mp-name)]
-    `(def ~mp-name
-       (provide-score-method ~namestring
-                             (make-foreign-probprog ~(str namestring "|generate")
-                                                    ~generate-method)
-                             (make-foreign-probprog ~(str namestring "|score")
-                                                    ~score-method)))))
-
-;; Deprecated...
-
-(define-foreign-probprog interpret_prim [ifn inputs intervention-trace]
-  (clojure.core/assert (instance? clojure.lang.IFn ifn))
-  (if (has-value? intervention-trace)
-    (value intervention-trace)
-    (generate-foreign ifn inputs)))
-
-
-
 ;; ----------------------------------------------------------------------
 ;; Builtins (defined in python in original-metaprob)
 
@@ -340,7 +270,6 @@
   ([tr val]            ; e[e] := e
    (set-value! (tracify tr) val))
   ([tr addr val]
-   (clojure.core/print (format "setting %s := %s\n" addr val))
    (set-value! (trace-subtrace tr addr) val)))
 
 (def trace_set trace-set) ; backward compatibility name
@@ -473,26 +402,6 @@
 
 (def rng (java.util.Random. 42))
 
-;; Code translated from class BernoulliOutputPSP(DiscretePSP):
-;;
-;; The larger the weight, the more likely it is that the sample is
-;; true rather than false.
-
-(define-foreign-probprog-with-score flip
-  (fn flip
-    ([] (<= (.nextDouble rng) 0.5))
-    ([weight]
-     (let [answer (<= (.nextDouble rng) weight)]
-       (clojure.core/print (format "flip %s -> %s\n" weight answer))
-       answer)))
-  (fn [sample params]
-    (let [weight (apply (fn ([] 0.5)
-                            ([weight] weight))
-                        params)]
-      (if sample
-        (math/log weight)
-        (java.lang.Math/log1p (- 0 weight))))))
-
 (define-foreign-probprog exp [x] (java.lang.Math/exp x))
 (define-foreign-probprog sqrt [x] (java.lang.Math/sqrt x))
 
@@ -504,83 +413,6 @@
       (let [x-mu (- x mu)]
         (/ (exp (- 0 (/ (* x-mu x-mu) two*variance)))
            (sqrt (* pi two*variance)))))))
-
-;; Big Beta, an auxiliary used in the calculation of the PDF of a
-;; beta distribution, can be calculated using Gamma.  Its log can
-;; be calculated using Gamma's log, which kixi provides us.
-;;
-;; scipy's version is much more robust, and can be found here:
-;; https://github.com/scipy/scipy/blob/master/scipy/special/cdflib/betaln.f
-
-(defn log-Beta [a b]
-  (- (+ (math/log-gamma a) (math/log-gamma b))
-     (math/log-gamma (+ a b))))
-
-;; BetaOutputPSP(RandomPSP)
-;; Please read the comments in lite/continuous.py in Venture
-
-(define-foreign-probprog-with-score beta
-  (fn beta [a b]
-    ;; From kixi/stats/distribution.cljc :
-    ;; (let [[r1 r2] (split rng)
-    ;;         u (rand-gamma alpha r1)]
-    ;;   (/ u (+ u (rand-gamma beta r2))))
-    ;; rand-gamma is hairy. but defined in same file.
-    (dist/draw (dist/beta :alpha a :beta b)
-               :seed (.nextLong rng)))
-  (fn [x [a b]]
-    ;; Venture does:
-    ;; def logDensityNumeric(self, x, params):
-    ;;   return scipy.stats.beta.logpdf(x,*params)
-    ;; Wikipedia has a formula for pdf; easy to derive logpdf 
-    ;; from it.
-    ;; scipy has a better version:
-    ;; https://github.com/scipy/scipy/blob/master/scipy/stats/_continuous_distns.py
-    (- (+ (* (math/log x) (- a 1.0))
-          (* (math/log (- 1.0 x)) (- b 1.0)))
-       (log-Beta a b))))
-
-;; Uniform
-
-(define-foreign-probprog-with-score uniform
-  (fn uniform [a b]
-    (dist/draw (dist/uniform a b)))
-  (fn [x [a b]]
-    ;; return scipy.stats.uniform.logpdf(x, low, high-low)
-    (- 0.0 (math/log (- b a)))))
-
-;; Categorical
-
-(define-foreign-probprog-with-score uniform-sample
-  (fn uniform-sample [items]
-    ;; items is a metaprob list (or tuple??)
-    (let [n (dist/draw (dist/uniform 0 (length items)))]
-      (nth items (Math/floor n))))
-  (fn [item [items]]
-    (let [items (metaprob-collection-to-seq items)]
-      (- (math/log (count (filter (fn [x] (= x item)) items)))
-         (math/log (count items))))))
-
-;; 
-
-(define-foreign-probprog-with-score log-categorical
-  (fn log-categorical [scores]
-    (let [weights (map exp (metaprob-collection-to-seq scores))
-          normalizer (reduce + 0 weights)
-          probabilities (map (fn [w] (/ w normalizer)) weights)
-          sample (uniform 0 1)]
-      ;; iterate over probabilities, accumulate running sum, stop when cum prob > sample.
-      (letfn [(scan [i probs running]
-                (let [running (+ (first probs) running)]
-                  (if (> running sample)
-                    i
-                    (scan (+ i 1) (rest probs) running))))]
-        (scan 0 probabilities 0.0))))
-  (fn [i [scores]]
-    (let [weights (map exp (metaprob-collection-to-seq scores))
-          normalizer (reduce + 0 weights)
-          probabilities (map (fn [w] (/ w normalizer)) weights)]
-      (log (clojure.core/nth probabilities i)))))
 
 ;; pair - not defined in prelude
 
@@ -691,7 +523,7 @@
                   0))]
         (scan x))
       (do (clojure.core/assert (metaprob-tuple? x))
-        (trace-count x)))))
+          (trace-count x)))))
 
 ;; drop - use prelude version?
 
@@ -910,3 +742,184 @@
         (.write writor (str sample))
         (.write writor "\n"))
       (.close writor))))
+
+;; -----------------------------------------------------------------------------
+
+;; Builtins that return scores.
+;; Ideally this entire section is written in metaprob, not clojure.
+
+(defn mini-generate [fun & args]
+  (apply fun args))   ; ?? metaprob-collection-to-seq
+
+;; 'query' specialized for foreign probprogs
+
+(define-foreign-probprog query-foreign [ifn argseq intervene target output]
+  (let [answer (apply ifn (metaprob-collection-to-seq argseq))
+        answer (if (if target (trace-has? target) false)
+                 (trace-get target)
+                 (if (if intervene (trace-has? intervene) false)
+                   (trace-get intervene)
+                   answer))]
+    (if output
+      (trace-set output answer))
+    [answer 0]))
+
+;; Invoke a probprog, excluding the native case, which won't work yet,
+;; because the interpreter would be a forward reference and clojure
+;; hates forward references.
+
+(defn mini-query [prog argseq i t o]
+  (let [prog (tracify prog)]
+    (if (has-subtrace? prog "query-method")    ;Lifted
+      (mini-generate (value (subtrace prog "query-method")) argseq i t o)
+      (if (has-subtrace? prog "foreign-generate-method")
+
+        (query-foreign (value (subtrace prog "foreign-generate-method")) argseq i t o)
+        (clojure.core/assert false ["don't know how to query this kind of probprog" prog])))))
+
+;; Lift a probprog (`query-method`) up to be a meta-probprog.
+
+(defn make-mini-lifted-probprog [name query-method]
+  (with-meta (fn [& argseq]
+               (let [[answer ignore-score]
+                     ;; Later, once we have query, we will be able to do
+                     ;; (query query-method argseq nil nil nil), but not yet
+                     (mini-generate query-method argseq nil nil nil)]
+                 answer))
+    {:trace (trace-from-map
+             {"name" (new-trace name)
+              "query-method" (new-trace query-method)}
+             "prob prog")}))
+
+;; Provide a probprog with a score method.
+;; The score-method can be an IFn here, but it can also be a
+;; probprog with the appropriate meta magic to make it callable.
+
+;; Arguments to score-method are [sample params]
+
+(define-foreign-probprog provide-score-method [name prog score-method]
+  (let [namestring (if (symbol? name) (str name) name)]
+    (make-mini-lifted-probprog
+       namestring
+       ;; This is the lifted-probprog's query-method:
+       (make-foreign-probprog (str namestring "|query-method")
+                              (fn [argseq i t o]
+                                (let [[answer score]
+                                      (mini-query prog argseq i t o)]
+                                  [answer (mini-generate score-method answer argseq)]))))))
+
+;; Convenience macro.  Generate-method and score-method are both IFns.
+
+(defmacro ^:private define-foreign-probprog-with-score [mp-name
+                                                        generate-method
+                                                        score-method]
+  (let [namestring (if (symbol? mp-name) (str mp-name) mp-name)]
+    `(def ~mp-name
+       (provide-score-method ~namestring
+                             (make-foreign-probprog ~(str namestring "|generate")
+                                                    ~generate-method)
+                             (make-foreign-probprog ~(str namestring "|score")
+                                                    ~score-method)))))
+
+;; Code translated from class BernoulliOutputPSP(DiscretePSP):
+;;
+;; The larger the weight, the more likely it is that the sample is
+;; true rather than false.
+
+(define-foreign-probprog-with-score flip
+  (fn flip
+    ([] (<= (.nextDouble rng) 0.5))
+    ([weight]
+     (let [answer (<= (.nextDouble rng) weight)]
+       (clojure.core/print (format "flip %s -> %s\n" weight answer))
+       answer)))
+  (fn [sample params]
+    (let [params (metaprob-collection-to-seq params)
+          weight (apply (fn ([] 0.5)
+                          ([weight] weight))
+                        params)]
+      (if sample
+        (math/log weight)
+        (java.lang.Math/log1p (- 0 weight))))))
+
+;; Big Beta, an auxiliary used in the calculation of the PDF of a
+;; beta distribution, can be calculated using Gamma.  Its log can
+;; be calculated using Gamma's log, which kixi provides us.
+;;
+;; scipy's version is much more robust, and can be found here:
+;; https://github.com/scipy/scipy/blob/master/scipy/special/cdflib/betaln.f
+
+(defn log-Beta [a b]
+  (- (+ (math/log-gamma a) (math/log-gamma b))
+     (math/log-gamma (+ a b))))
+
+;; BetaOutputPSP(RandomPSP)
+;; Please read the comments in lite/continuous.py in Venture
+
+(define-foreign-probprog-with-score beta
+  (fn beta [a b]
+    ;; From kixi/stats/distribution.cljc :
+    ;; (let [[r1 r2] (split rng)
+    ;;         u (rand-gamma alpha r1)]
+    ;;   (/ u (+ u (rand-gamma beta r2))))
+    ;; rand-gamma is hairy. but defined in same file.
+    (dist/draw (dist/beta :alpha a :beta b)
+               :seed (.nextLong rng)))
+  (fn [x params]
+    (let [[a b] (metaprob-collection-to-seq params)]
+      ;; Venture does:
+      ;; def logDensityNumeric(self, x, params):
+      ;;   return scipy.stats.beta.logpdf(x,*params)
+      ;; Wikipedia has a formula for pdf; easy to derive logpdf 
+      ;; from it.
+      ;; scipy has a better version:
+      ;; https://github.com/scipy/scipy/blob/master/scipy/stats/_continuous_distns.py
+      (- (+ (* (math/log x) (- a 1.0))
+            (* (math/log (- 1.0 x)) (- b 1.0)))
+         (log-Beta a b)))))
+
+;; Uniform
+
+(define-foreign-probprog-with-score uniform
+  (fn uniform [a b]
+    (dist/draw (dist/uniform a b)))
+  (fn [x params]
+    (let [[a b] (metaprob-collection-to-seq params)]
+      ;; return scipy.stats.uniform.logpdf(x, low, high-low)
+      (- 0.0 (math/log (- b a))))))
+
+;; Categorical
+
+(define-foreign-probprog-with-score uniform-sample
+  (fn uniform-sample [items]
+    ;; items is a metaprob list (or tuple??)
+    (let [n (dist/draw (dist/uniform 0 (length items)))]
+      (nth items (Math/floor n))))
+  (fn [item params]
+    (let [[items] (metaprob-collection-to-seq params)
+          items (metaprob-collection-to-seq items)]
+      (- (math/log (count (filter (fn [x] (= x item)) items)))
+         (math/log (count items))))))
+
+;; 
+
+(define-foreign-probprog-with-score log-categorical
+  (fn log-categorical [scores]
+    (let [weights (map exp (metaprob-collection-to-seq scores))
+          normalizer (reduce + 0 weights)
+          probabilities (map (fn [w] (/ w normalizer)) weights)
+          sample (uniform 0 1)]
+      ;; iterate over probabilities, accumulate running sum, stop when cum prob > sample.
+      (letfn [(scan [i probs running]
+                (let [running (+ (first probs) running)]
+                  (if (> running sample)
+                    i
+                    (scan (+ i 1) (rest probs) running))))]
+        (scan 0 probabilities 0.0))))
+  (fn [i params]
+    (let [[scores] (metaprob-collection-to-seq params)
+          weights (map exp (metaprob-collection-to-seq scores))
+          normalizer (reduce + 0 weights)
+          probabilities (map (fn [w] (/ w normalizer)) weights)]
+      (log (clojure.core/nth probabilities i)))))
+

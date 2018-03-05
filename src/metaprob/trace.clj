@@ -203,14 +203,14 @@
             (set-subtrace! _ head novo)
             (set-subtrace-at! novo tail subtrie))))))
 
-  (subtrace-location-at [_ addr]
+  (subtrace-location-at [_trace addr]
     (assert (address? addr) addr)
-    (letfn [(re [_ addr]
+    (letfn [(re [_trace addr]
               (if (empty? addr)
-                _
+                _trace
                 (let [[head & tail] addr]
-                  (re (subtrace-location _ head) tail))))]
-      (re _ addr)))
+                  (re (subtrace-location _trace head) tail))))]
+      (re _trace addr)))
 
   (trace-keys [_] 
     (let [ks (keys subtries)]
