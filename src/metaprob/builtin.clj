@@ -363,45 +363,88 @@
 
 ;; Prettyprint
 
+(defn  ^:private princ [x] (clojure.core/print x))
+
 (defn pprint-atom [a]
   (if (tracish? a)
     (let [x (tracify a)
           keys (trace-keys x)]
       (if (has-value? x)
         (if (empty? keys)
-          (clojure.core/print (format "{{%s}}" (value x)))
-          (clojure.core/print (format "{{%s, %s: ...}}" (value x) (clojure.core/first keys))))
+          (princ (format "{{%s}}" (value x)))
+          (princ (format "{{%s, %s: ...}}" (value x) (clojure.core/first keys))))
         (if (empty? keys)
-          (clojure.core/print "{{}}")
-          (clojure.core/print (format "{{%s: ...}}" (clojure.core/first keys))))))
-    (if (string? a)
-      (clojure.core/print a)    ;without quotes
-      (pr a))))
+          (princ "{{}}")
+          (princ (format "{{%s: ...}}" (clojure.core/first keys))))))
+    (pr a)))
 
-(define-foreign-probprog pprint [x]
-  (if (tracish? x)
-    (let [tr (tracify x)]
-      (if (not (= tr x))
-        (clojure.core/print "*"))
-      (letfn [(re [tr indent tag]
-                (clojure.core/print indent)
-                (pprint-atom tag)
-                (if (clojure.core/or (has-value? tr)
-                                     (not (empty? (trace-keys tr))))
-                  (clojure.core/print ": "))
-                ;; If it has a value, clojure-print the value
-                (if (has-value? tr)
-                  (pprint-atom (value tr)))
-                (newline)
-                (let [indent (str indent "  ")]
-                  (doseq [key (trace-keys tr)]
-                    (re (subtrace tr key) indent key))))]
-        (re tr "" "trace")))
-    (do (clojure.core/print x) (newline)))
+(defn pprint-seq [x indent open close]
+  (princ open)
+  (let [vertical? (some tracish? x)
+        indent (str indent " ")]
+    (letfn [(lup [x first?]
+              (if (not (empty? x))
+                (do (if (not first?)
+                      (if vertical?
+                        (do (newline)
+                            (princ indent))
+                        (princ " ")))
+                    (pprint-indented (first x) indent)
+                    (lup (rest x) false))))]
+      (lup x true)))
+  (princ close))
+
+(defn pprint-trace [x indent]
+  (let [tr (tracify x)]
+    (if (not (= tr x))
+      (princ "*"))
+    (letfn [(re [tr indent tag]
+              (princ indent)
+              (pprint-atom tag)
+              (if (clojure.core/or (has-value? tr)
+                                   (not (empty? (trace-keys tr))))
+                (princ ": "))
+              ;; If it has a value, clojure-print the value
+              (if (has-value? tr)
+                (pprint-atom (value tr)))
+              (newline)
+              (let [indent (str indent "  ")]
+                (doseq [key (trace-keys tr)]
+                  (re (subtrace tr key) indent key))))]
+      (re tr indent "trace"))))
+
+(defn pprint-indented [x indent]
+  (cond (empty-trace? x)
+        (princ "{{}}")
+        
+        (metaprob-pair? x)
+        (pprint-seq (metaprob-list-to-seq x) indent "(" ")")
+
+        (metaprob-tuple? x)
+        (pprint-seq (metaprob-tuple-to-seq x) indent "[" "]")
+
+        (tracish? x)
+        (pprint-trace x indent)
+
+        (list? x)
+        (pprint-seq x indent "(" ")")
+
+        (vector? x)
+        (pprint-seq x indent "[" "]")
+
+        true
+        (pprint-atom x))
   (flush))
 
+(define-foreign-probprog pprint [x]
+  (pprint-indented x "")
+  (newline)
+  (flush))
+
+;; Maybe this should print (i.e. princ) instead of pr (i.e. prin1)?
+
 (define-foreign-probprog print [x]
-  (prn x)
+  (princ x)
   (flush))
 
 ;; Other builtins
