@@ -41,6 +41,7 @@
                  number-of-runs
                  (probprog
                    []
+                   (print "rejection sample")
                    (define tr
                     (rejection-sampling
                      two-variable-gaussian-model  ; :model-probprog 

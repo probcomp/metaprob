@@ -25,12 +25,11 @@
   (print "---- Prior ----\n")
   (instrument inf/get-samples 100)
   ;; Rejection sampling is very slow - 20 seconds per
-  ;(print "---- Rejection ----\n")
-  ;(instrument inf/rejection-assay 30)
+  (print "---- Rejection ----\n")
+  (instrument inf/rejection-assay 100)
   ;; Rejection sampling is very fast
-  ;; (print "---- Importance ----\n")
-  ;; (inf/importance-assay 100)
+  (print "---- Importance ----\n")
+  (inf/importance-assay 100)
   ;; (print "---- MH ----\n")
-  ;; (instrument inf/MH-assay 50)
-  )
+  (instrument inf/MH-assay 100))
 

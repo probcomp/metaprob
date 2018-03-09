@@ -639,7 +639,9 @@
 ;; Overrides definition in prelude.clj.
 
 (define-foreign-probprog capture_tag_address [i t o]
-  (clojure.core/assert (clojure.core/and (trace? i) (trace? t) (trace? o)))
+  (clojure.core/assert (clojure.core/and (clojure.core/or (= i nil) (trace? i))
+                                         (clojure.core/or (= t nil) (trace? t))
+                                         (clojure.core/or (= o nil) (trace? o))))
   (trace-from-map {"intervention" (new-trace i)
                    "target" (new-trace t)
                    "output" (new-trace o)}
@@ -655,10 +657,12 @@
     (let [i (value (subtrace captured "intervention"))
           t (value (subtrace captured "target"))
           o (value (subtrace captured "output"))]
-      (let [i2 (subtrace-location-at i addr)
-            t2 (subtrace-location-at t addr)
-            o2 (subtrace-location-at o addr)]
-        (clojure.core/assert (clojure.core/and (trace? i2) (trace? t2) (trace? o2)))
+      (let [i2 (if i (subtrace-location-at i addr) nil)
+            t2 (if t (subtrace-location-at t addr) nil)
+            o2 (if o (subtrace-location-at o addr) nil)]
+        (clojure.core/assert (clojure.core/and (clojure.core/or (trace? i2) (= i2 nil))
+                                               (clojure.core/or (trace? t2) (= t2 nil))
+                                               (clojure.core/or (trace? o2) (= o2 nil))))
         (seq-to-metaprob-tuple [i2 t2 o2])))))
 
 (defn collection-subtraces-to-seq [coll]
