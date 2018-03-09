@@ -39,14 +39,20 @@ convert: src/metaprob/main.clj src/metaprob/to_clojure.clj .lein_classpath
 
 # If you get errors with 'lein compile :all' try just 'lein
 # compile'. I don't understand the difference.
+# To change number of samples, edit number-of-runs in this file:
+#   src/metaprob/mapl2018/inference_on_gaussian.clj
 mapl:
 	lein compile 
 	time lein run -m metaprob.mapl2018.main
+	ls -tl results/*.samples
 
 histograms:
 	bin/gnuplot-hist results/samples_from_the_prior.samples
+	mv gnuplot-hist-tmp.png h1.png
 	bin/gnuplot-hist results/samples_from_the_target.samples 
+	mv gnuplot-hist-tmp.png h2.png
 	bin/gnuplot-hist results/samples_from_importance_sampling_with_20_particles.samples 
+	mv gnuplot-hist-tmp.png h3.png
 
 tags:
 	etags --language=lisp `find src -name "*.clj"` `find test -name "*.clj"`

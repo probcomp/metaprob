@@ -12,7 +12,7 @@
 ;; algorithm for sampling from a Gaussian with zero mean
 ;; and unit variance
 
-(define gaussian
+(define generate-gaussian
   (probprog [mu sigma]
     (define u1 (uniform 0 1))
     (define u2 (uniform 0 1))
@@ -22,11 +22,7 @@
 		      sigma)))
     answer))
 
-;; associating the gaussian probabilistic program with a
-;; meta-program for evaluating its density
-
-(trace-set
-  (lookup gaussian (addr "log-output-probability-density"))
+(define score-gaussian
   (probprog [x mu sigma]
     (define standard-gaussian-log-density
       (probprog [x]
@@ -35,11 +31,10 @@
     (sub (standard-gaussian-log-density
            (div (sub x mu) sigma)) (log sigma)) ))
 
-;; associating invocations of the Gaussian with
-;; user-interpretable names
-
-(trace-set
-  (lookup gaussian (addr "name")) "gaussian")
+(define gaussian
+  (provide-score-method "gaussian"
+                        generate-gaussian
+                        score-gaussian))
 
 ;; defining a latent variable model using this new
 ;; primitive probability distribution

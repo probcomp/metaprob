@@ -100,6 +100,12 @@
 
             [answer score]))
 
+;; generate
+(define generate
+  (probprog [pp & args]
+    (define [answer _] (query pp args nil nil nil))
+    answer))
+
 ;;; This doesn't really belong here.
 ;
 ;(define make-lifted-probprog
@@ -187,7 +193,8 @@
                         (trace-set
                           (lookup __trace_1__ (list "environment"))
                           env)
-                        __trace_1__)
+                        (trace-to-probprog
+                         __trace_1__))
                       0))
                   (if (eq (trace_get exp) "if")
                     (block
@@ -315,9 +322,34 @@
                                 (pprint exp)
                                 (error
                                   "Not a code expression")))))))))))))
-        (if (trace_has (lookup intervention_trace addr))
+        (if (if intervention_trace
+              (trace_has (lookup intervention_trace addr))
+              false)
           (block
             (tuple (trace_get (lookup intervention_trace addr)) score))
           (block (tuple v score)))))
     (walk exp (list))))
+
+;; Needed by rejection sampling example and so on
+
+(register-query-implementation! query)
+
+(define make-lifted-probprog
+  (probprog [name query-method]
+    (define tr (empty-trace))
+    (trace-set tr "name" name)
+    (trace-set tr "query-method" query-method)
+    (trace-set tr "prob prog")
+    (trace-to-probprog tr)))
+
+(define provide-score-method
+  (probprog [name prog score-method]
+      (make-lifted-probprog
+         name
+         ;; This is the lifted-probprog's query-method:
+         (probprog [argseq i t o]
+           (define [answer score]
+             (prog argseq i t o))
+           (print score-method)
+           (tuple answer (score-method answer argseq))))))
 

@@ -254,4 +254,3 @@
             (block (list (trace_get (lookup pattern (list "name")))))
             (block (list "definiens"))))
         (block (list "definiens"))))))
-

@@ -2,6 +2,7 @@
   (:require [metaprob.trace :refer :all])
   (:require [metaprob.syntax :refer :all])
   (:require [metaprob.builtin
+             :as b
              :exclude [not
                        assert
                        pprint
@@ -27,6 +28,10 @@
 ; A 'form' is an expression or a definition or a block of forms.
 
 ; *using-program?* - if true: generate (program ...), if false: generate (fn ...)
+
+; `nest` is a dict.  Fields:
+;   :top   - true iff at top level in a position that's OK for a define
+;   :bare  - true iff at top level, no local vars in scope
 
 (def ^:dynamic *using-program?* true)
 
@@ -101,8 +106,8 @@
 
 (declare form-to-clojure)
 
-(defn expr-to-clojure [tr]
-  (form-to-clojure tr false))
+(defn expr-to-clojure [tr nest]
+  (form-to-clojure tr (assoc nest :top false)))
 
 ;; Trace       => clojure                   => trace
 ;; (x)->{a;b;} => (program [x] (block a b)) => (x)->{a;b;}
@@ -141,81 +146,98 @@
 ; that doesn't work if we're going to support metaprob reification - 
 ; we always need def + program.
 
-(defn definition-to-clojure [tr]
+(defn definition-to-clojure [tr nest]
   (list 'define
         (pattern-to-pattern (definition-pattern tr))
-        (expr-to-clojure (definition-rhs tr))))
+        (expr-to-clojure (definition-rhs tr) nest)))
 
-(defn subexpressions-to-clojure [tr]
-  (map expr-to-clojure
+(defn subexpressions-to-clojure [tr nest]
+  (map (fn [z] (expr-to-clojure z nest))
        (subtraces-to-seq tr)))
 
-(defn block-to-clojure-1 [trs def-ok?]
+(defn block-to-clojure-1 [trs nest]
   (if (empty? trs)
     (qons 'block nil)
     (qons 'block
           (letfn [(dive [trs]
                     (if (empty? (rest trs))
-                      (qons (form-to-clojure (first trs) def-ok?) nil)
-                      (qons (to-clojure (first trs))
+                      (qons (form-to-clojure (first trs) nest) nil)
+                      (qons (to-clojure (first trs) nest)
                             (dive (rest trs)))))]
             (dive trs)))))
 
-(defn block-to-clojure [trs def-ok?]
-  (ensure-list (block-to-clojure-1 trs def-ok?)
+(defn block-to-clojure [trs nest]
+  (ensure-list (block-to-clojure-1 trs nest)
                "block"))
 
-(defn program-to-clojure [pat-trace body-trace]
-  (qons 'probprog
-        (qons (pattern-to-pattern pat-trace)
-              ;; For readability, allow x y instead of (block x y)
-              (form-to-formlist (to-clojure body-trace)))))
+(defn program-to-clojure [pat-trace body-trace nest]
+  ;; For readability, allow x y instead of (block x y)
+  (let [nest (if (b/empty-trace? pat-trace)
+               nest
+               (assoc nest :bare false))
+        body (form-to-formlist (to-clojure body-trace nest))
+        form (qons 'probprog
+                   (qons (pattern-to-pattern pat-trace)
+                         body))]
+    (if (get nest :bare)
+      form
+      ;; The environment isn't captured, so it's not possible to 
+      ;; interpret the source code.
+      (qons 'export-probprog
+            (qons form nil)))))
 
-(defn with-address-to-clojure [tr]
+(defn with-address-to-clojure [tr nest]
   (list 'with-addr
         ;; Not directly executable in clojure
-        (subexpression-to-clojure tr "tag")
-        (subexpression-to-clojure tr "expression")))
+        (subexpression-to-clojure tr "tag" nest)
+        (subexpression-to-clojure tr "expression" nest)))
 
 
 ;; Convert a top level form (expression or definition)
 
-(defn to-clojure [tr]
-  (form-to-clojure tr true))
+(defn to-clojure
+  ([tr nest]
+   (form-to-clojure tr nest))
+  ([tr]
+   (form-to-clojure tr {:top true :bare true})))
 
-(defn form-to-clojure-1 [tr def-ok?]
+(defn form-to-clojure-1 [tr nest]
   (let [tr (if (trie? tr) tr (new-trace tr))]
     (case (value tr)
-      "application" (let [form (subexpressions-to-clojure tr)]
+      "application" (let [form (subexpressions-to-clojure tr nest)]
                       (to-list (if (= (first form) 'mk_nil)
                                  (cons 'empty-trace (rest form))
                                  form)))
       "variable" (to-symbol (subvalue tr "name"))
       "literal" (subvalue tr "value")
       "program" (program-to-clojure (subtrace tr "pattern")
-                                    (subtrace tr "body"))
+                                    (subtrace tr "body")
+                                    nest)
       "if" (list 'if
-                 (subexpression-to-clojure tr "predicate")
-                 (subexpression-to-clojure tr "then")
-                 (subexpression-to-clojure tr "else"))
+                 (subexpression-to-clojure tr "predicate" nest)
+                 (subexpression-to-clojure tr "then" nest)
+                 (subexpression-to-clojure tr "else" nest))
       "block" (ensure-list
-               (block-to-clojure (subtraces-to-seq tr) def-ok?) "blah")
+               (block-to-clojure (subtraces-to-seq tr) nest)
+               "blah")
       "splice" (list 'mp-splice
-                     (subexpression-to-clojure tr "expression"))
+                     (subexpression-to-clojure tr "expression" nest))
       "this" '(&this)
-      "tuple" (qons 'tuple (subexpressions-to-clojure tr))
+      "tuple" (qons 'tuple (subexpressions-to-clojure tr nest))
       "unquote" (list 'ml-unquote
-                      (subexpression-to-clojure tr "expression"))
+                      (subexpression-to-clojure tr "expression" nest))
       "with_address" (with-address-to-clojure tr)
       "with-addr" (with-address-to-clojure tr)
-      "definition" (do (if (not def-ok?)
+      "definition" (do (if (not (get nest :top))
                          (print (format "** definition not allowed here: %s\n"
                                         (definition-pattern tr))))
-                       (definition-to-clojure tr))
+                       (definition-to-clojure tr nest))
       (list "unrecognized expression type" (value tr)))))
 
-(defn form-to-clojure [tr def-ok?]
-  (ensure-list (form-to-clojure-1 tr def-ok?) ["form-to-clojure" (value tr)]))
+(defn form-to-clojure [tr nest]
+  (ensure-list (form-to-clojure-1 tr nest) ["form-to-clojure" (value tr)]))
+
+;; Get list of names for clojure (declare ...) at top of generated file
 
 (defn declarations [subs]
   (assert (seq? subs))
@@ -232,17 +254,19 @@
 ;; These are at the top level of the file, so not subject to constraints on trace path preservation.
 
 (defn top-level-to-clojure [tr]
-  (if (= (value tr) "block")
-    (let [subs (subtraces-to-seq tr)]
-      (to-list
+  (let [nest {:top true :bare true}]
+    (if (= (value tr) "block")
+      (let [subs (subtraces-to-seq tr)]
+        (to-list
          (concat (declarations subs)
-                 (map to-clojure subs))))
-    (qons (to-clojure tr) nil)))
+                 (map (fn [sub] (to-clojure sub nest))
+                      subs))))
+      (qons (to-clojure tr nest) nil))))
 
-(defn subexpression-to-clojure [tr key]
+(defn subexpression-to-clojure [tr key nest]
   (let [sub (subtrace tr key)]
     (assert (trie? sub) ["missing field in parse tree" key])
-    (expr-to-clojure sub)))
+    (expr-to-clojure sub nest)))
 
 ; Create a trie from a file containing a representation of a
 ; trie (written by the python script).

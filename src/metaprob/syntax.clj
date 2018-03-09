@@ -2,7 +2,7 @@
   (:require [clojure.string]
             [metaprob.environment :as env]
             [metaprob.trace :refer :all]
-            [metaprob.builtin :as builtin]))
+            [metaprob.builtin :as builtin :refer [metaprob-nth]]))
 
 ;; This module is intended for import by metaprob code, and defines
 ;; the syntactic constructs to be used in metaprob programs.
@@ -41,7 +41,7 @@
                                 (if (and (symbol? subpattern)
                                          (= (name subpattern) "_"))
                                   (list)
-                                  (explode-pattern subpattern `(~'nth ~var ~i))))
+                                  (explode-pattern subpattern `(metaprob-nth ~var ~i))))
                               pattern
                               (range (count pattern)))))))
           ]
@@ -62,8 +62,12 @@
     (with-meta fun {:name name
                     :trace (trace-from-map {"name" (new-trace key)
                                             "native-generate-method" exp-trace
+                                            ;; Environment is always the top level
+                                            ;; env, and often this is incorrect.
                                             "environment"
-                                               (new-trace env)}
+                                              (new-trace env)
+                                            "foreign-generate-method"
+                                              (new-trace fun)}
                                            "prob prog")})))
 
 (defmacro named-probprog [name params & body]
@@ -136,7 +140,7 @@
                             (mapcat (fn [subpattern i]
                                       (if (= subpattern '_)
                                         (list)
-                                        (explode-pattern subpattern `(~'nth ~var ~i))))
+                                        (explode-pattern subpattern `(metaprob-nth ~var ~i))))
                                     pattern
                                     (range (count pattern))))))))
 

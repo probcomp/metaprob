@@ -6,7 +6,7 @@
 
 (defn query [& {:keys [probprog inputs intervention-trace
                        target-trace output-trace]}]
-  (print (format "query: output_trace = %s" output-trace))
+  ;; (print (format "query: output_trace = %s" output-trace))
   (query/query probprog
                inputs
                intervention-trace
@@ -16,4 +16,9 @@
 (defn interpret [& {:keys [program inputs interventions]}]
   (b/nth (query/query program inputs interventions nil  nil)
          0))
+
+
+;; For gaussian
+
+(def provide-score-method query/provide-score-method)
 

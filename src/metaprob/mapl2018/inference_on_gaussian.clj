@@ -11,7 +11,7 @@
             [metaprob.mapl2018.metropolis-hastings-step :refer [lightweight-single-site-MH-sampling]]
             [metaprob.mapl2018.interpreters :refer :all]))
 
-(define number-of-runs 10)
+(define number-of-runs 50)
 
 (define prior-density
   (probprog [x]

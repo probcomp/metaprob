@@ -17,12 +17,14 @@
     	    (replicate N
 	      (probprog []
                 (define candidate-trace (empty-trace))
-                (query
-                  :probprog model-probprog
-                  :inputs inputs
-                  :intervention-trace (empty-trace)
-	          :target-trace       target-trace
-	          :output-trace       candidate-trace))))
+                (define [_ score]
+                  (query    ;; returns [value score]
+                   :probprog model-probprog
+                   :inputs inputs
+                   :intervention-trace (empty-trace)
+                   :target-trace       target-trace
+                   :output-trace       candidate-trace))
+                (tuple candidate-trace score))))
     (define traces 
       (map (probprog [p] (trace_get (lookup p (addr 0)))) particles))
     (define scores

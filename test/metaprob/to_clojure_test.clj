@@ -25,10 +25,17 @@
 (def sample-trace-2
   '("program" "body" ("block" 0 ("if" "else" ("variable" "name" ("lst")) "then" ("application" 0 ("variable" "name" ("drop")) 1 ("application" 0 ("variable" "name" ("rest")) 1 ("variable" "name" ("lst"))) 2 ("application" 0 ("variable" "name" ("sub")) 1 ("variable" "name" ("index")) 2 ("literal" "value" (1)))) "predicate" ("application" 0 ("variable" "name" ("gt")) 1 ("variable" "name" ("index")) 2 ("literal" "value" (0))))) "pattern" ("tuple" 0 ("variable" "name" ("lst")) 1 ("variable" "name" ("index")))))
 
+(defn strip [x]
+  (if (and (seqable? x)
+           (not (empty? x))
+           (= (first x) 'export-probprog))
+    (first (rest x))
+    x))
+
 (deftest convert-2
   (testing "Smoke test for trace-to-clojure"
     (let [expr (to-clojure (reconstruct-trace sample-trace-2))]
-      (is (= (first expr) 'probprog)))))
+      (is (= (first (strip expr)) 'probprog)))))
 
 (deftest convert-3
   (testing "Basic test of block"
@@ -45,5 +52,5 @@
 (deftest invert-2
   (testing "Smoke test 2 for from/to-clojure"
     (let [sample '(probprog [x] 7 x)
-          probe (to-clojure (from-clojure sample))]
+          probe (strip (to-clojure (from-clojure sample)))]
       (is (= sample probe)))))

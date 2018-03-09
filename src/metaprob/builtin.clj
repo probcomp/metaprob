@@ -557,6 +557,8 @@
       (value (subtrace thing i)))
     (clojure.core/nth thing i)))
 
+(defn metaprob-nth [thing i] (nth thing i))
+
 ;; prelude has: reverse, propose1, iterate, replicate, repeat
 
 ;; range - overrides original prelude (performance + generalization)
@@ -667,15 +669,36 @@
 ;; --------------------
 ;; Lexical environments, needed by program macro.
 
+(defn frame? [obj]
+  (clojure.core/and (trace? obj)
+       (has-value? obj)
+       (= (value obj) "frame")))
+
+(defn frame-parent [frame]
+  (value (subtrace frame "parent")))
+
 ;; env_lookup - overrides original prelude
 
 (define-foreign-probprog env_lookup [env name]
-  (env/env-lookup env (str name)))
+  (if (frame? env)
+    (if (has-subtrace? env name)
+      (value (subtrace env name))
+      (env_lookup (frame-parent env) name))
+    ;; Top level environment
+    (env/env-lookup env name)))
 
 ;; make_env - overrides original prelude
 
 (define-foreign-probprog make_env [parent]
-  (env/make-sub-environment parent))
+  (if false
+    (env/make-sub-environment parent)
+    (trace-from-map {"parent" (new-trace parent)}
+                    "frame")))
+
+(defn env-bind! [env name val]
+  (if false
+    (env/env-bind! env name val)
+    (trace-set env name val)))
 
 ;; match_bind - overrides original prelude.
 ;; Liberal in what it accepts: the input can be either a list or a
@@ -686,7 +709,7 @@
             ;; pattern is a trace (variable or list, I think, maybe seq)
             (clojure.core/assert trace? pattern)
             (case (value pattern)
-              "variable" (env/env-bind! env (value (subtrace pattern "name")) input)
+              "variable" (env-bind! env (value (subtrace pattern "name")) input)
               "tuple"
               ;; input is either a metaprob list or a metaprob tuple
               (let [subpatterns (subtraces-to-seq pattern)
@@ -701,8 +724,7 @@
     (dosync (re pattern input))
     "return value of match_bind"))
 
-(define-foreign-probprog match_bind [pattern input env]
-  (match-bind pattern input env))
+(def match_bind match-bind)
 
 
 ;; Random stuff
@@ -777,6 +799,25 @@
         (query-foreign (value (subtrace prog "foreign-generate-method")) argseq i t o)
         (clojure.core/assert false ["don't know how to query this kind of probprog" prog])))))
 
+(def registered-query-implementation-ref (ref mini-query))
+(defn register-query-implementation! [impl]
+  (dosync (ref-set registered-query-implementation-ref impl)))
+
+;; This ought to clojure-compile the probprog, if it has source ?
+
+(defn trace-to-probprog [tr]
+  (with-meta (fn [& argseq]
+               ;; Foo.  We want to avoid interpreting this thing, if possible.
+               (clojure.core/print ["kludging" (trace-get tr "name")])
+               (let [[answer _]
+                     (metaprob-collection-to-seq
+                      ((deref registered-query-implementation-ref)
+                       tr
+                       (seq-to-metaprob-list argseq)
+                       nil nil nil))]
+                 answer))
+    {:trace tr}))
+
 ;; Lift a probprog (`query-method`) up to be a meta-probprog.
 
 (defn make-mini-lifted-probprog [name query-method]
@@ -791,13 +832,27 @@
               "query-method" (new-trace query-method)}
              "prob prog")}))
 
+;; This is a kludge, to use until there's something better
+
+(define-foreign-probprog export-probprog [prog]
+  (let [name (trace-get prog "name")
+        ifn (with-meta prog nil)]
+    (with-meta ifn {:name name
+                    :trace (trace-from-map {"name" (new-trace name)
+                                            "foreign-generate-method" (new-trace ifn)}
+                                           "prob prog")})))
+
+
+;; -----------------------------------------------------------------------------
+;; Distributions (nondeterministic probprogs)
+
 ;; Provide a probprog with a score method.
 ;; The score-method can be an IFn here, but it can also be a
 ;; probprog with the appropriate meta magic to make it callable.
 
 ;; Arguments to score-method are [sample params]
 
-(define-foreign-probprog provide-score-method [name prog score-method]
+(define-foreign-probprog mini-provide-score-method [name prog score-method]
   (let [namestring (if (symbol? name) (str name) name)]
     (make-mini-lifted-probprog
        namestring
@@ -815,7 +870,7 @@
                                                         score-method]
   (let [namestring (if (symbol? mp-name) (str mp-name) mp-name)]
     `(def ~mp-name
-       (provide-score-method ~namestring
+       (mini-provide-score-method ~namestring
                              (make-foreign-probprog ~(str namestring "|generate")
                                                     ~generate-method)
                              (make-foreign-probprog ~(str namestring "|score")
