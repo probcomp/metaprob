@@ -9,6 +9,7 @@
 (def s-to-ns (* 1000 1000 1000)) ; in ns
 
 (defn instrument [fun & args]
+  (flush)
   (if true
     (apply fun args)
     (crit/report-result
@@ -27,9 +28,9 @@
   ;(print "---- Rejection ----\n")
   ;(instrument inf/rejection-assay 30)
   ;; Rejection sampling is very fast
-  (print "---- Importance ----\n")
-  (inf/importance-assay 100)
-  ;(print "---- MH ----\n")
-  ;(inf/MH-assay)
+  ;; (print "---- Importance ----\n")
+  ;; (inf/importance-assay 100)
+  ;; (print "---- MH ----\n")
+  ;; (instrument inf/MH-assay 50)
   )
 

@@ -59,24 +59,27 @@
                  number-of-runs
                  (probprog
                    []
-                   ;; ?? This returns a trace; need to turn that into a number (sample)
-                   (importance-resampling
-                     two-variable-gaussian-model  ; :model-probprog 
-                     (tuple)  ; :inputs 
-                     target-trace  ; :target-trace 
-                     20)))  ; :N 
+                   (define tr
+                     (importance-resampling
+                      two-variable-gaussian-model  ; :model-probprog 
+                      (tuple)  ; :inputs 
+                      target-trace  ; :target-trace 
+                      20))
+                   (trace-get (lookup tr (addr 0 "x" "gaussian")))))  ; :N 
       :overlay-densities (list (tuple "prior" prior-density)
                                (tuple "target" target-density)))))
 
 (define MH-assay
-  (probprog []
+  (probprog [number-of-runs]
     (binned-histogram
       :name    "samples from lightweight single-site MH with 20 iterations"
       :samples (replicate
                  number-of-runs
                  (probprog []    ;added by JAR
-                   (lightweight-single-site-MH-sampling 20
-                                                        two-variable-gaussian-model
-                                                        target-trace)))
+                   (define tr
+                     (lightweight-single-site-MH-sampling 20
+                                                          two-variable-gaussian-model
+                                                          target-trace))
+                   (trace-get (lookup tr (addr 0 "x" "gaussian")))))
       :overlay-densities (list (tuple "prior" prior-density)
                                (tuple "target" target-density)))))

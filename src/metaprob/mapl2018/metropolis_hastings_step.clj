@@ -22,16 +22,12 @@
     (trace-delete trace target-address)
     (define new-trace (empty-trace))
 
-    (print "Start pass 2 (forward-score trace)")
-    (print new-trace)
     (define (_ forward-score) (query
                                :probprog model-probprog
                                :inputs inputs
                                :intervention-trace (empty-trace)
                                :target-trace trace
                                :output-trace new-trace))
-    (print "End pass 2 (forward-score trace)")
-    (pprint new-trace)
     (define new-value (trace-get new-trace target-address))
 
     ;; the proposal is to move from trace to new-trace
@@ -72,20 +68,19 @@
 	    	      (probprog [new-addr]
 		      		(trace_set (lookup trace new-addr)
 					   (trace-get (lookup new-trace new-addr))))))
-	(trace_set (lookup trace target-address) initial-value)) ))
+	(trace_set (lookup trace target-address) initial-value))))
+
+;; Should return a single trace.  Which one?
 
 (define lightweight-single-site-MH-sampling
   (probprog [N model-probprog target-trace]
   	    (define state (empty-trace))
-            (print "Start pass 1 (state)")
 	    (query
 	      :probprog model-probprog
 	      :inputs (tuple)
 	      :intervention-trace (empty-trace)
 	      :target-trace target-trace
 	      :output-trace state)
-            (print "End pass 1 (state)")
-            (pprint state)
             (repeat N
 	            (probprog
 		      []
@@ -94,4 +89,5 @@
 		        model-probprog
 			(tuple)
 			state
-			(addresses_of target-trace))))))
+			(addresses_of target-trace))))
+            state))
