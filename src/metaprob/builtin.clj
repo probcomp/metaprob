@@ -406,7 +406,7 @@
 
 ;; Other builtins
 
-(def rng (java.util.Random. 42))
+(def ^:dynamic *rng* (java.util.Random. 42))
 
 (define-foreign-probprog exp [x] (java.lang.Math/exp x))
 (define-foreign-probprog sqrt [x] (java.lang.Math/sqrt x))
@@ -840,8 +840,7 @@
 
 (define-foreign-probprog make-lifted-probprog [name query-method]
   (with-meta (fn [& argseq]
-               ;; Usually it's wrong to call these things from clojure
-               (clojure.core/print (format "? Calling %s (lifted) from clojure\n" name))
+               ;; (clojure.core/print (format "? Calling %s (lifted) from clojure\n" name))
                (let [answer+score
                      (boot-generate query-method argseq nil nil nil)]
                  (nth answer+score 0)))
@@ -934,9 +933,9 @@
 
 (define-foreign-probprog-with-score flip
   (fn flip
-    ([] (<= (.nextDouble rng) 0.5))
+    ([] (<= (.nextDouble *rng*) 0.5))
     ([weight]
-     (let [answer (<= (.nextDouble rng) weight)]
+     (let [answer (<= (.nextDouble *rng*) weight)]
        (clojure.core/print (format "flip %s -> %s\n" weight answer))
        answer)))
   (fn [sample params]
@@ -965,12 +964,12 @@
 (define-foreign-probprog-with-score beta
   (fn beta [a b]
     ;; From kixi/stats/distribution.cljc :
-    ;; (let [[r1 r2] (split rng)
+    ;; (let [[r1 r2] (split *rng*)
     ;;         u (rand-gamma alpha r1)]
     ;;   (/ u (+ u (rand-gamma beta r2))))
     ;; rand-gamma is hairy. but defined in same file.
     (dist/draw (dist/beta :alpha a :beta b)
-               :seed (.nextLong rng)))
+               {:seed (.nextLong *rng*)}))
   (fn [x params]
     (let [[a b] (metaprob-collection-to-seq params)]
       ;; Venture does:
@@ -988,7 +987,8 @@
 
 (define-foreign-probprog-with-score uniform
   (fn uniform [a b]
-    (dist/draw (dist/uniform a b)))
+    (dist/draw (dist/uniform a b)
+               {:seed (.nextLong *rng*)}))
   (fn [x params]
     (let [[a b] (metaprob-collection-to-seq params)]
       ;; return scipy.stats.uniform.logpdf(x, low, high-low)
@@ -999,7 +999,8 @@
 (define-foreign-probprog-with-score uniform-sample
   (fn uniform-sample [items]
     ;; items is a metaprob list (or tuple??)
-    (let [n (dist/draw (dist/uniform 0 (length items)))]
+    (let [n (dist/draw (dist/uniform 0 (length items))
+                       {:seed (.nextLong *rng*)})]
       (nth items (Math/floor n))))
   (fn [item params]
     (let [[items] (metaprob-collection-to-seq params)

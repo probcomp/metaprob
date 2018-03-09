@@ -46,13 +46,26 @@ mapl:
 	time lein run -m metaprob.mapl2018.main
 	ls -tl results/*.samples
 
-histograms:
-	bin/gnuplot-hist results/samples_from_the_prior.samples
+histograms: h1.png h2.png h3.png h4.png
+h1.png: results/samples_from_the_prior.samples
+	bin/gnuplot-hist $<
 	mv gnuplot-hist-tmp.png h1.png
-	bin/gnuplot-hist results/samples_from_the_target.samples 
+	open h1.png
+# Rejection
+h2.png: results/samples_from_the_target.samples 
+	bin/gnuplot-hist $<
 	mv gnuplot-hist-tmp.png h2.png
-	bin/gnuplot-hist results/samples_from_importance_sampling_with_20_particles.samples 
+	open h2.png
+# Importance
+h3.png: results/samples_from_importance_sampling_with_20_particles.samples 
+	bin/gnuplot-hist $<
 	mv gnuplot-hist-tmp.png h3.png
+	open h3.png
+# MH
+h4.png: results/samples_from_lightweight_single-site_MH_with_20_iterations.samples
+	bin/gnuplot-hist $<
+	mv gnuplot-hist-tmp.png h4.png
+	open h4.png
 
 tags:
 	etags --language=lisp `find src -name "*.clj"` `find test -name "*.clj"`

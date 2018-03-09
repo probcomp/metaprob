@@ -22,7 +22,7 @@
     (exp (score-gaussian x (tuple 1.5 (div 1.0 (sqrt 2.0)))))))
 
 (define get-samples
-  (probprog []
+  (probprog [number-of-runs]
     (binned-histogram
       :name    "samples from the prior"
       :samples (replicate number-of-runs
@@ -34,7 +34,7 @@
 (trace-set (lookup target-trace (addr 1 "y" "gaussian")) 3.0)
 
 (define rejection-assay
-  (probprog []
+  (probprog [number-of-runs]
     (binned-histogram
       :name    "samples from the target"
       :samples (replicate
@@ -52,13 +52,14 @@
                                (tuple "target" target-density)))))
 
 (define importance-assay
-  (probprog []
+  (probprog [number-of-runs]
     (binned-histogram
       :name    "samples from importance sampling with 20 particles"
       :samples (replicate
                  number-of-runs
                  (probprog
                    []
+                   ;; ?? This returns a trace; need to turn that into a number (sample)
                    (importance-resampling
                      two-variable-gaussian-model  ; :model-probprog 
                      (tuple)  ; :inputs 
