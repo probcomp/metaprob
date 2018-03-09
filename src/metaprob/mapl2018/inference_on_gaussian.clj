@@ -5,25 +5,21 @@
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
-            [metaprob.mapl2018.gaussian :refer [gaussian two-variable-gaussian-model]]
+            [metaprob.mapl2018.gaussian :refer [gaussian score-gaussian two-variable-gaussian-model]]
             [metaprob.mapl2018.rejection :refer :all]
             [metaprob.mapl2018.importance :refer [importance-resampling]]
             [metaprob.mapl2018.metropolis-hastings-step :refer [lightweight-single-site-MH-sampling]]
             [metaprob.mapl2018.interpreters :refer :all]))
 
-(define number-of-runs 50)
+(define number-of-runs 3)
 
 (define prior-density
   (probprog [x]
-    (exp ((trace-get gaussian
-                     (addr "log-output-probability-density"))
-          (tuple x 0 1))) ))
+    (exp (score-gaussian x (tuple 0 1)))))
 
 (define target-density
   (probprog [x]
-    (exp ((trace-get gaussian
-                     (addr "log-output-probability-density"))
-          (tuple x 1.5 (div 1.0 (sqrt 2.0))))) ))    ;was /
+    (exp (score-gaussian x (tuple 1.5 (div 1.0 (sqrt 2.0)))))))
 
 (define get-samples
   (probprog []

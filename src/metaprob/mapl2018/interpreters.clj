@@ -17,8 +17,3 @@
   (b/nth (query/query program inputs interventions nil  nil)
          0))
 
-
-;; For gaussian
-
-(def provide-score-method query/provide-score-method)
-

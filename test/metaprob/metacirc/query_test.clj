@@ -76,6 +76,5 @@
              (probprog [argseq i t o]
                        (define [x y] argseq)
                        (tuple (+ x 1) 19)))
-          l (make-lifted-probprog "testing" m)]
+          l (builtin/make-lifted-probprog "testing" m)]
       (is (= (l 17 "z") 18)))))
-

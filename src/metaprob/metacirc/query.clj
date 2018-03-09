@@ -24,19 +24,19 @@
                     intervention_trace
                     target_trace
                     output_trace)
-      (if (trace-has-key? prog "foreign-generate-method")
-        (query-foreign (trace-get prog "foreign-generate-method") ;"execute"
-                       inputs
-                       intervention_trace
-                       target_trace
-                       output_trace)      
-        (if (trace-has-key? prog "native-generate-method")      
-          (query-native (trace-subtrace prog "native-generate-method") ;was "source"
-                        (trace-get prog "environment")
-                        inputs
-                        intervention_trace
-                        target_trace
-                        output_trace)
+      (if (trace-has-key? prog "native-generate-method")      
+        (query-native (trace-subtrace prog "native-generate-method") ;was "source"
+                      (trace-get prog "environment")
+                      inputs
+                      intervention_trace
+                      target_trace
+                      output_trace)
+        (if (trace-has-key? prog "foreign-generate-method")
+          (query-foreign (trace-get prog "foreign-generate-method") ;"execute"
+                         inputs
+                         intervention_trace
+                         target_trace
+                         output_trace)      
           (block (pprint prog)
                  (assert false "Not a prob prog" prog)))))))
 
@@ -286,7 +286,7 @@
                                 (lookup exp subaddr)
                                 (add addr subaddr)))
                             (tuple
-                              (match_bind
+                              (match-bind
                                 (lookup exp (list "pattern"))
                                 val
                                 env)
@@ -330,26 +330,4 @@
           (block (tuple v score)))))
     (walk exp (list))))
 
-;; Needed by rejection sampling example and so on
-
 (register-query-implementation! query)
-
-(define make-lifted-probprog
-  (probprog [name query-method]
-    (define tr (empty-trace))
-    (trace-set tr "name" name)
-    (trace-set tr "query-method" query-method)
-    (trace-set tr "prob prog")
-    (trace-to-probprog tr)))
-
-(define provide-score-method
-  (probprog [name prog score-method]
-      (make-lifted-probprog
-         name
-         ;; This is the lifted-probprog's query-method:
-         (probprog [argseq i t o]
-           (define [answer score]
-             (prog argseq i t o))
-           (print score-method)
-           (tuple answer (score-method answer argseq))))))
-

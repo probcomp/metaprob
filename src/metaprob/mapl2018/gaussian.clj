@@ -22,14 +22,17 @@
 		      sigma)))
     answer))
 
+(define standard-gaussian-log-density
+  (probprog [x]
+    (sub (mul (sub 0 0.5) (log (mul 2 3.14159265)))
+         (mul (mul 0.5 x) x))))
+
 (define score-gaussian
-  (probprog [x mu sigma]
-    (define standard-gaussian-log-density
-      (probprog [x]
-        (sub (mul (sub 0 0.5) (log (mul 2 3.14159265)))
-           (mul (mul 0.5 x) x))))
+  (probprog [x params]
+    (define [mu sigma] params)
     (sub (standard-gaussian-log-density
-           (div (sub x mu) sigma)) (log sigma)) ))
+           (div (sub x mu) sigma))
+         (log sigma))))
 
 (define gaussian
   (provide-score-method "gaussian"

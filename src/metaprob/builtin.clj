@@ -44,8 +44,11 @@
                                                            (has-subtrace? x (- n 1))))))))
 
 (defn metaprob-tuple-to-seq [tup]
-  (clojure.core/assert (metaprob-tuple? tup))
-  (subtrace-values-to-seq tup))
+  (if (metaprob-tuple? tup)
+    (subtrace-values-to-seq tup)
+    (do (pprint tup)
+        (clojure.core/assert false "^ Not a metaprob tuple"))))
+
 
 ;; Convert clojure seq to metaprob tuple
 
@@ -99,7 +102,10 @@
       (if (metaprob-pair? things)
         (metaprob-list-to-seq things)
         (metaprob-tuple-to-seq things)))
-    (seq things)))
+    (if (seqable? things)
+      (seq things)
+      (clojure.core/assert false
+                           ["Metaprob-collection is neither a trace nor a seq" things]))))
 
 ;; --------------------
 ;; Now ready to start defining primitives.
@@ -754,11 +760,10 @@
 ;; -----------------------------------------------------------------------------
 
 (define-foreign-probprog binned-histogram [& {:keys [name samples overlay-densities]}]
-  (clojure.core/prn "Binned histogram")
   (let [samples (metaprob-collection-to-seq samples)
         path (clojure.string/replace name " " "_")]
-    (prn name)
-    (prn (purify overlay-densities))
+    (clojure.core/print (format "Writing samples to %s for histogram generation\n" path))
+    (clojure.core/print (format " overlay-densities = %s\n" (purify overlay-densities)))
     (with-open [writor (io/writer (str "results/" path ".samples"))]
       (doseq [sample samples]
         (.write writor (str sample))
@@ -770,10 +775,11 @@
 ;; Builtins that return scores.
 ;; Ideally this entire section is written in metaprob, not clojure.
 
-(defn mini-generate [fun & args]
-  (apply fun args))   ; ?? metaprob-collection-to-seq
+(declare boot-generate mini-query mini-query-lifted)
 
-;; 'query' specialized for foreign probprogs
+;; 'query' specialized for foreign probprogs.  Compare query.clj.
+;; Must always run the function, both in case it has side effects,
+;; and so that it populates the output trace.
 
 (define-foreign-probprog query-foreign [ifn argseq intervene target output]
   (let [answer (apply ifn (metaprob-collection-to-seq argseq))
@@ -786,6 +792,14 @@
       (trace-set output answer))
     [answer 0]))
 
+;; Temporary substitute for query-lifted (see query.clj).
+
+(defn mini-query-lifted [query-method inputs intervene target output]
+  (let [result+score+score (mini-query query-method
+                                       [inputs intervene target output]
+                                       nil nil nil)]
+    (nth result+score+score 0)))
+
 ;; Invoke a probprog, excluding the native case, which won't work yet,
 ;; because the interpreter would be a forward reference and clojure
 ;; hates forward references.
@@ -793,46 +807,69 @@
 (defn mini-query [prog argseq i t o]
   (let [prog (tracify prog)]
     (if (has-subtrace? prog "query-method")    ;Lifted
-      (mini-generate (value (subtrace prog "query-method")) argseq i t o)
+      (mini-query-lifted (trace-get prog "query-method") argseq i t o)
       (if (has-subtrace? prog "foreign-generate-method")
-
-        (query-foreign (value (subtrace prog "foreign-generate-method")) argseq i t o)
+        ;; Ignore the traces
+        (do (clojure.core/print "Discarding traces for %s (mini-query)\n"
+                                (trace-get prog "name"))
+            [(query-foreign (value (subtrace prog "foreign-generate-method")) argseq i t o) 0])
         (clojure.core/assert false ["don't know how to query this kind of probprog" prog])))))
+
+(defn boot-generate [pp & args]
+  (apply pp args))   ; ?? metaprob-collection-to-seq ?? mini-query
+
+;; boot-query starts out doing mini-query, then expands to query when query is ready.
 
 (def registered-query-implementation-ref (ref mini-query))
 (defn register-query-implementation! [impl]
   (dosync (ref-set registered-query-implementation-ref impl)))
 
-;; This ought to clojure-compile the probprog, if it has source ?
+;; Call the currently registered implementation for `query`
 
-(defn trace-to-probprog [tr]
-  (with-meta (fn [& argseq]
-               ;; Foo.  We want to avoid interpreting this thing, if possible.
-               (clojure.core/print ["kludging" (trace-get tr "name")])
-               (let [[answer _]
-                     (metaprob-collection-to-seq
-                      ((deref registered-query-implementation-ref)
-                       tr
-                       (seq-to-metaprob-list argseq)
-                       nil nil nil))]
-                 answer))
-    {:trace tr}))
+(defn boot-query [pp argseq i t o]
+  ((deref registered-query-implementation-ref)
+   pp
+   (if (tracish? argseq)
+     (tracify argseq)
+     (seq-to-metaprob-list argseq))
+   i t o))
+
+;; Custom applicators
 
 ;; Lift a probprog (`query-method`) up to be a meta-probprog.
 
-(defn make-mini-lifted-probprog [name query-method]
+(define-foreign-probprog make-lifted-probprog [name query-method]
   (with-meta (fn [& argseq]
-               (let [[answer ignore-score]
-                     ;; Later, once we have query, we will be able to do
-                     ;; (query query-method argseq nil nil nil), but not yet
-                     (mini-generate query-method argseq nil nil nil)]
-                 answer))
+               ;; Usually it's wrong to call these things from clojure
+               (clojure.core/print (format "? Calling %s (lifted) from clojure\n" name))
+               (let [answer+score
+                     (boot-generate query-method argseq nil nil nil)]
+                 (nth answer+score 0)))
     {:trace (trace-from-map
              {"name" (new-trace name)
               "query-method" (new-trace query-method)}
              "prob prog")}))
 
-;; This is a kludge, to use until there's something better
+;; Make a bare trace be clojure-callable.
+;; This ought to clojure-compile the probprog, if it has source ? ???
+
+(defn trace-to-probprog [tr]
+  (if (trace? tr)
+    (with-meta (fn [& argseq]
+                 ;; Foo.  We want to avoid interpreting this thing, if possible.
+                 (clojure.core/print (format "? Calling %s (trace) from clojure\n"
+                                             (trace-get tr "name")))
+                 (let [[answer _]
+                       (metaprob-collection-to-seq
+                        (boot-query
+                         tr
+                         (seq-to-metaprob-list argseq)
+                         nil nil nil))]
+                   answer))
+      {:trace tr})
+    tr))
+
+;; This is a kludge, to use until there's a better solution
 
 (define-foreign-probprog export-probprog [prog]
   (let [name (trace-get prog "name")
@@ -841,7 +878,6 @@
                     :trace (trace-from-map {"name" (new-trace name)
                                             "foreign-generate-method" (new-trace ifn)}
                                            "prob prog")})))
-
 
 ;; -----------------------------------------------------------------------------
 ;; Distributions (nondeterministic probprogs)
@@ -852,16 +888,31 @@
 
 ;; Arguments to score-method are [sample params]
 
-(define-foreign-probprog mini-provide-score-method [name prog score-method]
+;(define provide-score-method
+;  (probprog [name prog score-method]
+;      (make-lifted-probprog
+;         name
+;         ;; This is the lifted-probprog's query-method:
+;         (export-probprog
+;          (probprog [argseq i t o]
+;            (print o)
+;            (define [answer score]
+;              (query prog argseq i t o))
+;            (tuple answer (score-method answer argseq)))))))
+
+
+(define-foreign-probprog provide-score-method [name prog score-method]
   (let [namestring (if (symbol? name) (str name) name)]
-    (make-mini-lifted-probprog
+    (make-lifted-probprog
        namestring
        ;; This is the lifted-probprog's query-method:
        (make-foreign-probprog (str namestring "|query-method")
                               (fn [argseq i t o]
-                                (let [[answer score]
-                                      (mini-query prog argseq i t o)]
-                                  [answer (mini-generate score-method answer argseq)]))))))
+                                (let [answer+score
+                                      (boot-query prog argseq i t o)
+                                      answer (nth answer+score 0)]
+                                  [answer
+                                   (boot-generate score-method answer argseq)]))))))
 
 ;; Convenience macro.  Generate-method and score-method are both IFns.
 
@@ -870,7 +921,7 @@
                                                         score-method]
   (let [namestring (if (symbol? mp-name) (str mp-name) mp-name)]
     `(def ~mp-name
-       (mini-provide-score-method ~namestring
+       (provide-score-method ~namestring
                              (make-foreign-probprog ~(str namestring "|generate")
                                                     ~generate-method)
                              (make-foreign-probprog ~(str namestring "|score")
@@ -977,4 +1028,3 @@
           normalizer (reduce + 0 weights)
           probabilities (map (fn [w] (/ w normalizer)) weights)]
       (log (clojure.core/nth probabilities i)))))
-

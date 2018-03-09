@@ -78,7 +78,7 @@
     (let [qq (b/make-foreign-probprog "qq" (fn [argseq i t o]
                                              [(+ (b/nth argseq 0) (b/nth argseq 1))
                                               50]))
-          lifted (b/make-mini-lifted-probprog "lifted" qq)]
+          lifted (b/make-lifted-probprog "lifted" qq)]
       (let [[answer score] (b/mini-query lifted [7 8] nil nil nil)]
         (is (= answer 15))
         (is (= score 50))))))
