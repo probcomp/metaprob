@@ -47,6 +47,7 @@ mapl:
 	ls -tl results/*.samples
 
 histograms: h1.png h2.png h3.png h4.png
+# Prior
 h1.png: results/samples_from_the_prior.samples
 	bin/gnuplot-hist $<
 	mv gnuplot-hist-tmp.png h1.png

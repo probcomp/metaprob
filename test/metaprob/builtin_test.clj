@@ -141,7 +141,7 @@
     (let [[answer score] (b/mini-query b/flip [] nil nil nil)]
       (is (number? score))
       (is (> score -2))
-      (is (< score 0)))))
+      (is (<= score 0)))))
 
 ;; trace_sites
 

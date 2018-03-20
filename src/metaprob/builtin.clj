@@ -363,6 +363,8 @@
 
 ;; Prettyprint
 
+(declare pprint-indented)
+
 (defn  ^:private princ [x] (clojure.core/print x))
 
 (defn pprint-atom [a]
@@ -743,10 +745,8 @@
 ;; make_env - overrides original prelude
 
 (define-foreign-probprog make_env [parent]
-  (if false
-    (env/make-sub-environment parent)
-    (trace-from-map {"parent" (new-trace parent)}
-                    "frame")))
+  (trace-from-map {"parent" (new-trace parent)}
+                  "frame"))
 
 (defn env-bind! [env name val]
   (if false
@@ -857,9 +857,9 @@
       (mini-query-lifted (trace-get prog "query-method") argseq i t o)
       (if (has-subtrace? prog "foreign-generate-method")
         ;; Ignore the traces
-        (do (clojure.core/print "Discarding traces for %s (mini-query)\n"
-                                (trace-get prog "name"))
-            [(query-foreign (value (subtrace prog "foreign-generate-method")) argseq i t o) 0])
+        (do (clojure.core/print (format "Discarding traces for %s (mini-query)\n"
+                                        (trace-get prog "name")))
+            (query-foreign (value (subtrace prog "foreign-generate-method")) argseq i t o))
         (clojure.core/assert false ["don't know how to query this kind of probprog" prog])))))
 
 (defn boot-generate [pp & args]

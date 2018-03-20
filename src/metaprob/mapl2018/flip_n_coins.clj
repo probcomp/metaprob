@@ -1,3 +1,6 @@
+;; ZANE IS TRYING TO REACH VKM
+
+
 (ns metaprob.mapl2018.flip-n-coins
   (:refer-clojure :only [ns declare])
   (:require [metaprob.syntax :refer :all]
@@ -36,7 +39,15 @@
     (pprint (query :probprog flip-n-coins :inputs (tuple 2) :target-trace  trace-with-2-flips))
     ;;  => value:score:
 
+    (print "--ensure-tricky-and-biased--")
+    (pprint ensure-tricky-and-biased)
+
+    (define output (empty-trace))
     ;; run  the  program  subject  to  these  interventions
-    (pprint (query :probprog flip-n-coins :inputs (tuple 10) :intervention-trace ensure-tricky-and-biased))
+    (pprint (query :probprog flip-n-coins :inputs (tuple 10)
+                   :intervention-trace ensure-tricky-and-biased
+                   :output-trace output))
+    (print "--output--")
+    (pprint output)
     ;;  => (true  true  true  false  true  true  true  true  true  true)
     ))
