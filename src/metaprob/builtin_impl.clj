@@ -10,25 +10,17 @@
 
 (declare length metaprob-nth metaprob-pprint metaprob-rest metaprob-first)
 
-;; empty-trace? - is this trace a metaprob representation of an empty tuple/list?
-
-(defn empty-trace? [x]
-  (let [x (proper-trace x)]
-    (and x
-                      (= (trace-count x) 0)
-                      (not (has-value? x)))))
-
 ;; --------------------
-;; Let's start with metaprob tuples (= arrays), which are needed
+;; Let's start with metaprob tuples/arrays, which are needed
 ;; for defining primitives.
 
 (defn metaprob-tuple? [x]
   (let [x (proper-trace x)]    ; nil if not a trace with either value or subtrace
     (and x
-                      (let [n (trace-count x)]
-                        (or (= n 0)
-                                         (and (has-subtrace? x 0)
-                                                           (has-subtrace? x (- n 1))))))))
+         (let [n (trace-count x)]
+           (or (= n 0)
+               (and (has-subtrace? x 0)
+                    (has-subtrace? x (- n 1))))))))
 
 (defn metaprob-tuple-to-seq [tup]
   (if (metaprob-tuple? tup)
@@ -58,7 +50,7 @@
 
 (defn metaprob-cons [thing mp-list]
   (assert (or (empty-trace? mp-list)
-                                        (metaprob-pair? mp-list)))
+              (metaprob-pair? mp-list)))
   (trace-from-map {rest-marker mp-list} thing))
 
 ;; seq-to-metaprob-list - convert clojure sequence to metaprob list.
@@ -66,7 +58,7 @@
 (defn seq-to-metaprob-list [things]
   (let [things (seq things)]
     (if (empty? things)
-      (new-trace)
+      (empty-trace)
       (metaprob-cons (first things)
                      (seq-to-metaprob-list (rest things))))))
 
@@ -81,7 +73,7 @@
 ;; to clojure sequence.
 
 (defn metaprob-collection-to-seq [things]
-  (if (trace? things)
+  (if (mutable-trace? things)
     (if (empty-trace? things)
       (list)
       (if (metaprob-pair? things)
@@ -122,7 +114,7 @@
 (defn metaprob-assert [condition complaint & irritants]
   (binding [*out* *err*]
     (doseq [irritant irritants]
-      (if (trace? irritant)
+      (if (mutable-trace? irritant)
         (do (print "Irritant:")
             (metaprob-pprint irritant)))))
   (assert condition
@@ -169,32 +161,11 @@
 (define-foreign-probprog log1p [x] (java.lang.Math/log1p x))
 (define-foreign-probprog log-gamma [x] (math/log-gamma x))
 
-(define-foreign-probprog empty-trace []
-  (new-trace))
-
-;; Convert a value to be used as a key to a pure clojure value so that
-;; hash and = will work on it.
-
-(defn purify [x]
-  (if (trace? x)
-    (if (empty-trace? x)
-      '()
-      (if (metaprob-pair? x)
-        (apply list (map purify (metaprob-list-to-seq x))) ;cf. metaprob-value?
-        (if (metaprob-tuple? x)
-          (vec (map purify (metaprob-tuple-to-seq x)))
-          (let [keys (trace-keys x)
-                maap (into {} (for [key keys] [key (purify (subtrace x key))]))]
-            (if (has-value? x)
-              (assoc maap :value (purify (value x)))
-              maap)))))
-    x))
-
 ;; addr is a metaprob list. The trace library wants clojure sequences.
 ;; TBD: permit tuple etc. here?  (metaprob-collection-to-seq?)
 
 (defn addrify [addr]
-  (if (trace? addr)
+  (if (mutable-trace? addr)
     (map purify (metaprob-list-to-seq addr))
     (if (string? addr)
       (list addr)
@@ -205,22 +176,15 @@
 ;; object.
 
 (defn tracify [x]
-  (if (trace? x)
+  (if (mutable-trace? x)
     x
     (let [m (meta x)]
       (if (and (map? m) (contains? m :trace))
         (let [tr (get m :trace)]
-          (assert (trace? tr))
+          (assert (mutable-trace? tr))
           tr)
         (assert false
-                             ["can't coerce this to a trace" x])))))
-
-;; OK as an argument to tracify?
-
-(defn tracish? [x]
-  (or (trace? x)
-                   (let [m (meta x)]
-                     (and (map? m) (contains? m :trace)))))
+                ["can't coerce this to a trace" x])))))
 
 ;; VKM name
 (define-foreign-probprog trace-get
@@ -315,7 +279,7 @@
                                  (sites (subtrace tr key))))
                           (trace-keys tr))]
               (if (has-value? tr)
-                (cons (new-trace) site-list)
+                (cons (empty-trace) site-list)
                 site-list)))]       
     (let [s (sites (normalize trace))]
       (doseq [site s]
@@ -462,11 +426,11 @@
 ;; array-to_list - builtin - metaprob array/tuple to metaprob list
 
 (define-foreign-probprog array-to-list [tup]
-  (if (trace? tup)
+  (if (mutable-trace? tup)
     (letfn [(scan [i]
               (if (has-subtrace? tup i)
                 (pair (value (subtrace tup i)) (scan (+ i 1)))
-                (new-trace)))]
+                (empty-trace)))]
       (scan 0))
     ;; seqable?
     (apply list tup)))
@@ -492,7 +456,7 @@
 ;; ----------------------------------------------------------------------
 
 (defn diagnose-nonpair [mp-list]
-  (if (trace? mp-list)
+  (if (mutable-trace? mp-list)
     (if (has-value? mp-list)
       (if (has-subtrace? mp-list rest-marker)
         "ok"
@@ -532,7 +496,7 @@
 
 ;!!
 (define-foreign-probprog length [x]
-  (assert (trace? x))
+  (assert (mutable-trace? x))
   (if (empty-trace? x)
     0
     (if (metaprob-pair? x)
@@ -565,7 +529,7 @@
 ;; nth - overrides original prelude (performance + generalization)
 
 (define-foreign-probprog metaprob-nth [thing i]
-  (if (trace? thing)
+  (if (mutable-trace? thing)
     (if (metaprob-pair? thing)
       (letfn [(re [l i]
                 (if (metaprob-pair? l)
@@ -582,7 +546,7 @@
 ;; range - overrides original prelude (performance + generalization)
 
 (defn _range [n k]
-  (if (>= k n) (new-trace) (pair k (_range n (+ k 1)))))
+  (if (>= k n) (empty-trace) (pair k (_range n (+ k 1)))))
 
 (define-foreign-probprog metaprob-range [n]
   (_range n 0))
@@ -598,12 +562,12 @@
 (define-foreign-probprog mp-map [mp-fn mp-seq]
   ;; Do something - need to thread the trace through.
   (let [mp-seq (tracify mp-seq)]
-    (if (trace? mp-seq)
+    (if (mutable-trace? mp-seq)
       (if (empty-trace? mp-seq)
         mp-seq
         (if (metaprob-pair? mp-seq)
           (letfn [(maplist [mp-list]
-                    (assert (trace? mp-list) mp-list)
+                    (assert (mutable-trace? mp-list) mp-list)
                     (if (empty-trace? mp-list)
                       mp-list
                       (do (assert (metaprob-pair? mp-list) (trace-keys mp-list))
@@ -715,7 +679,7 @@
 ;; Lexical environments, needed by program macro.
 
 (defn frame? [obj]
-  (and (trace? obj)
+  (and (mutable-trace? obj)
        (has-value? obj)
        (= (value obj) "frame")))
 
@@ -750,7 +714,7 @@
 (defn match-bind [pattern input env]
   (letfn [(re [pattern input]
             ;; pattern is a trace (variable or list, I think, maybe seq)
-            (assert trace? pattern)
+            (assert mutable-trace? pattern)
             (case (value pattern)
               "variable" (env-bind! env (value (subtrace pattern "name")) input)
               "tuple"
@@ -891,7 +855,7 @@
 ;; This ought to clojure-compile the probprog, if it has source ? ???
 
 (defn trace-to-probprog [tr]
-  (if (trace? tr)
+  (if (mutable-trace? tr)
     (with-meta (fn [& argseq]
                  ;; Foo.  We want to avoid interpreting this thing, if possible.
                  (print (format "? Calling %s (trace) from clojure\n"

@@ -54,7 +54,7 @@
           a (b/list "this" "that")
           r (b/resolve-tag-address (b/pair q a))
           o2 (b/nth r 2)]
-      (is (trace? o2))
+      (is (mutable-trace? o2))
       (b/trace-set o2 "value")
       (is (= (b/trace-get o2) "value"))
       (is (= (b/trace-get (b/lookup root a)) "value"))
@@ -85,7 +85,7 @@
         (is (= score 50))))))
 
 (deftest reification-1
-  (testing "Does a probprog appear to be a trace?"
+  (testing "Does a probprog appear to be a mutable-trace?"
     (let [pp (impl/make-foreign-probprog "pp" (fn [x] (+ x 1)))]
       (is (= (b/trace-get pp) "prob prog")))))
 
@@ -109,7 +109,7 @@
   (testing "Smoke test addresses-of"
     (let [tree (trace-from-map {"x" (trace-from-map {"a" (new-trace 1)
                                                    "b" (new-trace 2)
-                                                   "c" (new-trace)})
+                                                   "c" (empty-trace)})
                                "y" (new-trace "d")})
           sites (b/addresses-of tree)]
       (is (= (b/length sites) 3)))))

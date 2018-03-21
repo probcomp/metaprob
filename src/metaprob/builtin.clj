@@ -6,6 +6,7 @@
                   [not and or
                    assert pprint print
                    list first rest last nth range])
+  (:require [metaprob.trace :as trace])
   (:require [metaprob.builtin-impl :as impl])
   (:require [kixi.stats.math :as math]))
 
@@ -60,7 +61,7 @@
 (define-foreign-probprog sample-uniform impl/sample-uniform)
 
 ;; Traces
-(define-foreign-probprog empty-trace impl/empty-trace)
+(define-foreign-probprog empty-trace trace/empty-trace)
 (define-foreign-probprog trace-get impl/trace-get)
 (define-foreign-probprog trace-has? impl/trace-has?)
 (define-foreign-probprog trace-set impl/trace-set)

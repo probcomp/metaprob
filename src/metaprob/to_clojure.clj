@@ -195,7 +195,7 @@
     (case (value tr)
       "application" (let [form (subexpressions-to-clojure tr nest)]
                       (to-list (if (= (first form) 'mk_nil)
-                                 (cons 'empty-trace (rest form))
+                                 (cons 'new-trace (rest form))
                                  form)))
       "variable" (to-symbol (subvalue tr "name"))
       "literal" (subvalue tr "value")

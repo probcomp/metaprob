@@ -6,17 +6,17 @@
 
 (deftest trace-p
   (testing "Does an empty trace have keys?"
-    (is (trace? (new-trace)))))
+    (is (mutable-trace? (empty-trace)))))
 
 (deftest trie-p
   (testing "Does an empty trace have keys?"
-    (is (trie? (new-trace)))))
+    (is (trie? (empty-trace)))))
 
 ; Have to use 'is' for some reason
 
 (deftest empty-has-no-keys
   (testing "Does an empty trace have keys?"
-    (is (not (has-subtrace? (new-trace) 'foo)))))
+    (is (not (has-subtrace? (empty-trace) 'foo)))))
 
 ; fetch value at trace
 
@@ -29,7 +29,7 @@
 
 (deftest store-fetch-value
   (testing "Can we get a value that we put in?"
-    (let [trace (new-trace)]
+    (let [trace (empty-trace)]
       (set-value! trace "value")
       (is (= (value trace) "value")))))
 
@@ -37,7 +37,7 @@
 
 (deftest store-fetch-subtrace
   (testing "If you add a subtrace to a trace, is it there?"
-    (let [trace (new-trace)
+    (let [trace (empty-trace)
           sub (new-trace "value-1")]
       (set-value! sub "value-2")
       (set-subtrace! trace "key" sub)
@@ -47,7 +47,7 @@
 
 (deftest store-fetch-value-at
   (testing "If you store a value at some address, is it there?"
-    (let [trace (new-trace)]
+    (let [trace (empty-trace)]
       (set-value-at! trace '("a" "b" "c") 17)
       (is (= (value-at trace '("a" "b" "c")) 17)))))
 
@@ -55,56 +55,56 @@
 
 (deftest store-fetch-value-at-2
   (testing "If you store a value at some address, is it there?"
-    (let [trace (new-trace)
+    (let [trace (empty-trace)
           place (subtrace-location trace '"a")]
       (set-value-at! place '("b") 17)
       (is (= (value-at trace '("a" "b")) 17)))))
 
 (deftest narrow-1
   (testing "If you store the value of a locative, is it there?"
-    (let [trace (new-trace)
+    (let [trace (empty-trace)
           place (subtrace-location trace '"a")]
       (set-value! place 17)
       (is (= (value place) 17)))))
 
 (deftest store-fetch-value-at-2a
   (testing "If you store a value at some address, is it there?"
-    (let [trace (new-trace)
+    (let [trace (empty-trace)
           place (subtrace-location-at trace '("a"))]
       (set-value-at! place '("b") 17)
       (is (= (value-at trace '("a" "b")) 17)))))
 
 (deftest store-fetch-value-at-2b
   (testing "If you store a value at some address, is it there?"
-    (let [trace (new-trace)
+    (let [trace (empty-trace)
           place (subtrace-location-at trace '("a" "b"))]
       (set-value! place 17)
       (is (= (value-at trace '("a" "b")) 17)))))
 
 (deftest store-fetch-value-at-3
   (testing "If you store a value at some address, is it there?"
-    (let [trace (new-trace)
+    (let [trace (empty-trace)
           place (subtrace-location trace '"a")]
       (set-value! place 17)
       (is (= (value place) 17)))))
 
 (deftest store-fetch-value-at-3a
   (testing "If you store a value at some address, is it there?"
-    (let [trace (new-trace)
+    (let [trace (empty-trace)
           place (subtrace-location-at trace '("a"))]
       (set-value! place 17)
       (is (= (value place) 17)))))
 
 (deftest store-fetch-value-at-4
   (testing "If you store a value at some address, is it there?"
-    (let [trace (new-trace)
+    (let [trace (empty-trace)
           place (subtrace-location-at trace '("a" "b"))]
       (set-value! place 17)
       (is (= (value-at trace '("a" "b")) 17)))))
 
 (deftest store-fetch-value-at-5
   (testing "If you store a value at some address, is it there?"
-    (let [trace (new-trace)
+    (let [trace (empty-trace)
           place (subtrace-location-at trace '("a" "b"))]
       (set-value-at! place '("c" "d") 17)
       (is (has-subtrace-at? place '("c")))
