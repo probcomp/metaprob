@@ -25,7 +25,7 @@
                     target_trace
                     output_trace)
       (if (trace-has-key? prog "native-generate-method")      
-        (query-native (trace-subtrace prog "native-generate-method") ;was "source"
+        (query-native (lookup prog "native-generate-method") ;was "source"
                       (trace-get prog "environment")
                       inputs
                       intervention_trace
@@ -72,7 +72,7 @@
              target_trace
              output_trace]
 
-            (define new_env (make_env environment))
+            (define new_env (make-env environment))
 
             (match-bind (lookup source "pattern")
                         inputs
@@ -134,9 +134,9 @@
         [exp addr]
         (define
           [v score]
-          (if (eq (trace_get exp) "application")
+          (if (eq (trace-get exp) "application")
             (block
-              (define n (length (trace_subkeys exp)))
+              (define n (length (trace-subkeys exp)))
               (define
                 subscore
                 (block
@@ -151,11 +151,11 @@
                     (define
                       [v s]
                       (walk (lookup exp (list i)) (add addr (list i))))
-                    (trace-set subscore (add (trace_get subscore) s))
+                    (trace-set subscore (add (trace-get subscore) s))
                     v)
                   (range n)))
               (define oper (first values))
-              (define name (trace_get (lookup oper (list "name"))))
+              (define name (trace-get (lookup oper (list "name"))))
               (define
                 [val score]
                 (query
@@ -166,18 +166,18 @@
                   (if output_trace
                     (lookup output_trace (add addr (list name)))
                     output_trace)))
-              (tuple val (add (trace_get subscore) score)))
-            (if (eq (trace_get exp) "variable")
+              (tuple val (add (trace-get subscore) score)))
+            (if (eq (trace-get exp) "variable")
               (block
                 (tuple
-                  (env_lookup
+                  (env-lookup
                     env
-                    (trace_get (lookup exp (list "name"))))
+                    (trace-get (lookup exp (list "name"))))
                   0))
-              (if (eq (trace_get exp) "literal")
+              (if (eq (trace-get exp) "literal")
                 (block
-                  (tuple (trace_get (lookup exp (list "value"))) 0))
-                (if (eq (trace_get exp) "program")
+                  (tuple (trace-get (lookup exp (list "value"))) 0))
+                (if (eq (trace-get exp) "program")
                   (block
                     (tuple
                       (block
@@ -186,7 +186,7 @@
                         (trace-set
                           (lookup __trace_1__ (list "name"))
                           exp)
-                        (trace_set_subtrace_at
+                        (trace-set-subtrace-at
                           __trace_1__
                           (list "native-generate-method")
                           exp)
@@ -196,7 +196,7 @@
                         (trace-to-probprog
                          __trace_1__))
                       0))
-                  (if (eq (trace_get exp) "if")
+                  (if (eq (trace-get exp) "if")
                     (block
                       (define
                         [pred p_score]
@@ -218,9 +218,9 @@
                               (lookup exp (list "else"))
                               (add addr (list "else"))))
                           (tuple val (add p_score score)))))
-                    (if (eq (trace_get exp) "block")
+                    (if (eq (trace-get exp) "block")
                       (block
-                        (define n (length (trace_subkeys exp)))
+                        (define n (length (trace-subkeys exp)))
                         (define
                           subscore
                           (block
@@ -239,17 +239,17 @@
                                   (add addr (list i))))
                               (trace-set
                                 subscore
-                                (add (trace_get subscore) s))
+                                (add (trace-get subscore) s))
                               v)
                             (range n)))
                         (if (gt (length values) 0)
                           (block
-                            (tuple (last values) (trace_get subscore)))
+                            (tuple (last values) (trace-get subscore)))
                           (block
-                            (tuple (empty-trace) (trace_get subscore)))))
-                      (if (eq (trace_get exp) "tuple")
+                            (tuple (empty-trace) (trace-get subscore)))))
+                      (if (eq (trace-get exp) "tuple")
                         (block
-                          (define n (length (trace_subkeys exp)))
+                          (define n (length (trace-subkeys exp)))
                           (define
                             subscore
                             (block
@@ -268,13 +268,13 @@
                                     (add addr (list i))))
                                 (trace-set
                                   subscore
-                                  (add (trace_get subscore) s))
+                                  (add (trace-get subscore) s))
                                 v)
                               (range n)))
                           (tuple
-                            (list_to_array values)
-                            (trace_get subscore)))
-                        (if (eq (trace_get exp) "definition")
+                            (list-to-array values)
+                            (trace-get subscore)))
+                        (if (eq (trace-get exp) "definition")
                           (block
                             (define
                               subaddr
@@ -291,15 +291,15 @@
                                 val
                                 env)
                               score))
-                          (if (eq (trace_get exp) "this")
+                          (if (eq (trace-get exp) "this")
                             (block
                               (tuple
-                                (capture_tag_address
+                                (capture-tag-address
                                   intervention_trace
                                   target_trace
                                   output_trace)
                                 0))
-                            (if (eq (trace_get exp) "with_address")
+                            (if (eq (trace-get exp) "with_address")
                               (block
                                 (define
                                   [tag_addr tag_score]
@@ -308,7 +308,7 @@
                                     (add addr (list "tag"))))
                                 (define
                                   [new_intervene new_target new_output]
-                                  (resolve_tag_address tag_addr))
+                                  (resolve-tag-address tag_addr))
                                 (define
                                   [val score]
                                   (ptc_eval
@@ -323,11 +323,9 @@
                                 (error
                                   "Not a code expression")))))))))))))
         (if (if intervention_trace
-              (trace_has (lookup intervention_trace addr))
+              (trace-has? (lookup intervention_trace addr))
               false)
           (block
-            (tuple (trace_get (lookup intervention_trace addr)) score))
+            (tuple (trace-get (lookup intervention_trace addr)) score))
           (block (tuple v score)))))
     (walk exp (list))))
-
-(register-query-implementation! query)

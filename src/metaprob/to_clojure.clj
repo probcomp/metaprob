@@ -1,19 +1,8 @@
 (ns metaprob.to-clojure
   (:require [metaprob.trace :refer :all])
   (:require [metaprob.syntax :refer :all])
-  (:require [metaprob.builtin
-             :as b
-             :exclude [not
-                       assert
-                       pprint
-                       list
-                       and
-                       or
-                       first
-                       rest
-                       last
-                       nth
-                       range]])
+  (:require [metaprob.builtin :as b])
+  (:require [metaprob.builtin-impl :as impl])
   (:require [clojure.pprint :as pp])
   (:require [clojure.string :as cs])
   (:require [clojure.java.io :as io]))
@@ -172,7 +161,7 @@
 
 (defn program-to-clojure [pat-trace body-trace nest]
   ;; For readability, allow x y instead of (block x y)
-  (let [nest (if (b/empty-trace? pat-trace)
+  (let [nest (if (impl/empty-trace? pat-trace)
                nest
                (assoc nest :bare false))
         body (form-to-formlist (to-clojure body-trace nest))

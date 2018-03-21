@@ -29,10 +29,6 @@
   sp
   proposer_of)
 
-(define addresses_of trace_sites)
-
-(trace_set (lookup flip (list "support")) (array_to_list (tuple true false)))
-
 (define
   drop
   (program
@@ -45,7 +41,7 @@
   _reverse
   (program
     [lst res]
-    (if (is_pair lst)
+    (if (is-pair lst)
       (_reverse (rest lst) (pair (first lst) res))
       res)))
 
@@ -62,7 +58,7 @@
     (define root this)
     (map (program [i] (with-address (list root i) (f))) (range n))))
 
-(trace_set (lookup replicate (list "name")) "replicate")
+(trace-set (lookup replicate (list "name")) "replicate")
 
 (define
   repeat
@@ -81,10 +77,10 @@
     (define root this)
     (define
       ans
-      (if (is_metaprob_array l)
-        (list_to_array (_map f (array_to_list l) 0 root))
+      (if (is-array l)
+        (list-to-array (_map f (array-to-list l) 0 root))
         (block (_map f l 0 root))))
-    (dereify_tag root)
+    ;; (dereify_tag root)
     ans))
 
 (define
@@ -92,7 +88,7 @@
   (program
     [f l i root]
     (block
-      (if (is_pair l)
+      (if (is-pair l)
         (block
           (define val (with-address (list root i) (f (first l))))
           (pair val (_map f (rest l) (add i 1) root)))
@@ -102,7 +98,7 @@
   _imap
   (program
     [f i l]
-    (if (is_pair l)
+    (if (is-pair l)
       (pair (f i (first l)) (_imap f (add i 1) (rest l)))
       (empty-trace))))
 
@@ -110,15 +106,15 @@
   imap
   (program
     [f l]
-    (if (is_metaprob_array l)
-      (list_to_array (_imap f 0 (array_to_list l)))
+    (if (is-array l)
+      (list-to-array (_imap f 0 (array-to-list l)))
       (block (_imap f 0 l)))))
 
 (define
   zipmap
   (program
     [f l1 l2]
-    (if (and (is_pair l1) (is_pair l2))
+    (if (and (is-pair l1) (is-pair l2))
       (pair (f (first l1) (first l2)) (zipmap f (rest l1) (rest l2)))
       (empty-trace))))
 
@@ -126,7 +122,7 @@
   for_each
   (program
     [l f]
-    (if (is_pair l)
+    (if (is-pair l)
       (block (f (first l)) (for_each (rest l) f))
       "done")))
 
@@ -134,7 +130,7 @@
   for_each2
   (program
     [f l1 l2]
-    (if (and (is_pair l1) (is_pair l2))
+    (if (and (is-pair l1) (is-pair l2))
       (block
         (f (first l1) (first l2))
         (for_each2 f (rest l1) (rest l2)))
@@ -144,7 +140,7 @@
   _i_for_each2
   (program
     [f i l1 l2]
-    (if (and (is_pair l1) (is_pair l2))
+    (if (and (is-pair l1) (is-pair l2))
       (block
         (f i (first l1) (first l2))
         (_i_for_each2 f (add i 1) (rest l1) (rest l2)))
@@ -156,7 +152,7 @@
   filter
   (program
     [pred l]
-    (if (is_pair l)
+    (if (is-pair l)
       (if (pred (first l))
         (pair (first l) (filter pred (rest l)))
         (block (filter pred (rest l))))
@@ -166,13 +162,13 @@
   concat
   (program
     [ll]
-    (if (is_pair ll) (append (first ll) (concat (rest ll))) (empty-trace))))
+    (if (is-pair ll) (append (first ll) (concat (rest ll))) (empty-trace))))
 
 (define
   lookup_chain
   (program
     [coll key]
-    (if (is_pair key)
+    (if (is-pair key)
       (lookup_chain (lookup coll (first key)) (rest key))
       coll)))
 
@@ -180,7 +176,7 @@
   lookup_chain_with_exactly
   (program
     [coll key]
-    (if (is_pair key)
+    (if (is-pair key)
       (lookup_chain_with_exactly (lookup coll (first key)) (rest key))
       (block (exactly coll)))))
 
@@ -207,18 +203,18 @@
         (proposer args intervene target (empty-trace))))
     (block
       (define __trace_0__ (empty-trace))
-      (trace_set __trace_0__ "prob prog")
-      (trace_set (lookup __trace_0__ (list "name")) name)
-      (trace_set
+      (trace-set __trace_0__ "prob prog")
+      (trace-set (lookup __trace_0__ (list "name")) name)
+      (trace-set
         (lookup __trace_0__ (list "custom_interpreter"))
         interpreter)
-      (trace_set
+      (trace-set
         (lookup __trace_0__ (list "custom_choice_tracer"))
         tracer)
-      (trace_set
+      (trace-set
         (lookup __trace_0__ (list "custom_proposer"))
         non_tracing_proposer)
-      (trace_set
+      (trace-set
         (lookup __trace_0__ (list "custom_choice_tracing_proposer"))
         proposer)
       __trace_0__)))
@@ -229,7 +225,7 @@
   proposer_of
   (program
     [the_sp]
-    (trace_get
+    (trace-get
       (lookup the_sp (list "custom_choice_tracing_proposer")))))
 
 (define
@@ -238,7 +234,7 @@
     "factor"
     (program
       [args t1 t2 t3]
-      (define score (trace_get (lookup args (list 0))))
+      (define score (trace-get (lookup args (list 0))))
       (tuple (empty-trace) score))))
 
 ;; Manual edit: moved from interpret.clj
@@ -248,9 +244,9 @@
   (program
     [pattern]
     (block
-      (if (eq (trace_get pattern) "variable")
+      (if (eq (trace-get pattern) "variable")
         (block
-          (if (neq (trace_get (lookup pattern (list "name"))) "_")
-            (block (list (trace_get (lookup pattern (list "name")))))
+          (if (neq (trace-get (lookup pattern (list "name"))) "_")
+            (block (list (trace-get (lookup pattern (list "name")))))
             (block (list "definiens"))))
         (block (list "definiens"))))))

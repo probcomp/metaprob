@@ -1,8 +1,10 @@
 (ns metaprob.syntax
   (:require [clojure.string]
-            [metaprob.environment :as env]
             [metaprob.trace :refer :all]
-            [metaprob.builtin :as builtin :refer [metaprob-nth]]))
+            [metaprob.builtin :as builtin]
+            [metaprob.builtin-impl :as impl]))
+
+(def metaprob-nth builtin/nth)
 
 ;; This module is intended for import by metaprob code, and defines
 ;; the syntactic constructs to be used in metaprob programs.
@@ -53,7 +55,7 @@
 (defn make-probprog [fun name params body ns]
   (let [exp `(~'program ~params ~@body)
         exp-trace (from-clojure exp)
-        env (env/make-top-level-env ns)
+        env (impl/make-top-level-env ns)
         key (if true
               (if name
                 (str (hash exp) "-" name)                ;JAR invention

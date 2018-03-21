@@ -13,7 +13,7 @@
 
 (deftest smoke-1
   (testing "Prelude smoke test"
-    (is (builtin/trace_get
+    (is (builtin/trace-get
          (builtin/lookup (prelude/sp "foo" (program [] "foo"))
                          (builtin/list "custom_interpreter"))))
     ;; These tests have to run after the call to sp

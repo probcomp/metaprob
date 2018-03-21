@@ -1,6 +1,7 @@
 (ns metaprob.trace
-  (:require [clojure.string :as string]
-            [metaprob.environment :refer :all]))
+  (:require [clojure.string :as string]))
+
+(defn environment? [x] (= (type x) (type *ns*)))
 
 (def no-value '**no-value**)
 
@@ -234,7 +235,8 @@
   ([]
    (Trie. no-value (hash-map)))
   ([val]
-   (assert (metaprob-value? val) ["initial value is non-metaprob" val (environment? val) (type val)])
+   (assert (metaprob-value? val)
+           ["initial value is non-metaprob" val (environment? val) (type val)])
    (Trie. val (hash-map))))
 
 (defn ensure-subtrie [tr key]
