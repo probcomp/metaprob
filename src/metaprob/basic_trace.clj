@@ -1,4 +1,4 @@
-(ns metaprob.mutable-trace
+(ns metaprob.basic-trace
   (:require [clojure.string :as string]))
 
 (def no-value '**no-value**)
@@ -28,17 +28,14 @@
   (trace-count [_])  ;Number of subtries
 
   (maybe-normalize [_])    ;If there's a trie corresponding to this trace, return it, else nil
-  (blaze [_]))
+  (blaze [_])
+  (debug [_]))
 
-(defn mutable-trace? [x]
+(defn basic-trace? [x]
   (satisfies? ITrace x))
 
-;; Should this throw an error if x is not a mutable-trace?  I don't know.
+;; Should this throw an error if x is not a mutable trace?  I don't know.
 ;; ... how is this used?
-
-(defn proper-trace [x]
-  (and (mutable-trace? x)
-       (maybe-normalize x)))
 
 (defn normalize
   ([tr]
@@ -51,11 +48,11 @@
 ; Concrete implementation of the above interface
 
 (declare ensure-subtrie-at)
-(declare empty-trace)
+(declare mutable-trace)
 (declare trie?)
-(declare new-locative trace-from-map)
+(declare new-locative)
 
-(defn address? [x] (seqable? x))
+(defn address? [x] (or (seq? x) (vector? x) (= x nil)))
 
 (deftype Trie
   [^:volatile-mutable the-value
@@ -136,7 +133,7 @@
         (set-subtrace! _ head subtrie)
         (if (has-subtrace? _ head)
           (set-subtrace-at! (subtrace _ head) tail subtrie)
-          (let [novo (empty-trace)]
+          (let [novo (mutable-trace)]
             (set-subtrace! _ head novo)
             (set-subtrace-at! novo tail subtrie))))))
 
@@ -159,7 +156,8 @@
 
   (maybe-normalize [_] _)
 
-  (blaze [_] _))
+  (blaze [_] _)
+  (debug [_] :trie))
 
 ;; Not clear whether this is the most idiomatic / best approach.
 (defn trie? [x]
@@ -167,12 +165,9 @@
   ;; (= (type x) Trie)
   )
 
-(defn empty-trace []
-  (Trie. no-value (hash-map)))
-
-(defn new-trace
+(defn mutable-trace
   ([]
-   (empty-trace))
+   (Trie. no-value (hash-map)))
   ([val]
    (Trie. val (hash-map))))
 
@@ -180,7 +175,7 @@
   (assert trie? tr)
   (if (has-subtrace? tr key)
     (subtrace tr key)
-    (let [novo (empty-trace)]
+    (let [novo (mutable-trace)]
       (set-subtrace! tr key novo)
       novo)))
 
@@ -290,10 +285,12 @@
   ;; Force the creation of a trie corresponding to this locative.
   (blaze [_]
     (let [tr (blaze trie-or-locative)]    ;Up one level
-      (ensure-subtrie tr this-key))))
+      (ensure-subtrie tr this-key)))
+
+  (debug [_] [trie-or-locative this-key]))
 
 (defn new-locative [tl key]
-  (assert (not (mutable-trace? key)))
+  (assert (not (basic-trace? key)))
   (Locative. tl key))
 
 (defn locative? [x]
@@ -304,56 +301,3 @@
 (defn trie-from-map [val maap]
   (Trie. val maap))
 
-; thanks https://stuartsierra.com/2015/06/01/clojure-donts-optional-arguments-with-varargs
-(defn trace-from-map
-  ([maap]
-   (trie-from-map no-value maap))
-  ([maap val]
-   (trie-from-map val maap)))
-
-; Returns a trie whose subtries are the members of the clojure sequence tlist
-
-(defn trace-from-seq
-  ([tlist]
-   (trace-from-map (zipmap (range (count tlist))
-                          tlist)))
-  ([tlist val]
-   (trace-from-map (zipmap (range (count tlist))
-                          tlist)
-                  val)))
-
-; Returns a clojure seq of the numbered subtries of the trie tr
-
-(defn subtraces-to-seq [tr]
-  (assert trie? tr)
-  (for [i (range (trace-count tr))]
-    (subtrace tr i)))
-
-; Returns a seq of the values of the numbered subtries of tr
-
-(defn subtrace-values-to-seq [tr]
-  (assert trie? tr)
-  (for [i (range (trace-count tr))]
-    (value (subtrace tr i))))
-
-
-
-;; From python trace.py
-  ;; def subtrace(self, _key): yield self
-  ;; def reify(self): pass
-  ;; def dereify(self): pass
-  ;; def has(self): return False
-  ;; def get(self): assert False, "Cannot get from a NullTrace"
-  ;; def set(self, _value): pass
-  ;; def clear(self): pass
-  ;; def has_key(self, _key): return False
-  ;; def update(self, _trace): pass
-  ;; def subkeys(self): return []
-  ;; def sites(self): return []
-  ;; def lookup(self, _addr): return self
-  ;; def get_at(self, _key): assert False, "Cannot get from a NullTrace"
-  ;; def set_at(self, _key, _val): return self
-  ;; def set_subtrace_at(self, _addr, _trace): return self
-  ;; def equalSameType(self, other): return self is other
-  ;; def asData(self): return (None, [])
-  ;; def subtrace_at(self, _keys): yield self

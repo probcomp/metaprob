@@ -1,7 +1,11 @@
 ;; This file was automatically generated, then edited
 
-(clojure.core/ns metaprob.metacirc.query
-  (:refer-clojure :only [declare ])
+(ns metaprob.metacirc.query
+  (:refer-clojure :only [declare ns])
+  (:require [metaprob.syntax :refer :all]))
+
+(ns metaprob.metacirc.query
+  (:refer-clojure :only [declare ns])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]))

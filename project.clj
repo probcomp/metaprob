@@ -6,6 +6,6 @@
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [kixi/stats "0.4.0"]
                  [criterium "0.4.4"]]
-  :aot [metaprob.trace])
+  :aot [metaprob.mutable-trace])
 
 

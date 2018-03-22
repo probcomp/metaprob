@@ -226,7 +226,7 @@
 ; which can't occur in metaprob identifiers... for now at least...
 
 (defn from-clojure-seq [seq val]
-  (trace-from-seq (map from-clojure seq) val))
+  (trace-from-subtrace-seq (map from-clojure seq) val))
 
 ;; Trace       => clojure                   => trace
 ;; (x)->{a;b;} => (program [x] (block a b)) => (x)->{a;b;}
@@ -249,7 +249,7 @@
   (if (symbol? pattern)
     (trace-from-map {"name" (new-trace (str pattern))} "variable")
     (do (assert (seqable? pattern) pattern)
-        (trace-from-seq (map from-clojure-pattern pattern) "tuple"))))
+        (trace-from-subtrace-seq (map from-clojure-pattern pattern) "tuple"))))
 
 (defn from-clojure-if [exp]
   (let [[_ pred thn els] exp]

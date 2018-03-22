@@ -10,7 +10,7 @@
   (:require [metaprob.builtin-impl :as impl])
   (:require [kixi.stats.math :as math]))
 
-(defmacro ^:private define-foreign-probprog [mp-name generate-fn]
+(defmacro define-foreign-probprog [mp-name generate-fn]
   (let [namestring (if (symbol? mp-name) (str mp-name) mp-name)]
     `(do (declare ~mp-name)
          (def ~mp-name
@@ -62,31 +62,29 @@
 
 ;; Traces
 (define-foreign-probprog empty-trace trace/empty-trace)
-(define-foreign-probprog trace-get impl/trace-get)
-(define-foreign-probprog trace-has? impl/trace-has?)
-(define-foreign-probprog trace-set impl/trace-set)
-(define-foreign-probprog lookup impl/lookup)
-(define-foreign-probprog trace-delete impl/trace-delete)
-(define-foreign-probprog trace-clear impl/trace-clear)
-(define-foreign-probprog trace-has-key? impl/trace-has-key?)
-(define-foreign-probprog trace-subkeys impl/trace-subkeys)
-(define-foreign-probprog trace-set-at impl/trace-set-at)
-(define-foreign-probprog trace-set-subtrace-at impl/trace-set-subtrace-at)
+(define-foreign-probprog trace-has? trace/trace-has?)
+(define-foreign-probprog trace-get trace/trace-get)
+(define-foreign-probprog trace-set trace/trace-set)
+(define-foreign-probprog lookup trace/lookup)
+(define-foreign-probprog trace-delete trace/trace-delete)
+(define-foreign-probprog trace-keys trace/trace-keys)
+(define-foreign-probprog trace-set-subtrace-at trace/trace-set-subtrace-at)
+
 (define-foreign-probprog addresses-of impl/addresses-of)
 
 ;; Lists
-(define-foreign-probprog pair impl/pair)
+(define-foreign-probprog pair trace/pair)
 (define-foreign-probprog list impl/metaprob-list)
-(define-foreign-probprog is-pair impl/is-pair)
+(define-foreign-probprog is-pair impl/metaprob-pair?)
 
 ;; Array/tuple
-(define-foreign-probprog list-to-array impl/list-to-array)
-(define-foreign-probprog array-to-list impl/array-to-list)
-(define-foreign-probprog is-array impl/is-metaprob-array)
+(define-foreign-probprog list-to-array impl/list-to-tuple)
+(define-foreign-probprog array-to-list impl/tuple-to-list)
+(define-foreign-probprog is-array impl/metaprob-tuple?)
 
 ;; Generic
-(define-foreign-probprog first impl/metaprob-first)
-(define-foreign-probprog rest impl/metaprob-rest)
+(define-foreign-probprog first trace/metaprob-first)
+(define-foreign-probprog rest trace/metaprob-rest)
 (define-foreign-probprog length impl/length)
 (define-foreign-probprog last impl/metaprob-last)
 (define-foreign-probprog nth impl/metaprob-nth)
@@ -104,7 +102,7 @@
 
 ;; Printing
 (define-foreign-probprog print impl/metaprob-print)
-(define-foreign-probprog pprint impl/metaprob-pprint)
+(define-foreign-probprog pprint trace/metaprob-pprint)
 (define-foreign-probprog binned-histogram impl/binned-histogram)
 
 ;; -----------------------------------------------------------------------------

@@ -2,113 +2,92 @@
   (:require [clojure.test :refer :all]
             [metaprob.trace :refer :all]))
 
-; Predicates
+; 
 
-(deftest trace-p
-  (testing "Does an empty trace have keys?"
-    (is (mutable-trace? (empty-trace)))))
+(deftest basic-traces
+  (testing "battery of tests applied to basic traces"
+    (let [tr2 (trace-from-map {"x" (new-trace 13)
+                               "y" (new-trace 19)}
+                              31)
+          tr (trace-from-map {"a" (new-trace 17)
+                              "b" (new-trace 33)
+                              "c" tr2}
+                             5)]
+      (is (= (trace-get tr) 5))
+      (is (= (count (trace-keys tr)) 3))
 
-(deftest trie-p
-  (testing "Does an empty trace have keys?"
-    (is (trie? (empty-trace)))))
+      (is (= (trace-get (lookup tr "a")) 17))
+      (is (= (trace-get tr "b") 33))
 
-; Have to use 'is' for some reason
+      (is (= (trace-get tr2) 31))
+      (is (= (trace-get tr2 "y") 19))
 
-(deftest empty-has-no-keys
-  (testing "Does an empty trace have keys?"
-    (is (not (has-subtrace? (empty-trace) 'foo)))))
+      (let [c (lookup tr "c")]
+        (is (= (trace-get c) 31))
+        (is (= (trace-get c "x") 13))
+        (is (= (count (trace-keys c)) 2)))
 
-; fetch value at trace
+      (is (= (trace-get (lookup tr '("c" "x"))) 13))
+      (is (= (trace-get tr '("c" "x")) 13)))))
 
-(deftest fetch-value
-  (testing "Can we get the trace's value?"
-    (let [trace (new-trace "value")]
-      (is (= (value trace) "value")))))
+(deftest nil-as-trace
+  (testing "see how well nil serves as a trace"
+    (is (= (count (trace-keys nil)) 0))
+    (is (not (trace-has? nil "a")))))
 
-; store/fetch value at trace
+(deftest seq-as-trace
+  (testing "see how well seqs serve as traces"
+    (let [tr (map (fn [x] x) (list 17 33 97))]
 
-(deftest store-fetch-value
-  (testing "Can we get a value that we put in?"
-    (let [trace (empty-trace)]
-      (set-value! trace "value")
-      (is (= (value trace) "value")))))
+      (is (= (trace-get tr) 17))
+      (is (= (count (trace-keys tr)) 1))
 
-; store/fetch an immediate subtrace
+      (is (= (trace-get (metaprob-rest tr)) 33))
+      (is (= (trace-get (lookup tr "rest")) 33))
+      (is (= (trace-get (lookup tr '("rest" "rest"))) 97))
 
-(deftest store-fetch-subtrace
-  (testing "If you add a subtrace to a trace, is it there?"
-    (let [trace (empty-trace)
-          sub (new-trace "value-1")]
-      (set-value! sub "value-2")
-      (set-subtrace! trace "key" sub)
-      (is (= (subtrace trace "key") sub)))))
+      (is (= (length tr) 3)))))
 
-; store/fetch a value
+(deftest vector-as-trace
+  (testing "see how well vectors serve as traces"
+    (let [tr [17 33 97]]
+      (is (= (trace-get tr 0) 17))
+      (is (= (trace-get tr 2) 97))
 
-(deftest store-fetch-value-at
-  (testing "If you store a value at some address, is it there?"
-    (let [trace (empty-trace)]
-      (set-value-at! trace '("a" "b" "c") 17)
-      (is (= (value-at trace '("a" "b" "c")) 17)))))
+      (is (= (count (trace-keys tr)) 3))
+      (is (= (length tr) 3)))))
 
-; store/fetch a value using locative
+(deftest map-as-trace
+  (testing "see how maps serve as traces"
+    (let [new-trace (fn [x] {:value x})
+          trace-from-map (fn [x val]
+                           (assoc x :value val))
+          tr2 (trace-from-map {"x" (new-trace 13)
+                               "y" (new-trace 19)}
+                              31)
+          tr (trace-from-map {"a" (new-trace 17)
+                              "b" (new-trace 33)
+                              "c" tr2}
+                             5)]
+      (is (= (trace-get tr) 5))
+      (is (= (count (trace-keys tr)) 3))
 
-(deftest store-fetch-value-at-2
-  (testing "If you store a value at some address, is it there?"
-    (let [trace (empty-trace)
-          place (subtrace-location trace '"a")]
-      (set-value-at! place '("b") 17)
-      (is (= (value-at trace '("a" "b")) 17)))))
+      (is (= (trace-get (lookup tr "a")) 17))
+      (is (= (trace-get tr "b") 33))
 
-(deftest narrow-1
-  (testing "If you store the value of a locative, is it there?"
-    (let [trace (empty-trace)
-          place (subtrace-location trace '"a")]
-      (set-value! place 17)
-      (is (= (value place) 17)))))
+      (is (= (trace-get tr2) 31))
+      (is (= (trace-get tr2 "y") 19))
 
-(deftest store-fetch-value-at-2a
-  (testing "If you store a value at some address, is it there?"
-    (let [trace (empty-trace)
-          place (subtrace-location-at trace '("a"))]
-      (set-value-at! place '("b") 17)
-      (is (= (value-at trace '("a" "b")) 17)))))
+      (let [c (lookup tr "c")]
+        (is (= (trace-get c) 31))
+        (is (= (trace-get c "x") 13))
+        (is (= (count (trace-keys c)) 2)))
 
-(deftest store-fetch-value-at-2b
-  (testing "If you store a value at some address, is it there?"
-    (let [trace (empty-trace)
-          place (subtrace-location-at trace '("a" "b"))]
-      (set-value! place 17)
-      (is (= (value-at trace '("a" "b")) 17)))))
+      (is (= (trace-get (lookup tr '("c" "x"))) 13))
+      (is (= (trace-get tr '("c" "x")) 13)))))
 
-(deftest store-fetch-value-at-3
-  (testing "If you store a value at some address, is it there?"
-    (let [trace (empty-trace)
-          place (subtrace-location trace '"a")]
-      (set-value! place 17)
-      (is (= (value place) 17)))))
+(deftest length-1
+  (testing "length smoke test"
+    (is (= (length (empty-trace)) 0))
+    (is (= (length (pair 0 (empty-trace))) 1))))
 
-(deftest store-fetch-value-at-3a
-  (testing "If you store a value at some address, is it there?"
-    (let [trace (empty-trace)
-          place (subtrace-location-at trace '("a"))]
-      (set-value! place 17)
-      (is (= (value place) 17)))))
-
-(deftest store-fetch-value-at-4
-  (testing "If you store a value at some address, is it there?"
-    (let [trace (empty-trace)
-          place (subtrace-location-at trace '("a" "b"))]
-      (set-value! place 17)
-      (is (= (value-at trace '("a" "b")) 17)))))
-
-(deftest store-fetch-value-at-5
-  (testing "If you store a value at some address, is it there?"
-    (let [trace (empty-trace)
-          place (subtrace-location-at trace '("a" "b"))]
-      (set-value-at! place '("c" "d") 17)
-      (is (has-subtrace-at? place '("c")))
-      (is (has-subtrace-at? place '("c" "d")))
-      (is (has-subtrace-at? trace '("a" "b" "c")))
-      (is (has-subtrace-at? trace '("a" "b" "c" "d")))
-      (is (= (value-at trace '("a" "b" "c" "d")) 17)))))
