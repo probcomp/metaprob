@@ -44,7 +44,9 @@
 (defn immutable-trace? [x]
   (or (seq? x)     ;; clojure lists are seqs
       (vector? x)
-      (map? x)))
+      (map? x)
+      (and (fn-qua-trace? x)
+           (immutable-trace? (fn-qua-trace-trace x)))))
 
 (defn trace? [x]
   (or (mutable-trace? x)

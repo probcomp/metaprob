@@ -2,10 +2,6 @@
 
 (ns metaprob.metacirc.query
   (:refer-clojure :only [declare ns])
-  (:require [metaprob.syntax :refer :all]))
-
-(ns metaprob.metacirc.query
-  (:refer-clojure :only [declare ns])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]))
@@ -14,7 +10,7 @@
 
 ;; query
 (define query
-  (program
+  (probprog
     [prog
      inputs
      intervention_trace
@@ -130,11 +126,11 @@
 
 (define
   ptc_eval
-  (program
+  (probprog
     [exp env intervention_trace target_trace output_trace]
     (define
       walk
-      (program
+      (probprog
         [exp addr]
         (define
           [v score]
@@ -150,7 +146,7 @@
               (define
                 values
                 (map
-                  (program
+                  (probprog
                     [i]
                     (define
                       [v s]
@@ -181,7 +177,7 @@
               (if (eq (trace-get exp) "literal")
                 (block
                   (tuple (trace-get (lookup exp (list "value"))) 0))
-                (if (eq (trace-get exp) "program")
+                (if (eq (trace-get exp) "probprog")
                   (block
                     (tuple
                       (block
@@ -234,7 +230,7 @@
                         (define
                           values
                           (map
-                            (program
+                            (probprog
                               [i]
                               (define
                                 [v s]
@@ -263,7 +259,7 @@
                           (define
                             values
                             (map
-                              (program
+                              (probprog
                                 [i]
                                 (define
                                   [v s]

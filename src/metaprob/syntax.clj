@@ -1,10 +1,9 @@
 (ns metaprob.syntax
   (:require [clojure.string]
             [metaprob.trace :refer :all]
-            [metaprob.builtin :as builtin]
             [metaprob.builtin-impl :as impl]))
 
-(def metaprob-nth builtin/nth)
+(def metaprob-nth impl/metaprob-nth)
 
 ;; This module is intended for import by metaprob code, and defines
 ;; the syntactic constructs to be used in metaprob programs.
@@ -52,25 +51,25 @@
 
 (declare from-clojure from-clojure-pattern)
 
-(defn make-probprog [fun name params body ns]
+(defn make-probprog [fun name params body top]
   (let [exp `(~'probprog ~params ~@body)
         exp-trace (from-clojure exp)
-        env (impl/make-top-level-env ns)
+        env (impl/make-top-level-env top)
         key (if true
               (if name
                 (str (hash exp) "-" name)                ;JAR invention
                 (hash exp))
               exp-trace)]               ;original metaprob
-    (with-meta fun {:name name
-                    :trace (trace-from-map {"name" (new-trace key)
-                                            "native-generate-method" exp-trace
-                                            ;; Environment is always the top level
-                                            ;; env, and often this is incorrect.
-                                            "environment"
-                                              (new-trace env)
-                                            "foreign-generate-method"
-                                              (new-trace fun)}
-                                           "prob prog")})))
+    (fn-qua-trace fun
+                  (trace-from-map {"name" (new-trace key)
+                                   "native-generate-method" exp-trace
+                                   ;; Environment is always the top level
+                                   ;; env, and often this is incorrect.
+                                   "environment"
+                                   (new-trace env)
+                                   "foreign-generate-method"
+                                   (new-trace fun)}
+                                  "prob prog"))))
 
 (defmacro named-probprog [name params & body]
   `(make-probprog (fn

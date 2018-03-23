@@ -1,6 +1,5 @@
 (ns metaprob.prelude-test
   (:require [clojure.test :refer :all]
-            [metaprob.trace :refer :all]
             [metaprob.syntax :refer :all])
   (:require [metaprob.builtin :as builtin])
   (:require [metaprob.prelude :as prelude]))
@@ -61,4 +60,8 @@
                                            (tuple 6 7 8))
                               '(1))
            8))))
+
+(deftest name-1
+  (testing "see if a probprog has the right name"
+    (is (.contains (builtin/probprog-name prelude/drop) "drop"))))
 
