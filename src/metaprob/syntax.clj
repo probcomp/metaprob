@@ -53,7 +53,7 @@
 (declare from-clojure from-clojure-pattern)
 
 (defn make-probprog [fun name params body ns]
-  (let [exp `(~'program ~params ~@body)
+  (let [exp `(~'probprog ~params ~@body)
         exp-trace (from-clojure exp)
         env (impl/make-top-level-env ns)
         key (if true
@@ -91,7 +91,7 @@
   `(named-probprog nil ~params ~@body))
 
 (defmacro program
-  "like fn, but for metaprob programs"
+  "like fn, but for metaprob programs (deprecated)"
   [params & body]
   `(named-probprog nil ~params ~@body))
 
@@ -110,7 +110,7 @@
             (second form))
           (definition-rhs [form]
             (nth form 2))
-          (program-definition? [form]
+          (probprog-definition? [form]
             (and (definition? form)
                  (symbol? (definition-pattern form))
                  (let [rhs (definition-rhs form)]
@@ -123,7 +123,7 @@
               (conj y x)
               (conj (concat (list) y) x)))
           (process-definition [form]
-            (assert program-definition? form)
+            (assert probprog-definition? form)
             (let [rhs (definition-rhs form)       ;a program-expression
                   prog-pattern (definition-pattern rhs)
                   prog-body (rest (rest rhs))]
@@ -159,7 +159,7 @@
                       (print (format "** Warning: Definition of %s occurs at end of block\n"
                                      pattern)))
                     (list
-                     (if (program-definition? here)
+                     (if (probprog-definition? here)
                        (let [spec (process-definition here)
                              next (first more)]
                          (if (and (list? next)
@@ -228,13 +228,13 @@
 (defn from-clojure-seq [seq val]
   (trace-from-subtrace-seq (map from-clojure seq) val))
 
-;; Trace       => clojure                   => trace
-;; (x)->{a;b;} => (program [x] (block a b)) => (x)->{a;b;}
-;; (x)->{a;}   => (program [x] (block a))   => (x)->{a;}
-;; (x)->a      => (program [x] a)           => (x)->a
+;; Trace       => clojure                    => trace
+;; (x)->{a;b;} => (probprog [x] (block a b)) => (x)->{a;b;}
+;; (x)->{a;}   => (probprog [x] (block a))   => (x)->{a;}
+;; (x)->a      => (probprog [x] a)           => (x)->a
 ;;
 ;; safe abbreviation:
-;; (x)->{a;b;} => (program [x] a b) => (x)->{a;b;}
+;; (x)->{a;b;} => (probprog [x] a b) => (x)->{a;b;}
 
 (defn from-clojure-program [exp]
   (let [[_ pattern & body] exp]
@@ -243,7 +243,7 @@
                      (cons 'block body))]
       (trace-from-map {"pattern" (from-clojure-pattern pattern)
                        "body" (from-clojure body-exp)}
-                      "program"))))
+                      "probprog"))))
 
 (defn from-clojure-pattern [pattern]
   (if (symbol? pattern)
@@ -313,7 +313,7 @@
         ;; TBD: check that (first exp) is a non-namespaced symbol.
         (seqable? exp) (case (first exp)
                          probprog (from-clojure-program exp)
-                         program (from-clojure-program exp)
+                         program  (from-clojure-program exp)
                          if (from-clojure-if exp)
                          block (from-clojure-block exp)
                          mp-splice (trace-from-map {"expression" (from-clojure exp)} "splice")
@@ -330,5 +330,5 @@
         
 (defn from-clojure [exp]
   (let [answer (from-clojure-1 exp)]
-    (assert (trie? answer) ["bad answer" answer])
+    (assert (trace? answer) ["bad answer" answer])
     answer))

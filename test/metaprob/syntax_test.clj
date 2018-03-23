@@ -3,8 +3,8 @@
             [metaprob.trace :refer :all]
             [metaprob.syntax :refer :all]))
 
-(deftest program-1
-  (testing "Smoke test for program macro"
+(deftest probprog-1
+  (testing "Smoke test for probprog macro"
     (is (= ((probprog [x] x) 1) 1))))
 
 (deftest block-1
@@ -71,7 +71,7 @@
         (is (= (eval 'foo) 17))))))
 
 (deftest define-2
-  (testing "Program definition"
+  (testing "definition where value is a probprog"
     (let [form '(define foo (probprog [x] x))]
       (binding [*ns* (find-ns 'metaprob.syntax)]
         (eval form)

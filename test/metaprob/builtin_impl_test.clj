@@ -124,7 +124,7 @@
 
 ;; Does list s contain element x?
 
-(defn xmetaprob-list-contains? [s x]
+(defn metaprob-list-contains? [s x]
   (if (trace/empty-trace? s)
     false
     (if (= x (trace/metaprob-first s))

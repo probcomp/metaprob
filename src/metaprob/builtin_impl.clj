@@ -194,10 +194,9 @@
   (apply ifn (metaprob-sequence-to-seq argseq)))
 
 (defn probprog-name [pp]
-  (let [tr (tracify pp)]
-    (if (trace-has? tr "name")
-      (trace-get tr "name")
-      nil)))
+  (if (trace-has? pp "name")
+    (trace-get pp "name")
+    nil))
 
 ;; prelude has: trace_of lookup_chain lookup_chain_with_exactly 
 
@@ -378,6 +377,13 @@
     (let [x-mu (- x mu)]
       (/ (exp (- 0 (/ (* x-mu x-mu) (* 2.0 variance))))
          (sqrt (* pi*2 variance))))))
+
+(def ^:dynamic *rng* (java.util.Random. 42))
+
+(defn sample-uniform
+  ([] (.nextLong *rng*))
+  ([a b] (+ a (* (.nextLong *rng*) (- b a)))))
+  
 
 ;; -----------------------------------------------------------------------------
 ;; Graphical output (via gnuplot or whatever)

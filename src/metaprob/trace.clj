@@ -90,23 +90,15 @@
       x
       false)))
 
-;; Deprecated:
-
-(defn tracify [x]
-  (or (basic-trace x)
-      (assert false
-              ["can't coerce this to a trace" x])))
-
-;; Convert an address (metaprob sequence) to a clojure seq.
-
 (declare metaprob-sequence-to-seq purify)
 (declare metaprob-first metaprob-rest metaprob-pair?)
 
+;; Convert an address-like thing to an address.
+
 (defn addrify [addr]
-  (map purify
-       (metaprob-sequence-to-seq (if (trace? addr)
-                                   addr
-                                   (list addr)))))
+  (if (trace? addr)
+    (map purify (metaprob-sequence-to-seq addr))
+    (list addr)))
 
 ;; OK.  Now the generic trace accessors.
 
@@ -139,7 +131,7 @@
           (seq? tr) (if (= key rest-marker)
                       (rest tr)
                       (assert false ["only subtrace of a seq is rest" tr key]))
-          (vector? tr) (nth tr key)
+          (vector? tr) {:value (nth tr key)}
           (map? tr) (get tr key)
           true (assert false ["expected a trace" tr key]))))
 
@@ -263,9 +255,9 @@
           "ok"
           ["no rest marker" (mut/trace-keys x)])
         ["no value" (mut/trace-keys x)])
-      (cond (vector? x) "it's a vector, not a pair"
-            (empty? x) "it's empty, not a pair"
-            (seq? x) "ok"
+      (cond (seq? x) "ok"
+            (empty? x) ["it's empty" x]
+            (vector? x) ["it's a vector, not a pair" x]
             false ["not a trace" x]))))
 
 (defn metaprob-first [mp-list]
@@ -303,13 +295,13 @@
 ;; Maybe rename this to just `tuple` instead of `metaprob-tuple` ?
 
 (defn metaprob-tuple? [x]
-  (let [x (basic-trace x)]    ; nil if not a trace with either value or subtrace
-    (if x
-      (let [n (mut/trace-count x)]
+  (let [b (basic-trace x)]    ; nil if not a trace with either value or subtrace
+    (if b
+      (let [n (mut/trace-count b)]
         (or (= n 0)
-            (and (mut/has-subtrace? x 0)
-                 (mut/has-subtrace? x (- n 1)))))
-      (or (seq? x) (vector? x)))))
+            (and (mut/has-subtrace? b 0)
+                 (mut/has-subtrace? b (- n 1)))))
+      (vector? x))))
 
 ;; metaprob-sequence-to-seq - convert metaprob sequence to clojure seq.
 (declare subtrace-values-to-seq)

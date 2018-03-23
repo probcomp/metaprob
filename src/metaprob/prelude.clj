@@ -31,15 +31,15 @@
 
 (define
   drop
-  (program
+  (probprog
     [lst index]
     (block (if (gt index 0) (drop (rest lst) (sub index 1)) lst))))
 
-(define reverse (program [lst] (_reverse lst (empty-trace))))
+(define reverse (probprog [lst] (_reverse lst (empty-trace))))
 
 (define
   _reverse
-  (program
+  (probprog
     [lst res]
     (if (is-pair lst)
       (_reverse (rest lst) (pair (first lst) res))
@@ -47,32 +47,32 @@
 
 (define
   iterate
-  (program
+  (probprog
     [n f a]
     (if (lte n 0) a (block (iterate (sub n 1) f (f a))))))
 
 (define
   replicate
-  (program
+  (probprog
     [n f]
     (define root this)
-    (map (program [i] (with-address (list root i) (f))) (range n))))
+    (map (probprog [i] (with-address (list root i) (f))) (range n))))
 
 (trace-set (lookup replicate (list "name")) "replicate")
 
 (define
   repeat
-  (program
-    [times program-noncolliding]
+  (probprog
+    [times pp]
     (if (gt times 0)
       (block
-        (program-noncolliding)
-        (repeat (sub times 1) program-noncolliding))
+        (pp)
+        (repeat (sub times 1) pp))
       "ok")))
 
 (define
   map
-  (program
+  (probprog
     [f l]
     (define root this)
     (define
@@ -85,7 +85,7 @@
 
 (define
   _map
-  (program
+  (probprog
     [f l i root]
     (block
       (if (is-pair l)
@@ -96,7 +96,7 @@
 
 (define
   _imap
-  (program
+  (probprog
     [f i l]
     (if (is-pair l)
       (pair (f i (first l)) (_imap f (add i 1) (rest l)))
@@ -104,7 +104,7 @@
 
 (define
   imap
-  (program
+  (probprog
     [f l]
     (if (is-array l)
       (list-to-array (_imap f 0 (array-to-list l)))
@@ -112,7 +112,7 @@
 
 (define
   zipmap
-  (program
+  (probprog
     [f l1 l2]
     (if (and (is-pair l1) (is-pair l2))
       (pair (f (first l1) (first l2)) (zipmap f (rest l1) (rest l2)))
@@ -120,7 +120,7 @@
 
 (define
   for_each
-  (program
+  (probprog
     [l f]
     (if (is-pair l)
       (block (f (first l)) (for_each (rest l) f))
@@ -128,7 +128,7 @@
 
 (define
   for_each2
-  (program
+  (probprog
     [f l1 l2]
     (if (and (is-pair l1) (is-pair l2))
       (block
@@ -138,7 +138,7 @@
 
 (define
   _i_for_each2
-  (program
+  (probprog
     [f i l1 l2]
     (if (and (is-pair l1) (is-pair l2))
       (block
@@ -146,11 +146,11 @@
         (_i_for_each2 f (add i 1) (rest l1) (rest l2)))
       "done")))
 
-(define i_for_each2 (program [f l1 l2] (_i_for_each2 f 0 l1 l2)))
+(define i_for_each2 (probprog [f l1 l2] (_i_for_each2 f 0 l1 l2)))
 
 (define
   filter
-  (program
+  (probprog
     [pred l]
     (if (is-pair l)
       (if (pred (first l))
@@ -160,13 +160,13 @@
 
 (define
   concat
-  (program
+  (probprog
     [ll]
     (if (is-pair ll) (append (first ll) (concat (rest ll))) (empty-trace))))
 
 (define
   lookup_chain
-  (program
+  (probprog
     [coll key]
     (if (is-pair key)
       (lookup_chain (lookup coll (first key)) (rest key))
@@ -174,7 +174,7 @@
 
 (define
   lookup_chain_with_exactly
-  (program
+  (probprog
     [coll key]
     (if (is-pair key)
       (lookup_chain_with_exactly (lookup coll (first key)) (rest key))
@@ -182,23 +182,23 @@
 
 (define
   sp
-  (program
+  (probprog
     [name proposer]
     (define
       interpreter
-      (program
+      (probprog
         [args intervene]
         (define [v _] (proposer args intervene (empty-trace) (empty-trace)))
         v))
     (define
       tracer
-      (program
+      (probprog
         [args intervene output]
         (define [v _] (proposer args intervene (empty-trace) output))
         v))
     (define
       non_tracing_proposer
-      (program
+      (probprog
         [args intervene target]
         (proposer args intervene target (empty-trace))))
     (block
@@ -223,7 +223,7 @@
 
 (define
   proposer_of
-  (program
+  (probprog
     [the_sp]
     (trace-get
       (lookup the_sp (list "custom_choice_tracing_proposer")))))
@@ -232,7 +232,7 @@
   factor
   (sp
     "factor"
-    (program
+    (probprog
       [args t1 t2 t3]
       (define score (trace-get (lookup args (list 0))))
       (tuple (empty-trace) score))))
@@ -241,7 +241,7 @@
 
 (define
   name_for_definiens
-  (program
+  (probprog
     [pattern]
     (block
       (if (eq (trace-get pattern) "variable")

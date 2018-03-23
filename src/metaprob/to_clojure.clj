@@ -257,8 +257,8 @@
     (assert (trie? sub) ["missing field in parse tree" key])
     (expr-to-clojure sub nest)))
 
-; Create a trie from a file containing a representation of a
-; trie (written by the python script).
+; Create a trace from a file containing a representation of a
+; trace (written by the python script).
 
 (defn reconstruct-trace [form]
   (if (seq? form)
@@ -272,7 +272,10 @@
         (let [m (mapify (rest form))]
           (if (= val :none)
             (trace-from-map m)
-            (trace-from-map m val)))))
+            (if (and (= val "program")
+                     (= (count m) 2))    ;; (program pattern body)
+              (trace-from-map m "probprog")
+              (trace-from-map m val)))))
     (list "[not a trace!?]" form)))
 
 ; My this is painful.

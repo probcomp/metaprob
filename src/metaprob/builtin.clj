@@ -7,8 +7,7 @@
                    assert pprint print
                    list first rest last nth range])
   (:require [metaprob.trace :as trace])
-  (:require [metaprob.builtin-impl :as impl])
-  (:require [kixi.stats.math :as math]))
+  (:require [metaprob.builtin-impl :as impl]))
 
 (defmacro define-foreign-probprog [mp-name generate-fn]
   (let [namestring (if (symbol? mp-name) (str mp-name) mp-name)]
@@ -27,6 +26,7 @@
 ;; General
 (define-foreign-probprog eq =)
 (define-foreign-probprog neq impl/neq)
+(define-foreign-probprog exactly impl/exactly)    ;?
 (define-foreign-probprog assert impl/metaprob-assert)
 (define-foreign-probprog error impl/error)
 (define-foreign-probprog generate-foreign impl/generate-foreign)
@@ -74,18 +74,18 @@
 
 ;; Lists
 (define-foreign-probprog pair trace/pair)
+(define-foreign-probprog is-pair trace/metaprob-pair?)
 (define-foreign-probprog list impl/metaprob-list)
-(define-foreign-probprog is-pair impl/metaprob-pair?)
 
 ;; Array/tuple
 (define-foreign-probprog list-to-array impl/list-to-tuple)
 (define-foreign-probprog array-to-list impl/tuple-to-list)
-(define-foreign-probprog is-array impl/metaprob-tuple?)
+(define-foreign-probprog is-array trace/metaprob-tuple?)
 
 ;; Generic
 (define-foreign-probprog first trace/metaprob-first)
 (define-foreign-probprog rest trace/metaprob-rest)
-(define-foreign-probprog length impl/length)
+(define-foreign-probprog length trace/length)
 (define-foreign-probprog last impl/metaprob-last)
 (define-foreign-probprog nth impl/metaprob-nth)
 (define-foreign-probprog range impl/metaprob-range)
@@ -102,16 +102,16 @@
 
 ;; Printing
 (define-foreign-probprog print impl/metaprob-print)
-(define-foreign-probprog pprint trace/metaprob-pprint)
+(define-foreign-probprog pprint impl/metaprob-pprint)
 (define-foreign-probprog binned-histogram impl/binned-histogram)
 
 ;; -----------------------------------------------------------------------------
 ;; Work in progress
 
-(define-foreign-probprog query-foreign impl/query-foreign)
-(define-foreign-probprog make-lifted-probprog impl/make-lifted-probprog)
-(define-foreign-probprog trace-to-probprog impl/trace-to-probprog)
+(define-foreign-probprog generate-foreign impl/generate-foreign)
+(define-foreign-probprog make-foreign-probprog impl/make-foreign-probprog)
 (define-foreign-probprog export-probprog impl/export-probprog)
 
-(define-foreign-probprog exactly impl/exactly)    ;?
+;(define-foreign-probprog make-lifted-probprog impl/make-lifted-probprog)
+;(define-foreign-probprog trace-to-probprog impl/trace-to-probprog)
 
