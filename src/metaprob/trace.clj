@@ -91,8 +91,8 @@
 
 ;; Storable as a value
 
-(def ^:local the-ns-type clojure.lang.Namespace)  ;was (type *ns*)
-(defn ^:local top-level-environment? [x] (= (type x) the-ns-type))  ;this is awful
+(defn ^:local top-level-environment? [x]
+  (instance? clojure.lang.Namespace x))
 
 (defn ok-value? [val]
   (or (ok-key? val)
@@ -102,7 +102,7 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare metaprob-sequence-to-seq purify)
+(declare metaprob-sequence-to-seq freeze)
 (declare metaprob-first metaprob-rest metaprob-pair?)
 
 ;; Convert an address-like thing to an address.
@@ -110,8 +110,8 @@
 
 (defn addrify [addr]
   (if (trace? addr)
-    (map purify (metaprob-sequence-to-seq addr))
-    (list (purify addr))))
+    (map freeze (metaprob-sequence-to-seq addr))
+    (list (freeze addr))))
 
 ;; OK.  Now the generic trace accessors.
 
@@ -207,6 +207,7 @@
 ;; Side effects.
 
 (defn ^:private trace-set-value! [tr val]
+  (assert (ok-value? val) ["storing non-metaprob value" val])
   (let [tr (strip tr)]
     (if (mut/basic-trace? tr)
       (mut/set-value! tr val)
@@ -226,6 +227,12 @@
   ([tr] (trace-clear tr))
   ([tr addr] (trace-clear (lookup tr addr))))
 
+(defn trace-set-subtrace [tr key sub]
+  (let [tr (strip tr)]
+    (if (mut/basic-trace? tr)
+      (mut/set-subtrace! tr key sub)
+      (assert false ["expected a mutable trace" tr key sub]))))
+
 (defn trace-set-subtrace-at [tr addr sub]
   (let [tr (strip tr)]
     (if (mut/basic-trace? tr)
@@ -240,6 +247,7 @@
 
 ;; Creates a mutable trace from a map whose values are traces.
 ;; TBD: Check well-formedness of map.
+;; TBD: Currently the subtraces all have to be mutable.  Fix.
 
 (defn trace-from-map
   ([maap]
@@ -416,30 +424,69 @@
           false
           (assert false ["not a metaprob-sequence" mp-seq]))))
 
+;; Convert a mutable trace to an immutable trace
 ;; Convert a trace to be used as a key to a pure clojure value (seq,
 ;; vector, map) so that hash and = will work on it.
 ;; TBD: Check for IFn+meta case
 
-(defn purify [x]
-  (let [x (strip x)]
-    (if (mut/basic-trace? x)
+(defn freeze [x]
+  (if (mutable-trace? x)
+    (let [x (strip x)]
       (cond (empty-trace? x)
               '()
             (metaprob-pair? x)
-              (map purify (metaprob-list-to-seq x)) ;cf. ok-value?
+              (map freeze (metaprob-list-to-seq x)) ;cf. ok-value?
             (metaprob-tuple? x)
-              (vec (map purify (metaprob-tuple-to-seq x)))
+              (vec (map freeze (metaprob-tuple-to-seq x)))
             true
             (let [keys (mut/trace-keys x)
-                  maap (into {} (for [key keys] [key (purify (mut/subtrace x key))]))]
+                  maap (into {} (for [key keys] [key (freeze (mut/subtrace x key))]))]
               (if (mut/has-value? x)
-                (assoc maap :value (purify (mut/value x)))
-                maap)))
-      x)))
+                (assoc maap :value (freeze (mut/value x)))
+                maap))))
+    x))
+
+;; Convert an immutable trace to a mutable trace
+
+(defn thaw [x]
+  (if (immutable-trace? x)
+    (let [tr (empty-trace)]
+      (if (trace-has-value? x)
+        ;; should we thaw the value too?
+        (trace-set tr (trace-get x)))
+      (for [key (trace-keys x)]
+        (trace-set-subtrace tr key (thaw (trace-subtrace tr key))))
+      tr)
+    x))
+
+;; -----------------------------------------------------------------------------
+;; Immutable trace construction feature
+;; Cf. book chapter mss figure 7
+
+;; (trace :value 1, "z" 2, "a" (** subtrace), "c" (** (trace "d" 8)))
+
+(defn trace [& key-value-pairs]
+  (letfn [(build-up [kvps]
+            (if (empty? kvps)
+              {}
+              (do (assert (not (empty? (rest kvps))) "odd number of args to trace")
+                  (let [key (first kvps)
+                        val (first (rest kvps))
+                        more (build-up (rest (rest kvps)))]
+                    (if (= key :value)
+                      (assoc more key val)
+                      (let [sub (if (map? val) (get val :**) nil)]
+                        (if sub
+                          (assoc more key sub)
+                          (assoc more key {:value val}))))))))]
+    (build-up key-value-pairs)))
+
+(defn ** [tr]
+  (assert (trace? tr) "**: expected a trace")
+  {:** tr})
 
 
-;;    (assert (ok-value? val) ["storing non-metaprob value" val])
-
+;;
 ;;   (assert (ok-value? val)
 ;;           ["initial value is non-metaprob" val (top-level-environment? val) (type val)])
 

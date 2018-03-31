@@ -16,10 +16,10 @@
 
 (define provide-score-method
   (gen [name prog score-method]
-    (lift name
-          (gen [argseq i t o]
-            (define [answer _] (infer prog argseq i t o))
-            [answer (score-method answer argseq)]))))
+    (inf name
+         (gen [argseq i t o]
+           (define [answer _] (infer prog argseq i t o))
+           [answer (score-method answer argseq)]))))
 
 ;; Code translated from class BernoulliOutputPSP(DiscretePSP):
 ;;

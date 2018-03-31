@@ -60,7 +60,7 @@
                 (hash exp))
               exp-trace)]               ;original metaprob
     (trace-as-procedure (trace-from-map {"name" (new-trace key)
-                                         "source" exp-trace
+                                         "generative-source" exp-trace
                                          ;; Environment is always the top level
                                          ;; env, and often this is incorrect.
                                          "environment" (new-trace env)}

@@ -67,8 +67,8 @@
                (if (not (eq (length subpatterns) (length inputs)))
                  (assert false
                          ["number of subpatterns differs from number of input parts"
-                          (purify pattern) (length (trace-keys pattern))
-                          (purify inputs) (length inputs) env]))
+                          (freeze pattern) (length (trace-keys pattern))
+                          (freeze inputs) (length inputs) env]))
                (for-each2 (gen [p i]
                             (match-bind p i env))
                           subpatterns
@@ -76,10 +76,20 @@
         (assert false "bad pattern")))
     "return value of match-bind"))
 
+;; Manual edit: moved from interpret.clj
+
+(define name_for_definiens
+  (gen [pattern]
+    (if (eq (trace-get pattern) "variable")
+      (if (neq (trace-get pattern "name") "_")
+        (addr (trace-get pattern "name"))
+        (addr "definiens"))
+      (addr "definiens"))))
+
 
 ;; ----------------------------------------------------------------------------
 
-(declare infer infer infer-foreign infer-apply-native ptc-eval)
+(declare infer infer-apply-native infer-eval)
 
 ;; infer
 (define infer
@@ -91,7 +101,7 @@
        inputs intervention_trace target_trace output_trace)
       (block
        (define [value score]
-         (if (if (trace? prog) (trace-has? prog "source") false)
+         (if (if (trace? prog) (trace-has? prog "generative-source") false)
            (infer-apply-native prog
                                inputs
                                intervention_trace
@@ -121,13 +131,13 @@
         intervention_trace
         target_trace
         output_trace]
-    (define source (lookup self "source"))
+    (define source (lookup self "generative-source"))
     (define environment (trace-get self "environment"))
     (define new_env (make-env environment))
     (match-bind (lookup source "pattern")
                 inputs
                 new_env)
-    (ptc-eval (lookup source "body")
+    (infer-eval (lookup source "body")
               new_env
               ;; Do not let the interpreter affect any of the traces.
               ;; Any changes to the traces needs to be made by the code
@@ -136,7 +146,7 @@
               target_trace
               output_trace)))
 
-(define ptc-eval
+(define infer-eval
   (gen [exp env intervention_trace target_trace output_trace]
     (define walk
       (gen [exp addr]
@@ -173,12 +183,11 @@
                         output_trace)))
              (tuple val (add (trace-get subscore) score)))
             (if (eq (trace-get exp) "variable")
-              (tuple (env-lookup
-                      env
-                      (trace-get (lookup exp (list "name"))))
+              (tuple (env-lookup env
+                                 (trace-get exp "name"))
                      0)
               (if (eq (trace-get exp) "literal")
-                (tuple (trace-get (lookup exp (list "value"))) 0)
+                (tuple (trace-get exp "value") 0)
                 (if (eq (trace-get exp) "gen")
                   (block
                    (tuple
@@ -190,7 +199,7 @@
                       exp)
                      (trace-set-subtrace-at
                       __trace_1__
-                      (list "source")
+                      (list "generative-source")
                       exp)
                      (trace-set
                       (lookup __trace_1__ (list "environment"))
@@ -309,7 +318,7 @@
                                (define [new_intervene new_target new_output]
                                  (resolve-tag-address tag_addr))
                                (define [val score]
-                                 (ptc-eval
+                                 (infer-eval
                                   (lookup exp (list "expression"))
                                   env
                                   new_intervene
@@ -321,14 +330,14 @@
                                (error
                                 "Not a code expression")))))))))))))
         (if (if intervention_trace
-              (trace-has? (lookup intervention_trace addr))
+              (trace-has? intervention_trace addr)
               false)
           (block
-           (tuple (trace-get (lookup intervention_trace addr)) score))
+           (tuple (trace-get intervention_trace addr) score))
           (block (tuple v score)))))
     (walk exp (list))))
 
-(define lift
+(define inf
   (gen [name infer-method]
     (define tr (empty-trace))
     (trace-set tr "name" name)

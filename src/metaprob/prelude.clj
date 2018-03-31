@@ -36,7 +36,7 @@
   _reverse
   (gen
     [lst res]
-    (if (is-pair lst)
+    (if (pair? lst)
       (_reverse (rest lst) (pair (first lst) res))
       res)))
 
@@ -75,7 +75,7 @@
 (define _map
   (gen [f l i root]
     (block
-      (if (is-pair l)
+      (if (pair? l)
         (block
           (define val (with-address (list root i) (f (first l))))
           (pair val (_map f (rest l) (add i 1) root)))
@@ -85,7 +85,7 @@
   _imap
   (gen
     [f i l]
-    (if (is-pair l)
+    (if (pair? l)
       (pair (f i (first l)) (_imap f (add i 1) (rest l)))
       (empty-trace))))
 
@@ -101,7 +101,7 @@
   zipmap
   (gen
     [f l1 l2]
-    (if (and (is-pair l1) (is-pair l2))
+    (if (and (pair? l1) (pair? l2))
       (pair (f (first l1) (first l2)) (zipmap f (rest l1) (rest l2)))
       (empty-trace))))
 
@@ -109,7 +109,7 @@
   for-each
   (gen
     [l f]
-    (if (is-pair l)
+    (if (pair? l)
       (block (f (first l)) (for-each (rest l) f))
       "done")))
 
@@ -117,7 +117,7 @@
   for-each2
   (gen
     [f l1 l2]
-    (if (and (is-pair l1) (is-pair l2))
+    (if (and (pair? l1) (pair? l2))
       (block
         (f (first l1) (first l2))
         (for-each2 f (rest l1) (rest l2)))
@@ -127,7 +127,7 @@
   _i_for_each2
   (gen
     [f i l1 l2]
-    (if (and (is-pair l1) (is-pair l2))
+    (if (and (pair? l1) (pair? l2))
       (block
         (f i (first l1) (first l2))
         (_i_for_each2 f (add i 1) (rest l1) (rest l2)))
@@ -139,7 +139,7 @@
   filter
   (gen
     [pred l]
-    (if (is-pair l)
+    (if (pair? l)
       (if (pred (first l))
         (pair (first l) (filter pred (rest l)))
         (block (filter pred (rest l))))
@@ -149,18 +149,4 @@
   concat
   (gen
     [ll]
-    (if (is-pair ll) (append (first ll) (concat (rest ll))) (empty-trace))))
-
-;; Manual edit: moved from interpret.clj
-
-(define
-  name_for_definiens
-  (gen
-    [pattern]
-    (block
-      (if (eq (trace-get pattern) "variable")
-        (block
-          (if (neq (trace-get (lookup pattern (list "name"))) "_")
-            (block (list (trace-get (lookup pattern (list "name")))))
-            (block (list "definiens"))))
-        (block (list "definiens"))))))
+    (if (pair? ll) (append (first ll) (concat (rest ll))) (empty-trace))))

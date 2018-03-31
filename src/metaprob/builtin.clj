@@ -75,13 +75,15 @@
 (define-foreign-procedure mutable-trace? trace/mutable-trace?)
 (define-foreign-procedure trace-has-subtrace? trace/trace-has-subtrace?)
 (define-foreign-procedure trace-subtrace trace/trace-subtrace)
-(define-foreign-procedure purify trace/purify)
+(define-foreign-procedure freeze trace/freeze)
+(define-foreign-procedure thaw trace/thaw)
+(define-foreign-procedure trace trace/trace)    ;constructor
 
 (define-foreign-procedure addresses-of impl/addresses-of)
 
 ;; Lists
 (define-foreign-procedure pair trace/pair)
-(define-foreign-procedure is-pair trace/metaprob-pair?)
+(define-foreign-procedure pair? trace/metaprob-pair?)
 (define-foreign-procedure list impl/metaprob-list)
 
 ;; Tuple

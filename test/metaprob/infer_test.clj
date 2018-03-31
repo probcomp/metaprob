@@ -49,11 +49,11 @@
 (defn ez-eval [x]
   (let [[value score]
         (trace/metaprob-sequence-to-seq
-         (ptc-eval (from-clojure x)
-                   (impl/make-top-level-env 'metaprob.infer)
-                   (mk_nil)
-                   (mk_nil)
-                   (mk_nil)))]
+         (infer-eval (from-clojure x)
+                     (impl/make-top-level-env 'metaprob.infer)
+                     (mk_nil)
+                     (mk_nil)
+                     (mk_nil)))]
     value))
 
 (deftest smoke-1
@@ -105,7 +105,7 @@
     (let [m (gen [argseq i t o]
                       (define [x y] argseq)
                       (tuple (+ x 1) 19))
-          l (lift "testing" m)]
+          l (inf "testing" m)]
       (is (= (l 17 "z") 18)))))
 
 
@@ -114,7 +114,7 @@
 ;    (let [qq (impl/make-foreign-procedure "qq" (fn [argseq i t o]
 ;                                             [(+ (metaprob-nth argseq 0) (metaprob-nth argseq 1))
 ;                                              50]))
-;          lifted (make-lifted-procedure "lifted" qq)]
+;          lifted (inf "lifted" qq)]
 ;      (let [[answer score] (infer lifted [7 8] nil nil nil)]
 ;        (is (= answer 15))
 ;        (is (= score 50))))))

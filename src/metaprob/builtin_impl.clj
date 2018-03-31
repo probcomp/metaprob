@@ -161,9 +161,9 @@
 
 (defn set-difference [s1 s2]
   (seq-to-mutable-list
-   (seq (set/difference (set (map purify
+   (seq (set/difference (set (map freeze
                                   (metaprob-sequence-to-seq s1)))
-                        (set (map purify
+                        (set (map freeze
                                   (metaprob-sequence-to-seq s2)))))))
 
 ;; -----------------------------------------------------------------------------
@@ -201,19 +201,20 @@
                                             "prob prog")
                             ifn))))
 
-;; !! REVIEW
-;; This is a kludge, see syntax.clj, to use until there's a better solution.
-;; Its purpose is to strip off all properties from the procedure, especially "source".
-
-(defn export-procedure [ifn]
-  (make-foreign-procedure (trace-get ifn "name") (with-meta ifn nil)))
-
 (defn procedure-name [pp]
   (if (trace? pp)
     (if (trace-has? pp "name")
       (trace-get pp "name")
       (str pp))
     (str pp)))    ; E.g. "clojure.core$str@1593f8c5"
+
+;; !! REVIEW
+;; This is a kludge, see syntax.clj, to use until there's a better solution.
+;; Its purpose is to strip off all properties from the procedure, especially 
+;; "generative_source".
+
+(defn export-procedure [ifn]
+  (make-foreign-procedure (procedure-name ifn) (with-meta ifn nil)))
 
 ;; prelude has: trace_of lookup_chain lookup_chain_with_exactly 
 
@@ -352,7 +353,7 @@
   (let [samples (metaprob-sequence-to-seq samples)
         path (clojure.string/replace name " " "_")]
     (print (format "Writing samples to %s for histogram generation\n" path))
-    (print (format " overlay-densities = %s\n" (purify overlay-densities)))
+    (print (format " overlay-densities = %s\n" (freeze overlay-densities)))
     (with-open [writor (io/writer (str "results/" path ".samples"))]
       (doseq [sample samples]
         (.write writor (str sample))

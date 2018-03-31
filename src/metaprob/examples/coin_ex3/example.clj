@@ -27,56 +27,47 @@
     (map
       (gen
         [i]
-        (with-address (list root_addr "datum" i) (flip weight)))
+        (with-address (addr root_addr "datum" i) (flip weight)))
       (range n))))
 
-(define
-  constrain_coin_flipper_trace
-  (gen
-    [n]
+(define constrain_coin_flipper_trace
+  (gen [n]
     (define t1 (empty-trace))
     (for_each
       (range n)
-      (gen
-        [k]
-        (block (trace_set (lookup t1 (list "datum" k "flip")) true))))
+      (gen [k]
+        (block (trace_set (lookup t1 (addr "datum" k "flip")) true))))
     t1))
 
-(define
-  extract_weight
-  (gen
-    [state]
-    (define site1 (list 2 "weight" "then" 0 "uniform"))
+(define extract_weight
+  (gen [state]
+    (define site1 (addr 2 "weight" "then" 0 "uniform"))
     (if (trace_has (lookup state site1))
       (block (trace_get (lookup state site1)))
       (block
-        (define site2 (list "native-generate" "body" 2 "weight" "else" 0))
+        (define site2 (addr "native-generate" "body" 2 "weight" "else" 0))
         (trace_get
-          (lookup (lookup flip_coins site2) (list "value")))))))
+          (lookup (lookup flip_coins site2) (addr "value")))))))
 
-(define
-  transcript1
-  (gen
-    [do_print]
+(define transcript1
+  (gen [do_print]
     (define a_trace (empty-trace))
     (trace_choices flip_coins (tuple 5) (empty-trace) a_trace)
     (if do_print
       (block
         (pprint a_trace)
-        (print (trace_get (lookup a_trace (list 1 "tricky" "flip")))))
+        (print (trace_get a_trace (addr 1 "tricky" "flip"))))
       "ok")
     a_trace))
 
-(define
-  transcript2
-  (gen
-    []
+(define transcript2
+  (gen []
     (define a_trace (transcript1 false))
-    (trace_set (lookup a_trace (list "datum" 0 "flip")) true)
-    (trace_set (lookup a_trace (list "datum" 1 "flip")) true)
-    (trace_set (lookup a_trace (list "datum" 2 "flip")) true)
-    (trace_set (lookup a_trace (list "datum" 3 "flip")) true)
-    (trace_set (lookup a_trace (list "datum" 4 "flip")) true)
+    (trace_set (lookup a_trace (addr "datum" 0 "flip")) true)
+    (trace_set (lookup a_trace (addr "datum" 1 "flip")) true)
+    (trace_set (lookup a_trace (addr "datum" 2 "flip")) true)
+    (trace_set (lookup a_trace (addr "datum" 3 "flip")) true)
+    (trace_set (lookup a_trace (addr "datum" 4 "flip")) true)
     (define approximate_inference_update
       (gen
         []
@@ -88,8 +79,8 @@
             (set-difference
               (addresses_of a_trace)
               (tuple
-                (list 1 "tricky" "flip")
-                (list 2 "weight" "then" 0 "uniform")))))))
+                (addr 1 "tricky" "flip")
+                (addr 2 "weight" "then" 0 "uniform")))))))
     (repeat 20 approximate_inference_update)
-    (print (trace_get (lookup a_trace (list 1 "tricky" "flip"))))))
+    (print (trace_get (lookup a_trace (addr 1 "tricky" "flip"))))))
 
