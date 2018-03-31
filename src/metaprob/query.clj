@@ -1,331 +1,342 @@
 ;; This file was automatically generated, then edited
 
-(ns metaprob.metacirc.query
+;; Although this will almost alway run as clojure code, it
+;; is a goal to retain the ability to run it as metaprob
+;; (i.e. to make it self-applicable!).
+
+(ns metaprob.query
   (:refer-clojure :only [declare ns])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]))
 
-(declare query query-lifted query-native ptc_eval)
+;; Lexical environments, needed by gen macro.
+;; TBD: Move to prelude
 
-;; query
-(define query
-  (probprog
-    [prog
-     inputs
-     intervention_trace
-     target_trace
-     output_trace]
+(define frame?
+  (gen [obj]
+    (if (trace? obj)
+      (trace-has-subtrace? obj "parent")
+      false)))
 
-    ;; Three cases: lifted, foreign, and native
-    (if (trace-has-key? prog "query-method")    ;lifted
-      (query-lifted (trace-get prog "query-method")
-                    inputs
-                    intervention_trace
-                    target_trace
-                    output_trace)
-      (if (trace-has-key? prog "native-generate-method")      
-        (query-native (lookup prog "native-generate-method") ;was "source"
-                      (trace-get prog "environment")
-                      inputs
-                      intervention_trace
-                      target_trace
-                      output_trace)
-        (if (trace-has-key? prog "foreign-generate-method")
-          (query-foreign (trace-get prog "foreign-generate-method") ;"execute"
-                         inputs
-                         intervention_trace
-                         target_trace
-                         output_trace)      
-          (block (pprint prog)
-                 (assert false "Not a prob prog" prog)))))))
+(define frame-parent
+  (gen [frame]
+    (trace-get frame "parent")))
 
-;; Query a 'lifted' probprog.
-;; Pass the traces into the probprog, as well as the arguments.
-;; The probprog returns the score as part of the return value.
+(define env-lookup
+  (gen [env name]
+    (if (frame? env)
+      (if (trace-has? env name)
+        (trace-get env name)
+        (env-lookup (frame-parent env) name))
+      ;; Top level environment
+      (top-level-lookup env name))))
 
-(define query-lifted
-  (probprog [query-method
-             inputs
-             intervention_trace
-             target_trace
-             output_trace]
+;; make-env - overrides original prelude
 
-            (define [result+score ignored-score]
-              (query query-method
-                     [inputs
-                      intervention_trace
-                      target_trace
-                      output_trace]
-                     nil nil nil))
+(define make-env
+  (gen [parent]
+    (define env (empty-trace))
+    (trace-set env "parent" parent)
+    env))
 
-            result+score))
+(define env-bind!
+  (gen [env name val]
+    (if (frame? env)
+      (trace-set env name val)
+      (assert false "bad env-bind!"))))
 
-;; Query a 'native' probprog (i.e. one written in metaprob and interpreted).
-;; source and environment are traces.
+;; match-bind - overrides original prelude.
+;; Liberal in what it accepts: the input can be either a list or a
+;; tuple, at any level.
 
-(define query-native
-  (probprog [source
-             environment
-             inputs
-             intervention_trace
-             target_trace
-             output_trace]
+(define match-bind
+  ;; pattern is a parse-tree trace (variable or tuple expression) - not a tuple.
+  ;; inputs is a seq, I think
+  (gen [pattern input env]
+    (if (eq (trace-get pattern) "variable")
+      (env-bind! env (trace-get pattern "name") input)
+      (if (eq (trace-get pattern) "tuple")
+        (block (define inputs (to-list input))
+               (define subpatterns
+                 ;; Clojure map always returns a seq.
+                 (map (gen [i]
+                        (trace-subtrace pattern i))
+                      ;; Ugh.  Gotta be a better way to do this
+                      (range (length (trace-keys pattern)))))
+               (if (not (eq (length subpatterns) (length inputs)))
+                 (assert false
+                         ["number of subpatterns differs from number of input parts"
+                          (purify pattern) (length (trace-keys pattern))
+                          (purify inputs) (length inputs) env]))
+               (for-each2 (gen [p i]
+                            (match-bind p i env))
+                          subpatterns
+                          inputs))
+        (assert false "bad pattern")))
+    "return value of match-bind"))
 
-            (define new_env (make-env environment))
 
-            (match-bind (lookup source "pattern")
-                        inputs
-                        new_env)
+;; ----------------------------------------------------------------------------
 
-            (define [answer score]
-              (ptc_eval (lookup source "body")
-                        new_env
-                        ;; Do not let the interpreter affect any of the traces.
-                        ;; Any changes to the traces needs to be made by the code
-                        ;; itself.
-                       intervention_trace
-                       target_trace
-                       output_trace))
+(declare infer query query-foreign infer-apply-native ptc-eval)
 
-            (define [answer score]
-              (if (if target_trace (trace-has? target_trace) false)
-                [(trace-get target_trace) 0]
-                (if (if intervention_trace (trace-has? intervention_trace) false)
-                  [(trace-get intervention_trace) 0]
-                  [answer score])))
+;; infer
+(define infer
+  (gen [prog inputs intervention_trace target_trace output_trace]
+    (assert (or (list? inputs) (tuple? inputs)) ["inputs neither list nor tuple" inputs])
+    (if (if (trace? prog) (trace-has? prog "infer-method") false)
+      ;; return the value+score that the infer-method computes
+      ((trace-get prog "infer-method")
+       inputs intervention_trace target_trace output_trace)
+      (block
+       (define [value score]
+         (if (if (trace? prog) (trace-has? prog "source") false)
+           (infer-apply-native prog
+                               inputs
+                               intervention_trace
+                               target_trace
+                               output_trace)
+           (if (foreign-procedure? prog)
+             [(generate-foreign prog inputs) 0]
+             (block (pprint prog)
+                    (error "not a procedure" prog)))))
+       ;; Potentially modify value and score based on intervention and target traces
+       (define [value2 score2]
+         (if (if target_trace (trace-has? target_trace) false)
+           [(trace-get target_trace) 0]    ;???
+           (if (if intervention_trace (trace-has? intervention_trace) false)
+             [(trace-get intervention_trace) 0]  ;???
+             [value score])))
+       ;; Store value in output trace
+       (if output_trace
+         (trace-set output_trace value2))
+       [value2 score2]))))
 
-            (if output_trace
-              (trace-set output_trace answer))
+;; Deprecated; backward compatibility
+(define query infer)
 
-            [answer score]))
+;; Query a 'native' generator (i.e. one written in metaprob and interpreted).
 
-;; generate
-(define generate
-  (probprog [pp & args]
-    (define [answer _] (query pp args nil nil nil))
-    answer))
+(define infer-apply-native
+  (gen [self
+        inputs
+        intervention_trace
+        target_trace
+        output_trace]
+    (define source (lookup self "source"))
+    (define environment (trace-get self "environment"))
+    (define new_env (make-env environment))
+    (match-bind (lookup source "pattern")
+                inputs
+                new_env)
+    (ptc-eval (lookup source "body")
+              new_env
+              ;; Do not let the interpreter affect any of the traces.
+              ;; Any changes to the traces needs to be made by the code
+              ;; itself.
+              intervention_trace
+              target_trace
+              output_trace)))
 
-;;; This doesn't really belong here.
-;
-;(define make-lifted-probprog
-;  (probprog [query-method]
-;            (define l (empty-trace))
-;            (trace-set l "query-method" query-method)
-;            l))
-;
-;;; Provide a probprog with a score method.
-;
-;(define provide-score-method
-;  (probprog [start score-method]
-;            (make-lifted-probprog
-;             (probprog [argseq i t o]
-;                       (define [answer score]
-;                         (query start argseq i t o))
-;                       [answer (score-method argseq answer)]))))
-
-(define
-  ptc_eval
-  (probprog
-    [exp env intervention_trace target_trace output_trace]
-    (define
-      walk
-      (probprog
-        [exp addr]
-        (define
-          [v score]
+(define ptc-eval
+  (gen [exp env intervention_trace target_trace output_trace]
+    (define walk
+      (gen [exp addr]
+        (define [v score]
           (if (eq (trace-get exp) "application")
             (block
-              (define n (length (trace-subkeys exp)))
-              (define
-                subscore
-                (block
-                  (define __trace_0__ (empty-trace))
-                  (trace-set __trace_0__ 0)
-                  __trace_0__))
-              (define
-                values
-                (map
-                  (probprog
-                    [i]
-                    (define
-                      [v s]
-                      (walk (lookup exp (list i)) (add addr (list i))))
-                    (trace-set subscore (add (trace-get subscore) s))
-                    v)
-                  (range n)))
-              (define oper (first values))
-              (define name (trace-get (lookup oper (list "name"))))
-              (define
-                [val score]
-                (query
-                  oper
-                  (rest values)
-                  (lookup intervention_trace (add addr (list name)))
-                  (lookup target_trace (add addr (list name)))
-                  (if output_trace
-                    (lookup output_trace (add addr (list name)))
-                    output_trace)))
-              (tuple val (add (trace-get subscore) score)))
+             (define n (length (trace-keys exp)))
+             (define
+               subscore
+               (block
+                (define __trace_0__ (empty-trace))
+                (trace-set __trace_0__ 0)
+                __trace_0__))
+             (define values
+               (map (gen [i]
+                      (define [v s]
+                        (walk (lookup exp (list i)) (add addr (list i))))
+                      (trace-set subscore (add (trace-get subscore) s))
+                      v)
+                    (range n)))
+             (define oper (first values))
+             (define name (procedure-name oper))
+             (define [val score]
+               (infer oper
+                      (rest values)
+                      (if intervention_trace
+                        (lookup intervention_trace (add addr (list name)))
+                        nil)
+                      (if target_trace
+                        (lookup target_trace (add addr (list name)))
+                        nil)
+                      (if output_trace
+                        (lookup output_trace (add addr (list name)))
+                        output_trace)))
+             (tuple val (add (trace-get subscore) score)))
             (if (eq (trace-get exp) "variable")
-              (block
-                (tuple
-                  (env-lookup
-                    env
-                    (trace-get (lookup exp (list "name"))))
-                  0))
+              (tuple (env-lookup
+                      env
+                      (trace-get (lookup exp (list "name"))))
+                     0)
               (if (eq (trace-get exp) "literal")
-                (block
-                  (tuple (trace-get (lookup exp (list "value"))) 0))
-                (if (eq (trace-get exp) "probprog")
+                (tuple (trace-get (lookup exp (list "value"))) 0)
+                (if (eq (trace-get exp) "gen")
                   (block
-                    (tuple
-                      (block
-                        (define __trace_1__ (empty-trace))
-                        (trace-set __trace_1__ "prob prog")
-                        (trace-set
-                          (lookup __trace_1__ (list "name"))
-                          exp)
-                        (trace-set-subtrace-at
-                          __trace_1__
-                          (list "native-generate-method")
-                          exp)
-                        (trace-set
-                          (lookup __trace_1__ (list "environment"))
-                          env)
-                        (trace-to-probprog
-                         __trace_1__))
-                      0))
+                   (tuple
+                    (block
+                     (define __trace_1__ (empty-trace))
+                     (trace-set __trace_1__ "prob prog")
+                     (trace-set
+                      (lookup __trace_1__ (list "name"))
+                      exp)
+                     (trace-set-subtrace-at
+                      __trace_1__
+                      (list "source")
+                      exp)
+                     (trace-set
+                      (lookup __trace_1__ (list "environment"))
+                      env)
+                     (trace-as-procedure __trace_1__
+                                         ;; This may be unnecessary, but leaving it
+                                         ;; in place for the time being
+                                         (gen [& args]
+                                           (nth (infer __trace_1__
+                                                       args
+                                                       nil nil nil)
+                                                0))))
+                    0))
                   (if (eq (trace-get exp) "if")
                     (block
-                      (define
-                        [pred p_score]
-                        (walk
-                          (lookup exp (list "predicate"))
-                          (add addr (list "predicate"))))
-                      (if pred
-                        (block
-                          (define
-                            [val score]
-                            (walk
-                              (lookup exp (list "then"))
-                              (add addr (list "then"))))
-                          (tuple val (add p_score score)))
-                        (block
-                          (define
-                            [val score]
-                            (walk
-                              (lookup exp (list "else"))
-                              (add addr (list "else"))))
-                          (tuple val (add p_score score)))))
+                     (define [pred p_score]
+                       (walk
+                        (lookup exp (list "predicate"))
+                        (add addr (list "predicate"))))
+                     (if pred
+                       (block
+                        (define [val score]
+                          (walk
+                           (lookup exp (list "then"))
+                           (add addr (list "then"))))
+                        (tuple val (add p_score score)))
+                       (block
+                        (define [val score]
+                          (walk
+                           (lookup exp (list "else"))
+                           (add addr (list "else"))))
+                        (tuple val (add p_score score)))))
                     (if (eq (trace-get exp) "block")
                       (block
-                        (define n (length (trace-subkeys exp)))
-                        (define
-                          subscore
-                          (block
-                            (define __trace_2__ (empty-trace))
-                            (trace-set __trace_2__ 0)
-                            __trace_2__))
-                        (define
-                          values
-                          (map
-                            (probprog
-                              [i]
-                              (define
-                                [v s]
-                                (walk
-                                  (lookup exp (list i))
-                                  (add addr (list i))))
-                              (trace-set
-                                subscore
-                                (add (trace-get subscore) s))
-                              v)
-                            (range n)))
-                        (if (gt (length values) 0)
-                          (block
-                            (tuple (last values) (trace-get subscore)))
-                          (block
-                            (tuple (empty-trace) (trace-get subscore)))))
+                       (define n (length (trace-keys exp)))
+                       ;; (define new-env (make-env env))
+                       (define
+                         subscore
+                         (block
+                          (define __trace_2__ (empty-trace))
+                          (trace-set __trace_2__ 0)
+                          __trace_2__))
+                       (define
+                         values
+                         (map          ;; How do we know map is left to right?
+                          (gen [i]
+                            (define [v s]
+                              (walk
+                               (lookup exp (list i))
+                               (add addr (list i))))
+                            (trace-set
+                             subscore
+                             (add (trace-get subscore) s))
+                            v)
+                          (range n)))
+                       (if (gt (length values) 0)
+                         (block
+                          (tuple (last values) (trace-get subscore)))
+                         (block
+                          (tuple (empty-trace) (trace-get subscore)))))
                       (if (eq (trace-get exp) "tuple")
                         (block
-                          (define n (length (trace-subkeys exp)))
-                          (define
-                            subscore
-                            (block
-                              (define __trace_3__ (empty-trace))
-                              (trace-set __trace_3__ 0)
-                              __trace_3__))
-                          (define
-                            values
-                            (map
-                              (probprog
-                                [i]
-                                (define
-                                  [v s]
-                                  (walk
-                                    (lookup exp (list i))
-                                    (add addr (list i))))
-                                (trace-set
-                                  subscore
-                                  (add (trace-get subscore) s))
-                                v)
-                              (range n)))
-                          (tuple
-                            (list-to-array values)
-                            (trace-get subscore)))
+                         (define n (length (trace-keys exp)))
+                         (define
+                           subscore
+                           (block
+                            (define __trace_3__ (empty-trace))
+                            (trace-set __trace_3__ 0)
+                            __trace_3__))
+                         (define
+                           values
+                           (map
+                            (gen [i]
+                              (define [v s]
+                                (walk
+                                 (lookup exp (list i))
+                                 (add addr (list i))))
+                              (trace-set
+                               subscore
+                               (add (trace-get subscore) s))
+                              v)
+                            (range n)))
+                         (tuple
+                          (to-tuple values)
+                          (trace-get subscore)))
                         (if (eq (trace-get exp) "definition")
                           (block
-                            (define
-                              subaddr
-                              (name_for_definiens
-                                (lookup exp (list "pattern"))))
-                            (define
-                              [val score]
-                              (walk
-                                (lookup exp subaddr)
-                                (add addr subaddr)))
-                            (tuple
-                              (match-bind
-                                (lookup exp (list "pattern"))
-                                val
-                                env)
-                              score))
+                           (define
+                             subaddr
+                             (name_for_definiens
+                              (lookup exp (list "pattern"))))
+                           (define [val score]
+                             (walk
+                              (lookup exp subaddr)
+                              (add addr subaddr)))
+                           (tuple
+                            (match-bind
+                             (lookup exp (list "pattern"))
+                             val
+                             env)
+                            score))
                           (if (eq (trace-get exp) "this")
                             (block
-                              (tuple
-                                (capture-tag-address
-                                  intervention_trace
-                                  target_trace
-                                  output_trace)
-                                0))
+                             (tuple
+                              (capture-tag-address
+                               intervention_trace
+                               target_trace
+                               output_trace)
+                              0))
                             (if (eq (trace-get exp) "with_address")
                               (block
-                                (define
-                                  [tag_addr tag_score]
-                                  (walk
-                                    (lookup exp (list "tag"))
-                                    (add addr (list "tag"))))
-                                (define
-                                  [new_intervene new_target new_output]
-                                  (resolve-tag-address tag_addr))
-                                (define
-                                  [val score]
-                                  (ptc_eval
-                                    (lookup exp (list "expression"))
-                                    env
-                                    new_intervene
-                                    new_target
-                                    new_output))
-                                (tuple val (add tag_score score)))
+                               (define [tag_addr tag_score]
+                                 (walk
+                                  (lookup exp (list "tag"))
+                                  (add addr (list "tag"))))
+                               (define [new_intervene new_target new_output]
+                                 (resolve-tag-address tag_addr))
+                               (define [val score]
+                                 (ptc-eval
+                                  (lookup exp (list "expression"))
+                                  env
+                                  new_intervene
+                                  new_target
+                                  new_output))
+                               (tuple val (add tag_score score)))
                               (block
-                                (pprint exp)
-                                (error
-                                  "Not a code expression")))))))))))))
+                               (pprint exp)
+                               (error
+                                "Not a code expression")))))))))))))
         (if (if intervention_trace
               (trace-has? (lookup intervention_trace addr))
               false)
           (block
-            (tuple (trace-get (lookup intervention_trace addr)) score))
+           (tuple (trace-get (lookup intervention_trace addr)) score))
           (block (tuple v score)))))
     (walk exp (list))))
+
+(define lift
+  (gen [name infer-method]
+    (define tr (empty-trace))
+    (trace-set tr "name" name)
+    (trace-set tr "infer-method" infer-method)
+    (trace-as-procedure tr
+                        (gen [& inputs]
+                          (nth (infer-method inputs nil nil nil)
+                               0)))))

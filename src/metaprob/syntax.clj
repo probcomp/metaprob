@@ -23,9 +23,8 @@
 
           (form-def [name rhs]
             (let [rhs (if (and (seq? rhs)
-                               (or (= (first rhs) 'program)
-                                   (= (first rhs) 'probprog)))
-                        `(~'named-probprog ~name ~@(rest rhs))
+                               (= (first rhs) 'gen))
+                        `(~'named-generator ~name ~@(rest rhs))
                         rhs)]
               `(def ~name ~rhs)))
 
@@ -51,8 +50,8 @@
 
 (declare from-clojure from-clojure-pattern)
 
-(defn make-probprog [fun name params body top]
-  (let [exp `(~'probprog ~params ~@body)
+(defn make-generator [fun name params body top]
+  (let [exp `(~'gen ~params ~@body)
         exp-trace (from-clojure exp)
         env (impl/make-top-level-env top)
         key (if true
@@ -60,19 +59,18 @@
                 (str (hash exp) "-" name)                ;JAR invention
                 (hash exp))
               exp-trace)]               ;original metaprob
-    (fn-qua-trace fun
-                  (trace-from-map {"name" (new-trace key)
-                                   "native-generate-method" exp-trace
-                                   ;; Environment is always the top level
-                                   ;; env, and often this is incorrect.
-                                   "environment"
-                                   (new-trace env)
-                                   "foreign-generate-method"
-                                   (new-trace fun)}
-                                  "prob prog"))))
+    (trace-as-procedure (trace-from-map {"name" (new-trace key)
+                                         "source" exp-trace
+                                         ;; Environment is always the top level
+                                         ;; env, and often this is incorrect.
+                                         "environment" (new-trace env)}
+                                        "prob prog")
+                        ;; When called from clojure:
+                        fun)))          ;; ??!!??
 
-(defmacro named-probprog [name params & body]
-  `(make-probprog (fn
+(defmacro named-generator [name params & body]
+  {:style/indent 2}
+  `(make-generator (fn
                     ~@(if name `(~name) `())
                     ~params
                     (block ~@body))
@@ -84,15 +82,11 @@
                   ;; (should be lexical, not dynamic.)
                   *ns*))
 
-(defmacro probprog
-  "like fn, but for metaprob programs"
+(defmacro gen
+  "like fn, but for metaprob procedures"
+  {:style/indent 1}
   [params & body]
-  `(named-probprog nil ~params ~@body))
-
-(defmacro program
-  "like fn, but for metaprob programs (deprecated)"
-  [params & body]
-  `(named-probprog nil ~params ~@body))
+  `(named-generator nil ~params ~@body))
 
 ;; Oddly, the source s-expressions don't seem to answer true to list?
 
@@ -109,21 +103,20 @@
             (second form))
           (definition-rhs [form]
             (nth form 2))
-          (probprog-definition? [form]
+          (generator-definition? [form]
             (and (definition? form)
                  (symbol? (definition-pattern form))
                  (let [rhs (definition-rhs form)]
                    (and (seqable? rhs)
                         (symbol? (first rhs))
-                        (or (= (name (first rhs)) "probprog")
-                            (= (name (first rhs)) "program"))))))
+                        (= (name (first rhs)) "gen")))))
           (qons [x y]
             (if (list? y)
               (conj y x)
               (conj (concat (list) y) x)))
           (process-definition [form]
-            (assert probprog-definition? form)
-            (let [rhs (definition-rhs form)       ;a program-expression
+            (assert generator-definition? form)
+            (let [rhs (definition-rhs form)       ;a gen-expression
                   prog-pattern (definition-pattern rhs)
                   prog-body (rest (rest rhs))]
               ;; (name [args] body1 body2 ...) as in letfn
@@ -158,7 +151,7 @@
                       (print (format "** Warning: Definition of %s occurs at end of block\n"
                                      pattern)))
                     (list
-                     (if (probprog-definition? here)
+                     (if (generator-definition? here)
                        (let [spec (process-definition here)
                              next (first more)]
                          (if (and (list? next)
@@ -227,13 +220,13 @@
 (defn from-clojure-seq [seq val]
   (trace-from-subtrace-seq (map from-clojure seq) val))
 
-;; Trace       => clojure                    => trace
-;; (x)->{a;b;} => (probprog [x] (block a b)) => (x)->{a;b;}
-;; (x)->{a;}   => (probprog [x] (block a))   => (x)->{a;}
-;; (x)->a      => (probprog [x] a)           => (x)->a
+;; Trace       => clojure               => trace
+;; (x)->{a;b;} => (gen [x] (block a b)) => (x)->{a;b;}
+;; (x)->{a;}   => (gen [x] (block a))   => (x)->{a;}
+;; (x)->a      => (gen [x] a)           => (x)->a
 ;;
 ;; safe abbreviation:
-;; (x)->{a;b;} => (probprog [x] a b) => (x)->{a;b;}
+;; (x)->{a;b;} => (gen [x] a b) => (x)->{a;b;}
 
 (defn from-clojure-program [exp]
   (let [[_ pattern & body] exp]
@@ -242,12 +235,12 @@
                      (cons 'block body))]
       (trace-from-map {"pattern" (from-clojure-pattern pattern)
                        "body" (from-clojure body-exp)}
-                      "probprog"))))
+                      "gen"))))
 
 (defn from-clojure-pattern [pattern]
   (if (symbol? pattern)
     (trace-from-map {"name" (new-trace (str pattern))} "variable")
-    (do (assert (seqable? pattern) pattern)
+    (do (assert (vector? pattern) pattern)
         (trace-from-subtrace-seq (map from-clojure-pattern pattern) "tuple"))))
 
 (defn from-clojure-if [exp]
@@ -292,7 +285,7 @@
 ;; Don't create variables with these names...
 ;;   (tbd: look for :meta on a Var in this namespace ??)
 ;; tbd: add "tuple" - requires coordination
-(def prohibited-names #{"block" "program" "probprog" "define" "if"})
+(def prohibited-names #{"block" "gen" "define" "if"})
 
 (defn from-clojure-1 [exp]
   (cond (vector? exp) (from-clojure-tuple exp)    ;; Pattern - shouldn't happen
@@ -311,8 +304,9 @@
         ;; I don't know why this is sometimes a non-list seq.
         ;; TBD: check that (first exp) is a non-namespaced symbol.
         (seqable? exp) (case (first exp)
-                         probprog (from-clojure-program exp)
-                         program  (from-clojure-program exp)
+                         gen (from-clojure-program exp)
+                         probprog  (from-clojure-program exp)    ;DEPRECATED
+                         program  (from-clojure-program exp)     ;DEPRECATED
                          if (from-clojure-if exp)
                          block (from-clojure-block exp)
                          mp-splice (trace-from-map {"expression" (from-clojure exp)} "splice")

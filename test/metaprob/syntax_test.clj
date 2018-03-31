@@ -4,18 +4,18 @@
             [metaprob.syntax :refer :all]
             [metaprob.builtin-impl :as impl]))
 
-(deftest probprog-1
-  (testing "Smoke test for probprog macro"
-    (is (= ((probprog [x] x) 1) 1))))
+(deftest gen-1
+  (testing "Smoke test for gen macro"
+    (is (= ((gen [x] x) 1) 1))))
 
-(deftest probprog-2
-  (testing "ara probprogs traces?"
-    (is (trace? (probprog [x] x)))))
+(deftest gen-2
+  (testing "ara procedures traces?"
+    (is (trace? (gen [x] x)))))
 
-(deftest probprog-3
-  (testing "are probprogs named?"
+(deftest gen-3
+  (testing "are procedures named?"
     ;; Name would be something like "-1239293465-foo"
-    (is (.contains (impl/probprog-name (named-probprog foo [x] x)) "foo"))))
+    (is (.contains (impl/procedure-name (named-generator foo [x] x)) "foo"))))
 
 (deftest block-1
   (testing "Smoke test 1 for block macro"
@@ -35,11 +35,11 @@
 
 (deftest block-letfn-1
   (testing "Smoke test for block macro"
-    (is (= (block (define foo (probprog [x] x)) (foo 7)) 7))))
+    (is (= (block (define foo (gen [x] x)) (foo 7)) 7))))
 
 (deftest block-mixed-1
   (testing "Smoke test for block macro"
-    (is (= (block (define foo (probprog [x] x)) (define bar 7) (foo bar)) 7))))
+    (is (= (block (define foo (gen [x] x)) (define bar 7) (foo bar)) 7))))
 
 (deftest block-1
   (testing "Define inside block is local"
@@ -50,7 +50,7 @@
 
 (deftest block-2
   (testing "Function definition becomes letfn"
-    (is (= (block (define foo (probprog [x] (if (= x 4) 5 (foo 4))))
+    (is (= (block (define foo (gen [x] (if (= x 4) 5 (foo 4))))
                   (foo 3))
            5))))
 
@@ -62,7 +62,7 @@
 
 (deftest block-3a
   (testing "Pattern in let"
-    (is (= ((probprog []
+    (is (= ((gen []
                      (define [v _] [6 7])
                      v))
            6))))
@@ -81,9 +81,9 @@
         (is (= (eval 'foo) 17))))))
 
 (deftest define-2
-  (testing "definition where value is a probprog"
-    (let [form '(define foo (probprog [x] x))]
+  (testing "definition where value is a procedure"
+    (let [form '(define foo (gen [x] x))]
       (binding [*ns* (find-ns 'metaprob.syntax)]
         (eval form)
-        (let [probprog (eval 'foo)]
-          (is (= (probprog 17) 17) probprog))))))
+        (let [proc (eval 'foo)]
+          (is (= (proc 17) 17) proc))))))

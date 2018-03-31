@@ -2,7 +2,7 @@
 
 ;; Concrete types that are made to follow the trace interface:
 ;;   basic-trace (trie, locative)
-;;   nil
+;;   '()
 ;;   seq
 ;;   vector
 ;;   map (with or without :value property)
@@ -18,35 +18,63 @@
 (def ^:private rest-marker "rest")
 
 ;; ----------------------------------------------------------------------------
-;; We can turn any clojure IFn into a trace by adding `meta` information with a :trace property.
+;; Procedures are of four kinds:
+;;    compiled / interpreted
+;;    generate / infer
+;; The compiled+generate variety has two representations:
+;;   1. as a clojure 'function' (these are *not* traces), or
+;;   2. as a clojure function associated with a trace (these *are* treated 
+;;      as traces).
+;; The other three kinds have only representation #2.
 
-(declare trace? empty-trace?)
+(defn trace-as-procedure? [x]
+  (not (= (get (meta x) :trace :not-found) :not-found)))
 
-(defn fn-qua-trace [ifn tr]
-  (assert (trace? tr))
-  (with-meta ifn {:trace tr}))
+(defn foreign-procedure? [x]
+  (and (instance? clojure.lang.IFn x)
+       (not (seq? x))
+       (not (vector? x))
+       (not (symbol? x))
+       (not (keyword? x))
+       (not (trace-as-procedure? x))))
 
-(defn fn-qua-trace? [x]
-  (let [m (meta x)]
-    (and (map? m) (contains? m :trace))))
+;; We can add properties to a procedure by adding a `meta` table
+;; with a :trace property whose value is a trace (which can then 
+;; receive those properties).
 
-(defn fn-qua-trace-trace [x]
+(declare trace? empty-trace? trace-has? trace-get)
+
+(defn trace-as-procedure [tr ifn]
+  (do (assert (instance? clojure.lang.IFn ifn) ifn)
+      (assert (trace? tr) tr)
+      (with-meta ifn {:trace tr})))
+
+;; For most things, this function returns nil, which is fine.
+
+(defn trace-as-procedure-trace [x]
   (get (meta x) :trace))
+
+;; Strip off ifn, returning trace
+;; Private to this file, but used in tests
+
+(defn strip [x]
+  (let [tr (get (meta x) :trace :not-found)]
+    (if (= tr :not-found)
+      x
+      tr)))
 
 ;; ----------------------------------------------------------------------------
 ;; Trace types
 
 (defn mutable-trace? [x]
-  (or (mut/basic-trace? x)
-      (and (fn-qua-trace? x)
-           (mutable-trace? (fn-qua-trace-trace x)))))
+  (mut/basic-trace? (strip x)))
 
 (defn immutable-trace? [x]
-  (or (seq? x)     ;; clojure lists are seqs
-      (vector? x)
-      (map? x)
-      (and (fn-qua-trace? x)
-           (immutable-trace? (fn-qua-trace-trace x)))))
+  (let [x (strip x)]
+    (or (and (seq? x)     ;; clojure lists are seqs
+             (not (string? x)))
+        (vector? x)
+        (map? x))))
 
 (defn trace? [x]
   (or (mutable-trace? x)
@@ -63,73 +91,54 @@
 
 ;; Storable as a value
 
-(def ^:local the-ns-type (type *ns*))
-(defn environment? [x] (= (type x) the-ns-type))  ;this is awful
-
-(defn foreign? [x]
-  (and (instance? clojure.lang.IFn x)
-       (not (symbol? val))))
+(def ^:local the-ns-type clojure.lang.Namespace)  ;was (type *ns*)
+(defn ^:local top-level-environment? [x] (= (type x) the-ns-type))  ;this is awful
 
 (defn metaprob-value? [val]
   (or (ok-key? val)
       (mutable-trace? val)                      ;possibly a locative
-      (foreign? val)
-      (environment? val)))
+      (top-level-environment? val)
+      (foreign-procedure? val)))
 
 ;; ----------------------------------------------------------------------------
-
-(defn ^:private strip-ifn [x]
-  (if (fn-qua-trace? x)
-    (strip-ifn (fn-qua-trace-trace x))
-    x))
-
-;; Convert a mutable trace to a basic trace for access, or return false
-;; if the trace isn't mutable.
-
-(defn ^:private basic-trace [x]
-  (let [x (strip-ifn x)]
-    (if (mut/basic-trace? x)
-      x
-      false)))
 
 (declare metaprob-sequence-to-seq purify)
 (declare metaprob-first metaprob-rest metaprob-pair?)
 
 ;; Convert an address-like thing to an address.
+;; An address is either a (pure) seq, or ().
 
 (defn addrify [addr]
   (if (trace? addr)
     (map purify (metaprob-sequence-to-seq addr))
-    (list addr)))
+    (list (purify addr))))
 
 ;; OK.  Now the generic trace accessors.
 
 (defn ^:private trace-has-value? [tr]
-  (let [b (basic-trace tr)]
-    (cond b (mut/has-value? b)
+  (let [tr (strip tr)]
+    (cond (mut/basic-trace? tr) (mut/has-value? tr)
           (seq? tr) (not (empty? tr))
           (vector? tr) false
-          (map? tr) (if (get tr :value) true false)
-          (= tr nil) false
+          (map? tr) (not (= (get tr :value :not-found) :not-found))
           true (assert false ["expected a trace" tr]))))
 
 ;; Special case of trace-get.
 
 (defn ^:private trace-value [tr]
-  (let [b (basic-trace tr)]
-    (cond b (mut/value b)
-          (seq? tr) (metaprob-first tr)     ; *e  
+  (let [tr (strip tr)]
+    (cond (mut/basic-trace? tr) (mut/value tr)
+          (seq? tr) (first tr)     ; *e  
           (vector? tr) (assert false ["vectors do not have trace values" tr])
           (map? tr) (get tr :value)
-          (trace? tr) (assert false ["trace has no value" tr])    ;locative?
           true (assert false ["expected a trace" tr]))))
 
 ;; This is a special case of lookup for one step of a hereditarily immutable trace.
 ;; Assumes key has already been purified.
 
-(defn ^:private trace-subtrace [tr key]
-  (let [b (basic-trace tr)]
-    (cond b (mut/subtrace tr key)
+(defn trace-subtrace [tr key]
+  (let [tr (strip tr)]
+    (cond (mut/basic-trace? tr) (mut/subtrace tr key)
           (seq? tr) (if (= key rest-marker)
                       (rest tr)
                       (assert false ["only subtrace of a seq is rest" tr key]))
@@ -137,34 +146,47 @@
           (map? tr) (get tr key)
           true (assert false ["expected a trace" tr key]))))
 
-;; Assume for now that addr is a seq or nil
+(defn trace-has-subtrace? [tr key]
+  (let [tr (strip tr)]
+    (cond (mut/basic-trace? tr) (mut/has-subtrace? tr key)
+          ;; empty seqs don't answer true to seq?
+          (seq? tr) (and (= key rest-marker)
+                         (not (empty? tr)))
+          (vector? tr) (and (integer? key)
+                            (>= key 0)
+                            (< key (count tr)))
+          (map? tr) (not (= (get tr key :not-present) :not-present))
+          true (assert false ["expected a trace" tr key]))))
+
+;; Assume for now that addr is a seq or ()
 
 (defn lookup [tr addr]                  ; e[e]
-  (let [addr (addrify addr)]             ;converts to seq
-    (let [b (strip-ifn tr)]
-      (if (mut/basic-trace? b)    ;could be a locative
-        (mut/subtrace-location-at b addr)
-        (letfn [(re [tr addr]
-                  (if (empty? addr)
-                    tr
-                    (re (trace-subtrace tr (first addr))
-                        (rest addr))))]
-          (re b addr))))))
+  (let [addr (addrify addr)             ;converts to seq
+        tr (strip tr)]
+    (if (mut/basic-trace? tr)    ;could be a locative
+      (mut/subtrace-location-at tr addr)
+      (if (empty? addr)
+        tr
+        (lookup (trace-subtrace tr (first addr))
+                (rest addr))))))
 
-;; Returns a seq
+;; Returns a seq (n.b. clojure `keys` can return nil which is not a seq)
 
 (defn trace-keys [tr]
-  (let [b (basic-trace tr)]
-    (if b
-      (mut/trace-keys tr)
-      (cond (empty? tr) '()
-            (seq? tr) (list rest-marker)
-            (vector? tr) (range (count tr))
-            (map? tr) (remove #{:value} (keys tr))
-            true (assert false)))))
+  (let [tr (strip tr)]
+    (cond (mut/basic-trace? tr) (mut/trace-keys tr)
+          (seq? tr) (if (empty? tr)
+                      '()
+                      (list rest-marker))
+          (vector? tr) (range (count tr))
+          (map? tr) (let [ks (remove #{:value} (keys tr))]
+                      (if (= ks nil)
+                        '()
+                        ks))
+          true (assert false "non-trace"))))
 
-;; Neither VKM nor JAR can remember to write (trace-get x (lookup ...))
-;; rather than just (trace-get x ...)
+;; Neither VKM nor JAR can remember to write (trace-get (lookup x key))
+;; rather than just (trace-get x key).  So allow both
 
 (defn trace-get
   ([tr] (trace-value tr))
@@ -174,17 +196,20 @@
 (defn trace-has?
   ([tr] (trace-has-value? tr))
   ([tr addr]
-   (if (= tr nil)
-     false                              ;KLUDGE, fix
-     (trace-has-value? (lookup tr addr)))))
+   (let [addr (addrify addr)]
+     (if (empty? addr)
+       (trace-has-value? tr)
+       (and (trace-has-subtrace? tr (first addr))
+            (trace-has? (trace-subtrace tr (first addr))
+                        (rest addr)))))))
 
 ;; ----------------------------------------------------------------------------
 ;; Side effects.
 
 (defn ^:private trace-set-value! [tr val]
-  (let [b (basic-trace tr)]
-    (if b
-      (mut/set-value! b val)
+  (let [tr (strip tr)]
+    (if (mut/basic-trace? tr)
+      (mut/set-value! tr val)
       (assert false ["expected a mutable trace" tr val]))))
 
 (defn trace-set
@@ -192,8 +217,8 @@
   ([tr addr val] (trace-set-value! (lookup tr addr) val)))
 
 (defn trace-clear [tr]
-  (let [b (basic-trace tr)]
-    (if b
+  (let [tr (strip tr)]
+    (if (mut/basic-trace? tr)
       (mut/clear-value! tr)
       (assert false ["expected a mutable trace" tr]))))
 
@@ -202,8 +227,8 @@
   ([tr addr] (trace-clear (lookup tr addr))))
 
 (defn trace-set-subtrace-at [tr addr sub]
-  (let [b (basic-trace tr)]
-    (if b
+  (let [tr (strip tr)]
+    (if (mut/basic-trace? tr)
       (mut/set-subtrace-at! tr (addrify addr) sub)
       (assert false ["expected a mutable trace" tr addr sub]))))
 
@@ -242,127 +267,125 @@
 ;;   - as tuples
 
 (defn metaprob-pair? [x]
-  (let [b (basic-trace x)]
-    (if b
-      (and (mut/has-value? b)
-           (mut/has-subtrace? b rest-marker)
-           (= (mut/trace-count b) 1))
+  (let [x (strip x)]
+    (if (mut/basic-trace? x)
+      (and (mut/has-value? x)
+           (mut/has-subtrace? x rest-marker)
+           (= (mut/trace-count x) 1))
       (and (seq? x) (not (empty? x))))))
 
 (defn diagnose-nonpair [x]
-  (let [b (basic-trace x)]
-    (if b
-      (if (mut/has-value? b)
-        (if (mut/has-subtrace? b rest-marker)
-          "ok"
-          ["no rest marker" (mut/trace-keys x)])
-        ["no value" (mut/trace-keys x)])
-      (cond (seq? x) "ok"
-            (empty? x) ["it's empty" x]
-            (vector? x) ["it's a vector, not a pair" x]
-            false ["not a trace" x]))))
+  (if (trace-has-value? x)
+    (if (trace-has-subtrace? x rest-marker)
+      (if (= (count (trace-keys x)) 1)
+        "ok"
+        ["not a pair because extra keys" (mut/trace-keys x)])
+      ["not a pair because no rest marker" (mut/trace-keys x)])
+    ["not a pair because no value" x]))
 
 (defn metaprob-first [mp-list]
-  (let [b (basic-trace mp-list)]
-    (if b
-      (mut/value b)
-      (if (seq? mp-list)
-        (first mp-list)
-        (assert false (diagnose-nonpair mp-list))))))
+  (if (metaprob-pair? mp-list)
+    (trace-get mp-list)
+    (assert false (diagnose-nonpair mp-list))))
 
 (defn metaprob-rest [mp-list]
-  (let [b (basic-trace mp-list)]
-    (if b
-      (mut/subtrace b rest-marker)
-      (if (seq? mp-list)              ;e.g. an address
-        (rest mp-list)
-        (assert false (diagnose-nonpair mp-list))))))
+  (if (metaprob-pair? mp-list)
+    (trace-subtrace mp-list rest-marker)
+    (assert false (diagnose-nonpair mp-list))))
 
 (defn pair [thing mp-list]
-  (let [b (basic-trace mp-list)]
-    (if b    ;; TBD: more stringent checks?
-      (trace-from-map {rest-marker mp-list} thing)
-      (cons thing mp-list))))
+  (let [mp-list (strip mp-list)]
+    (if (or (metaprob-pair? mp-list)
+            (empty-trace? mp-list))
+      (if (mut/basic-trace? mp-list)
+        ;; Mutability contagion
+        (trace-from-map {rest-marker mp-list} thing)
+        ;; Make a clojure seq
+        (cons thing mp-list))
+      ;; This isn't quite right
+      (assert false (diagnose-nonpair mp-list)))))
 
 ;; empty-trace? - is this trace a metaprob representation of an empty tuple/list?
 
 (defn empty-trace? [x]
-  (let [b (basic-trace x)]
-    (if b 
-      (and (= (mut/trace-count b) 0)
-           (not (mut/has-value? b)))
-      (empty? x))))
+  (let [x (strip x)]
+    (if (mut/basic-trace? x)
+      (and (= (mut/trace-count x) 0)
+           (not (mut/has-value? x)))
+      ;; Could be [], {}, or ()
+      (and (or (seq? x) (vector? x) (map? x))
+           (empty? x)))))
 
 ;; Tuple
 ;; Maybe rename this to just `tuple` instead of `metaprob-tuple` ?
 
 (defn metaprob-tuple? [x]
-  (let [b (basic-trace x)]    ; nil if not a trace with either value or subtrace
-    (if b
-      (let [n (mut/trace-count b)]
+  (let [x (strip x)]
+    (if (mut/basic-trace? x)
+      (let [n (mut/trace-count x)]
         (or (= n 0)
-            (and (mut/has-subtrace? b 0)
-                 (mut/has-subtrace? b (- n 1)))))
+            (and (mut/has-subtrace? x 0)
+                 (mut/has-subtrace? x (- n 1)))))
       (vector? x))))
 
-;; metaprob-sequence-to-seq - convert metaprob sequence to clojure seq.
+;; metaprob-sequence-to-seq - convert metaprob sequence (list or tuple) to clojure seq (list).
 (declare subtrace-values-to-seq)
 
 (defn metaprob-tuple-to-seq [tup]
-  (let [x (basic-trace tup)]
-    (if x
-      (subtrace-values-to-seq x)
-      (do (assert (vector? tup))
-          tup))))
+  (if (mut/basic-trace? tup)
+    (subtrace-values-to-seq tup)
+    (seq tup)))
 
 (defn metaprob-list-to-seq [things]
-  (let [b (basic-trace things)]
-    (if b
+  (let [things (strip things)]
+    (if (mut/basic-trace? things)
       (letfn [(re [things]
                 (if (metaprob-pair? things)
                   (cons (metaprob-first things)
                         (re (metaprob-rest things)))
                   (do (assert (empty-trace? things))
                       '())))]
-        (re b))
-      (do (assert (seq? things))
+        (re things))
+      (do (assert (seq? things))    ;seq = immutable mp list
           things))))
 
 (defn metaprob-sequence-to-seq [things]
-  (let [b (basic-trace things)]
-    (if b
-      (cond (empty-trace? b) '()
-            (metaprob-pair? b)
-              (metaprob-list-to-seq b)
-            (metaprob-tuple? b)
-              (metaprob-tuple-to-seq b))
+  (let [things (strip things)]
+    (if (mut/basic-trace? things)
+      (cond (empty-trace? things) '()
+            (metaprob-pair? things)
+              (metaprob-list-to-seq things)
+            (metaprob-tuple? things)
+              (metaprob-tuple-to-seq things)
+            true
+              (assert false
+                      ["expected a metaprob-sequence" things]))
       (cond (vector? things)
               things
             (seq? things)
               things
             true
               (assert false
-                      ["Metaprob-sequence is neither trace, seq, not vector" things])))))
+                      ["expected a metaprob-sequence" things])))))
 
 ;; length - overrides original prelude (performance + generalization)
 
 (defn length [tr]
-  (let [b (basic-trace tr)]
-    (if b
-      (if (empty-trace? b)
-        0
-        (if (metaprob-pair? b)
-          (letfn [(scan [b]
-                    (if (metaprob-pair? b)
-                      (+ 1 (scan (metaprob-rest b)))
-                      0))]
-            (scan b))
-          (do (assert (metaprob-tuple? b))
-              (mut/trace-count b))))
-      (cond (= tr nil) 0
-            (seq? tr) (count tr)
-            (vector? tr) (count tr)
-            true (assert false ["doesn't have a length" tr])))))
+  (let [tr (strip tr)]
+    (cond (mut/basic-trace? tr)
+          (if (empty-trace? tr)
+            0
+            (if (metaprob-pair? tr)
+              (letfn [(scan [b]
+                        (if (metaprob-pair? b)
+                          (+ 1 (scan (metaprob-rest b)))
+                          0))]
+                (scan tr))
+              (do (assert (metaprob-tuple? tr))
+                  (mut/trace-count tr))))
+          (seq? tr) (count tr)
+          (vector? tr) (count tr)
+          true (assert false ["doesn't have a length" tr]))))
 
 ;; Returns a clojure seq of the numbered subtries of the trie tr.
 ;; Used in: to-clojure and related
@@ -379,24 +402,38 @@
   (for [i (range (mut/trace-count tr))]
     (mut/value (mut/subtrace tr i))))
 
+(defn metaprob-sequence-to-seq [mp-seq]
+  (let [mp-seq (strip mp-seq)]
+    (cond (mut/basic-trace? mp-seq)
+          (cond (metaprob-pair? mp-seq)
+                (cons (metaprob-first mp-seq) (metaprob-sequence-to-seq (metaprob-rest mp-seq)))
+                (metaprob-tuple? mp-seq)
+                (subtrace-values-to-seq mp-seq)
+                true
+                (assert false ["not a metaprob-sequence" mp-seq]))
+          (or (seq? mp-seq) (vector? mp-seq) (empty? mp-seq))
+          mp-seq
+          false
+          (assert false ["not a metaprob-sequence" mp-seq]))))
+
 ;; Convert a trace to be used as a key to a pure clojure value (seq,
 ;; vector, map) so that hash and = will work on it.
 ;; TBD: Check for IFn+meta case
 
 (defn purify [x]
-  (let [b (basic-trace x)]
-    (if b
-      (cond (empty-trace? b)
+  (let [x (strip x)]
+    (if (mut/basic-trace? x)
+      (cond (empty-trace? x)
               '()
-            (metaprob-pair? b)
-              (map purify (metaprob-list-to-seq b)) ;cf. metaprob-value?
-            (metaprob-tuple? b)
-              (vec (map purify (metaprob-tuple-to-seq b)))
+            (metaprob-pair? x)
+              (map purify (metaprob-list-to-seq x)) ;cf. metaprob-value?
+            (metaprob-tuple? x)
+              (vec (map purify (metaprob-tuple-to-seq x)))
             true
-            (let [keys (mut/trace-keys b)
-                  maap (into {} (for [key keys] [key (purify (mut/subtrace b key))]))]
-              (if (mut/has-value? b)
-                (assoc maap :value (purify (mut/value b)))
+            (let [keys (mut/trace-keys x)
+                  maap (into {} (for [key keys] [key (purify (mut/subtrace x key))]))]
+              (if (mut/has-value? x)
+                (assoc maap :value (purify (mut/value x)))
                 maap)))
       x)))
 
@@ -404,7 +441,7 @@
 ;;    (assert (metaprob-value? val) ["storing non-metaprob value" val])
 
 ;;   (assert (metaprob-value? val)
-;;           ["initial value is non-metaprob" val (environment? val) (type val)])
+;;           ["initial value is non-metaprob" val (top-level-environment? val) (type val)])
 
 ;;   (assert (metaprob-value? val) ["starting value is a non-metaprob value" val])
 

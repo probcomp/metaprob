@@ -22,24 +22,19 @@
   _i_for_each2
   i_for_each2
   filter
-  concat
-  trace_of
-  lookup_chain
-  lookup_chain_with_exactly
-  sp
-  proposer_of)
+  concat)
 
 (define
   drop
-  (probprog
+  (gen
     [lst index]
     (block (if (gt index 0) (drop (rest lst) (sub index 1)) lst))))
 
-(define reverse (probprog [lst] (_reverse lst (empty-trace))))
+(define reverse (gen [lst] (_reverse lst (empty-trace))))
 
 (define
   _reverse
-  (probprog
+  (gen
     [lst res]
     (if (is-pair lst)
       (_reverse (rest lst) (pair (first lst) res))
@@ -47,22 +42,18 @@
 
 (define
   iterate
-  (probprog
+  (gen
     [n f a]
     (if (lte n 0) a (block (iterate (sub n 1) f (f a))))))
 
-(define
-  replicate
-  (probprog
-    [n f]
+(define replicate
+  (gen [n f]
     (define root this)
-    (map (probprog [i] (with-address (list root i) (f))) (range n))))
-
-(trace-set (lookup replicate (list "name")) "replicate")
+    (map (gen [i] (with-address (list root i) (f))) (range n))))
 
 (define
   repeat
-  (probprog
+  (gen
     [times pp]
     (if (gt times 0)
       (block
@@ -70,23 +61,19 @@
         (repeat (sub times 1) pp))
       "ok")))
 
-(define
-  map
-  (probprog
-    [f l]
+(define map
+  (gen [f l]
     (define root this)
     (define
       ans
-      (if (is-array l)
-        (list-to-array (_map f (array-to-list l) 0 root))
+      (if (tuple? l)
+        (to-tuple (_map f (to-list l) 0 root))
         (block (_map f l 0 root))))
     ;; (dereify_tag root)
     ans))
 
-(define
-  _map
-  (probprog
-    [f l i root]
+(define _map
+  (gen [f l i root]
     (block
       (if (is-pair l)
         (block
@@ -96,7 +83,7 @@
 
 (define
   _imap
-  (probprog
+  (gen
     [f i l]
     (if (is-pair l)
       (pair (f i (first l)) (_imap f (add i 1) (rest l)))
@@ -104,41 +91,41 @@
 
 (define
   imap
-  (probprog
+  (gen
     [f l]
-    (if (is-array l)
-      (list-to-array (_imap f 0 (array-to-list l)))
+    (if (tuple? l)
+      (to-tuple (_imap f 0 (to-list l)))
       (block (_imap f 0 l)))))
 
 (define
   zipmap
-  (probprog
+  (gen
     [f l1 l2]
     (if (and (is-pair l1) (is-pair l2))
       (pair (f (first l1) (first l2)) (zipmap f (rest l1) (rest l2)))
       (empty-trace))))
 
 (define
-  for_each
-  (probprog
+  for-each
+  (gen
     [l f]
     (if (is-pair l)
-      (block (f (first l)) (for_each (rest l) f))
+      (block (f (first l)) (for-each (rest l) f))
       "done")))
 
 (define
-  for_each2
-  (probprog
+  for-each2
+  (gen
     [f l1 l2]
     (if (and (is-pair l1) (is-pair l2))
       (block
         (f (first l1) (first l2))
-        (for_each2 f (rest l1) (rest l2)))
+        (for-each2 f (rest l1) (rest l2)))
       "done")))
 
 (define
   _i_for_each2
-  (probprog
+  (gen
     [f i l1 l2]
     (if (and (is-pair l1) (is-pair l2))
       (block
@@ -146,11 +133,11 @@
         (_i_for_each2 f (add i 1) (rest l1) (rest l2)))
       "done")))
 
-(define i_for_each2 (probprog [f l1 l2] (_i_for_each2 f 0 l1 l2)))
+(define i_for_each2 (gen [f l1 l2] (_i_for_each2 f 0 l1 l2)))
 
 (define
   filter
-  (probprog
+  (gen
     [pred l]
     (if (is-pair l)
       (if (pred (first l))
@@ -160,88 +147,15 @@
 
 (define
   concat
-  (probprog
+  (gen
     [ll]
     (if (is-pair ll) (append (first ll) (concat (rest ll))) (empty-trace))))
-
-(define
-  lookup_chain
-  (probprog
-    [coll key]
-    (if (is-pair key)
-      (lookup_chain (lookup coll (first key)) (rest key))
-      coll)))
-
-(define
-  lookup_chain_with_exactly
-  (probprog
-    [coll key]
-    (if (is-pair key)
-      (lookup_chain_with_exactly (lookup coll (first key)) (rest key))
-      (block (exactly coll)))))
-
-(define
-  sp
-  (probprog
-    [name proposer]
-    (define
-      interpreter
-      (probprog
-        [args intervene]
-        (define [v _] (proposer args intervene (empty-trace) (empty-trace)))
-        v))
-    (define
-      tracer
-      (probprog
-        [args intervene output]
-        (define [v _] (proposer args intervene (empty-trace) output))
-        v))
-    (define
-      non_tracing_proposer
-      (probprog
-        [args intervene target]
-        (proposer args intervene target (empty-trace))))
-    (block
-      (define __trace_0__ (empty-trace))
-      (trace-set __trace_0__ "prob prog")
-      (trace-set (lookup __trace_0__ (list "name")) name)
-      (trace-set
-        (lookup __trace_0__ (list "custom_interpreter"))
-        interpreter)
-      (trace-set
-        (lookup __trace_0__ (list "custom_choice_tracer"))
-        tracer)
-      (trace-set
-        (lookup __trace_0__ (list "custom_proposer"))
-        non_tracing_proposer)
-      (trace-set
-        (lookup __trace_0__ (list "custom_choice_tracing_proposer"))
-        proposer)
-      __trace_0__)))
-
-(define tracing_proposer_to_prob_prog sp)
-
-(define
-  proposer_of
-  (probprog
-    [the_sp]
-    (trace-get
-      (lookup the_sp (list "custom_choice_tracing_proposer")))))
-
-(define
-  factor
-  (sp
-    "factor"
-    (probprog
-      [args t1 t2 t3]
-      (define score (trace-get (lookup args (list 0))))
-      (tuple (empty-trace) score))))
 
 ;; Manual edit: moved from interpret.clj
 
 (define
   name_for_definiens
-  (probprog
+  (gen
     [pattern]
     (block
       (if (eq (trace-get pattern) "variable")

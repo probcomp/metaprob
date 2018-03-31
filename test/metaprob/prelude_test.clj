@@ -12,9 +12,6 @@
 
 (deftest smoke-1
   (testing "Prelude smoke test"
-    (is (builtin/trace-get
-         (builtin/lookup (prelude/sp "foo" (program [] "foo"))
-                         (builtin/list "custom_interpreter"))))
     ;; These tests have to run after the call to sp
     (is (= (ns-resolve 'metaprob.prelude 'v) nil)
         "namespacing sanity check 1")
@@ -23,7 +20,7 @@
 
 (deftest map-1
   (testing "map smoke test"
-    (is (builtin/nth (prelude/map (program [x] (builtin/add x 1))
+    (is (builtin/nth (prelude/map (gen [x] (builtin/add x 1))
                                   (builtin/list 4 5 6))
                      1)
         6)
@@ -55,13 +52,13 @@
            8))))
 
 (deftest map-3
-  (testing "Map over a metaprob array/tuple"
+  (testing "Map over a metaprob tuple"
     (is (= (builtin/trace-get (prelude/map (fn [x] (+ x 1))
                                            (tuple 6 7 8))
                               '(1))
            8))))
 
 (deftest name-1
-  (testing "see if a probprog has the right name"
-    (is (.contains (builtin/probprog-name prelude/drop) "drop"))))
+  (testing "see if a procedure has the right name"
+    (is (.contains (builtin/procedure-name prelude/drop) "drop"))))
 

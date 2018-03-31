@@ -13,7 +13,7 @@
 ;; and unit variance
 
 (define generate-gaussian
-  (probprog [mu sigma]
+  (gen [mu sigma]
     (define u1 (uniform 0 1))
     (define u2 (uniform 0 1))
     (define answer
@@ -23,12 +23,12 @@
     answer))
 
 (define standard-gaussian-log-density
-  (probprog [x]
+  (gen [x]
     (sub (mul (sub 0 0.5) (log (mul 2 3.14159265)))
          (mul (mul 0.5 x) x))))
 
 (define score-gaussian
-  (probprog [x params]
+  (gen [x params]
     (define [mu sigma] params)
     (sub (standard-gaussian-log-density
            (div (sub x mu) sigma))
@@ -43,7 +43,7 @@
 ;; primitive probability distribution
 
 (define two-variable-gaussian-model
-  (probprog []
+  (gen []
     (define x (gaussian 0 1))
     (define y (gaussian x 1))
     x))

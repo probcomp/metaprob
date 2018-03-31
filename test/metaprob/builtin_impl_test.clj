@@ -5,13 +5,13 @@
 
 (deftest last-1
   (testing "Last element of a metaprob list"
-    (is (= (metaprob-last (seq-to-metaprob-list '(1 2 3)))
+    (is (= (metaprob-last (seq-to-mutable-list '(1 2 3)))
            3))))
 
 (deftest append-1
   (testing "Concatenate two metaprob lists"
-    (let [l1 (seq-to-metaprob-list '(1 2 3))
-          l2 (seq-to-metaprob-list '(7 8 9))]
+    (let [l1 (seq-to-mutable-list '(1 2 3))
+          l2 (seq-to-mutable-list '(7 8 9))]
       (is (= (metaprob-last (append l1 l2))
              9)))))
 
@@ -28,22 +28,28 @@
 (deftest tuple2list
   (testing "Convert metaprob tuple to metaprob list"
     (let [v [5 7 11 13]
-          t v]  ;was: (seq-to-metaprob-tuple v)
+          t v]  ;was: (seq-to-mutable-tuple v)
       (is (trace/metaprob-tuple? t))
-      (let [l (tuple-to-list t)]
+      (let [l (to-list t)]
         (is (trace/metaprob-pair? l))
         (let [v2 (vec (trace/metaprob-list-to-seq l))]
           (is (= v2 v)))))))
 
 (deftest list2tuple
   (testing "Convert metaprob list to metaprob tuple"
-    (let [v '(5 7 11 13)
-          t (seq-to-metaprob-list v)]
+    (let [l '(5 7 11 13)
+          t (seq-to-mutable-list l)]
       (is (trace/metaprob-pair? t))
-      (let [l (list-to-tuple t)]
-        (is (trace/metaprob-tuple? l))
-        (let [v2 (vec (trace/metaprob-tuple-to-seq l))]
-          (is (= v2 v)))))))
+      (is (trace/mutable-trace? t))
+      (is (= (trace/length t) 4))
+      (let [tup (to-tuple t)]
+        (is (trace/metaprob-tuple? tup))
+        (is (= (trace/length tup) 4))
+        (let [s (trace/metaprob-tuple-to-seq tup)]
+          (is (seq? s))
+          (is (= (trace/length s) 4))
+          (let [v2 (vec s)]
+            (is (= v2 tup))))))))
 
 (deftest tag-capture
   (testing "capture- and retrieve-tag-address smoke test"
@@ -58,38 +64,35 @@
       (is (= (trace/trace-get (trace/lookup root a)) "value"))
       (is (= (trace/trace-get root a) "value")))))
 
-;; Probprog stuff
+;; Procedure stuff
 
-(deftest foreign-probprog
-  (testing "create and call a foreign-probprog"
-    (let [pp (make-foreign-probprog "pp" (fn [x] (+ x 1)))]
+(deftest foreign-procedure
+  (testing "create and call a foreign-procedure"
+    (let [pp (make-foreign-procedure "pp" (fn [x] (+ x 1)))]
       (is (= (generate-foreign pp [6]) 7)))))
 
 ;(deftest basic-query
-;  (testing "query a foreign-probprog"
-;    (let [pp (make-foreign-probprog "pp" (fn [x] (+ x 1)))]
+;  (testing "query a foreign-procedure"
+;    (let [pp (make-foreign-procedure "pp" (fn [x] (+ x 1)))]
 ;      (let [[answer score] (impl/mini-query pp [7] nil nil nil)]
 ;        (is (= score 0))
 ;        (is (= answer 8))))))
 ;
 ;(deftest lift-and-query
-;  (testing "can we lift a probprog and then query it"
-;    (let [qq (impl/make-foreign-probprog "qq" (fn [argseq i t o]
+;  (testing "can we lift a procedure and then query it"
+;    (let [qq (impl/make-foreign-procedure "qq" (fn [argseq i t o]
 ;                                             [(+ (metaprob-nth argseq 0) (metaprob-nth argseq 1))
 ;                                              50]))
-;          lifted (make-lifted-probprog "lifted" qq)]
+;          lifted (make-lifted-procedure "lifted" qq)]
 ;      (let [[answer score] (impl/mini-query lifted [7 8] nil nil nil)]
 ;        (is (= answer 15))
 ;        (is (= score 50))))))
 
-(deftest reification-1
-  (testing "Does a probprog appear to be a mutable-trace?"
-    (let [pp (make-foreign-probprog "pp" (fn [x] (+ x 1)))]
-      (is (= (trace/trace-get pp) "prob prog")))))
-
 (deftest length-2
   (testing "length smoke test"
-    (is (= (trace/length (seq-to-metaprob-list [1 2 3 4])) 4))))
+    (let [m (seq-to-mutable-list [1 2 3 4])]
+      (is (= (trace/length m) 4))
+      (is (= (trace/length (trace/metaprob-sequence-to-seq m)) 4)))))
 
 (deftest range-1
   (testing "range smoke test"
@@ -134,18 +137,18 @@
 
 (deftest list-contains-1
   (testing "smoke test metaprob-list-contains"
-    (is (metaprob-list-contains? (seq-to-metaprob-list '(3 5 7))
+    (is (metaprob-list-contains? (seq-to-mutable-list '(3 5 7))
                                    5))))
 
 (deftest list-contains-2
   (testing "smoke test metaprob-list-contains"
-    (is (not (metaprob-list-contains? (seq-to-metaprob-list '(3 5 7))
+    (is (not (metaprob-list-contains? (seq-to-mutable-list '(3 5 7))
                                         11)))))
 
 (deftest set-difference-1
   (testing "smoke test set-difference"
-    (let [a (seq-to-metaprob-list '(3 5 7))
-          b (seq-to-metaprob-list '(5 7 11 13))]
+    (let [a (seq-to-mutable-list '(3 5 7))
+          b (seq-to-mutable-list '(5 7 11 13))]
       (is (metaprob-list-contains? a 5) "5 in a")
       (let [a-b (set-difference a b)
             b-a (set-difference b a)]
@@ -155,8 +158,8 @@
         (is (not (metaprob-list-contains? b-a 7)) "7 not in b-a")))))
 
 ;(deftest hairy-key-1
-;  (testing "does it work to use a probprog name as a trace"
-;    (let [pp (program [x] x)
+;  (testing "does it work to use a procedure name as a trace"
+;    (let [pp (gen [x] x)
 ;          pt pp
 ;          key (trace/trace-get pt "name")
 ;          tr (trace/trace-from-map {key (trace/new-trace 17)})]

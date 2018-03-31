@@ -4,17 +4,17 @@
 (ns metaprob.builtin
   (:refer-clojure :exclude
                   [not and or
-                   assert pprint print
-                   list first rest last nth range])
+                   assert pprint print apply
+                   list list? first rest last nth range])
   (:require [metaprob.trace :as trace])
   (:require [metaprob.builtin-impl :as impl]))
 
-(defmacro define-foreign-probprog [mp-name generate-fn]
+(defmacro define-foreign-procedure [mp-name generate-fn]
   (let [namestring (if (symbol? mp-name) (str mp-name) mp-name)]
     `(do (declare ~mp-name)
          (def ~mp-name
-           (impl/make-foreign-probprog ~namestring
-                                       ~generate-fn)))))
+           (impl/make-foreign-procedure ~namestring
+                                        ~generate-fn)))))
 
 ;; ----------------------------------------------------------------------
 ;; Builtins (defined in python in original-metaprob)
@@ -24,94 +24,97 @@
 ;; the source code for the subforms.
 
 ;; General
-(define-foreign-probprog eq =)
-(define-foreign-probprog neq impl/neq)
-(define-foreign-probprog exactly impl/exactly)    ;?
-(define-foreign-probprog assert impl/metaprob-assert)
-(define-foreign-probprog error impl/error)
-(define-foreign-probprog generate-foreign impl/generate-foreign)
-(define-foreign-probprog probprog-name impl/probprog-name)
-(define-foreign-probprog capture-tag-address impl/capture-tag-address)
-(define-foreign-probprog resolve-tag-address impl/resolve-tag-address)
+(define-foreign-procedure eq =)
+(define-foreign-procedure neq impl/neq)
+(define-foreign-procedure exactly impl/exactly)    ;?
+(define-foreign-procedure assert impl/metaprob-assert)
+(define-foreign-procedure error impl/error)
+(define-foreign-procedure generate-foreign impl/generate-foreign)
+(define-foreign-procedure procedure-name impl/procedure-name)
+(define-foreign-procedure capture-tag-address impl/capture-tag-address)
+(define-foreign-procedure resolve-tag-address impl/resolve-tag-address)
+(define-foreign-procedure trace-as-procedure trace/trace-as-procedure)
+(define-foreign-procedure apply clojure.core/apply)
 
 ;; Logical
-(define-foreign-probprog not clojure.core/not)
-(define-foreign-probprog and impl/metaprob-and)
-(define-foreign-probprog or impl/metaprob-or)
+(define-foreign-procedure not clojure.core/not)
+(define-foreign-procedure and impl/metaprob-and)
+(define-foreign-procedure or impl/metaprob-or)
 
 ;; Numeric
-(define-foreign-probprog gt >)
-(define-foreign-probprog gte >=)
-(define-foreign-probprog lte <=)
-(define-foreign-probprog lt <)
-(define-foreign-probprog add impl/add)
-(define-foreign-probprog sub -)
-(define-foreign-probprog mul *)
-(define-foreign-probprog div /)
-(define-foreign-probprog log impl/log)
-(define-foreign-probprog cos impl/cos)
-(define-foreign-probprog sin impl/sin)
-(define-foreign-probprog log1p impl/log1p)
-(define-foreign-probprog log-gamma impl/log-gamma)
-(define-foreign-probprog exp impl/exp)
-(define-foreign-probprog sqrt impl/sqrt)
-(define-foreign-probprog normal impl/normal)
+(define-foreign-procedure gt >)
+(define-foreign-procedure gte >=)
+(define-foreign-procedure lte <=)
+(define-foreign-procedure lt <)
+(define-foreign-procedure add impl/add)
+(define-foreign-procedure sub -)
+(define-foreign-procedure mul *)
+(define-foreign-procedure div /)
+(define-foreign-procedure log impl/log)
+(define-foreign-procedure cos impl/cos)
+(define-foreign-procedure sin impl/sin)
+(define-foreign-procedure log1p impl/log1p)
+(define-foreign-procedure exp impl/exp)
+(define-foreign-procedure sqrt impl/sqrt)
+(define-foreign-procedure normal impl/normal)
+(define-foreign-procedure floor impl/floor)
 
 ;; Sample from uniform distribution, with RNG as hidden state
-(define-foreign-probprog sample-uniform impl/sample-uniform)
+(define-foreign-procedure sample-uniform impl/sample-uniform)
 
 ;; Traces
-(define-foreign-probprog empty-trace trace/empty-trace)
-(define-foreign-probprog trace-has? trace/trace-has?)
-(define-foreign-probprog trace-get trace/trace-get)
-(define-foreign-probprog trace-set trace/trace-set)
-(define-foreign-probprog lookup trace/lookup)
-(define-foreign-probprog trace-delete trace/trace-delete)
-(define-foreign-probprog trace-keys trace/trace-keys)
-(define-foreign-probprog trace-set-subtrace-at trace/trace-set-subtrace-at)
+(define-foreign-procedure empty-trace trace/empty-trace)
+(define-foreign-procedure trace-has? trace/trace-has?)
+(define-foreign-procedure trace-get trace/trace-get)
+(define-foreign-procedure trace-set trace/trace-set)
+(define-foreign-procedure lookup trace/lookup)
+(define-foreign-procedure trace-delete trace/trace-delete)
+(define-foreign-procedure trace-keys trace/trace-keys)
+(define-foreign-procedure trace-set-subtrace-at trace/trace-set-subtrace-at)
+(define-foreign-procedure trace? trace/trace?)
+(define-foreign-procedure mutable-trace? trace/mutable-trace?)
+(define-foreign-procedure trace-has-subtrace? trace/trace-has-subtrace?)
+(define-foreign-procedure trace-subtrace trace/trace-subtrace)
+(define-foreign-procedure purify trace/purify)
 
-(define-foreign-probprog addresses-of impl/addresses-of)
+(define-foreign-procedure addresses-of impl/addresses-of)
 
 ;; Lists
-(define-foreign-probprog pair trace/pair)
-(define-foreign-probprog is-pair trace/metaprob-pair?)
-(define-foreign-probprog list impl/metaprob-list)
+(define-foreign-procedure pair trace/pair)
+(define-foreign-procedure is-pair trace/metaprob-pair?)
+(define-foreign-procedure list impl/metaprob-list)
 
-;; Array/tuple
-(define-foreign-probprog list-to-array impl/list-to-tuple)
-(define-foreign-probprog array-to-list impl/tuple-to-list)
-(define-foreign-probprog is-array trace/metaprob-tuple?)
+;; Tuple
+(define-foreign-procedure to-tuple impl/to-tuple)
+(define-foreign-procedure list? impl/metaprob-list?)
+(define-foreign-procedure to-list impl/to-list)
+(define-foreign-procedure tuple? trace/metaprob-tuple?)
 
 ;; Generic
-(define-foreign-probprog first trace/metaprob-first)
-(define-foreign-probprog rest trace/metaprob-rest)
-(define-foreign-probprog length trace/length)
-(define-foreign-probprog last impl/metaprob-last)
-(define-foreign-probprog nth impl/metaprob-nth)
-(define-foreign-probprog range impl/metaprob-range)
-(define-foreign-probprog append impl/append)
-(define-foreign-probprog set-difference impl/set-difference)
+(define-foreign-procedure first trace/metaprob-first)
+(define-foreign-procedure rest trace/metaprob-rest)
+(define-foreign-procedure length trace/length)
+(define-foreign-procedure last impl/metaprob-last)
+(define-foreign-procedure nth impl/metaprob-nth)
+(define-foreign-procedure range impl/metaprob-range)
+(define-foreign-procedure append impl/append)
+(define-foreign-procedure set-difference impl/set-difference)
 
 ;; addr - like list
-(define-foreign-probprog addr impl/addr)
+(define-foreign-procedure addr impl/addr)
 
 ;; Environments
-(define-foreign-probprog env-lookup impl/env-lookup)
-(define-foreign-probprog make-env impl/make-env)
-(define-foreign-probprog match-bind impl/match-bind)
+(define-foreign-procedure top-level-lookup impl/top-level-lookup)
 
 ;; Printing
-(define-foreign-probprog print impl/metaprob-print)
-(define-foreign-probprog pprint impl/metaprob-pprint)
-(define-foreign-probprog binned-histogram impl/binned-histogram)
+(define-foreign-procedure print impl/metaprob-print)
+(define-foreign-procedure pprint impl/metaprob-pprint)
+(define-foreign-procedure binned-histogram impl/binned-histogram)
 
 ;; -----------------------------------------------------------------------------
 ;; Work in progress
 
-(define-foreign-probprog generate-foreign impl/generate-foreign)
-(define-foreign-probprog make-foreign-probprog impl/make-foreign-probprog)
-(define-foreign-probprog export-probprog impl/export-probprog)
-
-;(define-foreign-probprog make-lifted-probprog impl/make-lifted-probprog)
-;(define-foreign-probprog trace-to-probprog impl/trace-to-probprog)
-
+(define-foreign-procedure generate-foreign impl/generate-foreign)
+(define-foreign-procedure make-foreign-procedure impl/make-foreign-procedure)
+(define-foreign-procedure export-procedure impl/export-procedure)
+(define-foreign-procedure foreign-procedure? trace/foreign-procedure?)

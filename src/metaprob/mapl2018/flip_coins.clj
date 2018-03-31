@@ -11,7 +11,7 @@
 ;; with a custom address name for each coin flip
 
 (define flip-n-coins
-  (probprog
+  (gen
     [n]
     (define root-addr (&this))
     (define tricky (flip 0.1))
@@ -19,7 +19,7 @@
                      (uniform 0 1)
                      0.5))
     (map
-      (probprog
+      (gen
         [i]
         (with-addr (addr root-addr "datum" i)
                    (flip weight)))
@@ -41,15 +41,15 @@
            false)
 
 ;; run the program subject to these interventions
-(define go (probprog []
+(define go (gen []
                      (interpret :program flip-n-coins
                                 :inputs  (tuple 10)
                                 :interventions ensure-tricky-and-biased)))
 
-(define go+ (probprog []
+(define go+ (gen []
                       (define target (empty-trace))
                       (define output (empty-trace))
-                      (query :probprog flip-n-coins
+                      (query :procedure flip-n-coins
                              :inputs  (tuple 10)
                              :intervention-trace ensure-tricky-and-biased
                              :target-trace target

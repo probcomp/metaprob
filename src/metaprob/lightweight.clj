@@ -18,8 +18,8 @@
 
 (define
   single_site_metropolis_hastings_step
-  (program
-    [program-noncolliding inputs trace constraint_addresses]
+  (gen
+    [proc inputs trace constraint_addresses]
     (define choice_addresses (addresses_of trace))
     (define
       candidates
@@ -32,7 +32,7 @@
     (define
       [_ forward_score]
       (query
-        program-noncolliding
+        proc
         inputs
         (empty-trace)
         trace
@@ -51,7 +51,7 @@
         __trace_0__))
     (for_each
       (set-difference choice_addresses new_choice_addresses)
-      (program
+      (gen
         [addr]
         (block
           (trace_set
@@ -60,7 +60,7 @@
     (trace_clear (lookup new_trace target_address))
     (define
       [_ reverse_score]
-      (propose program-noncolliding inputs restoring_trace new_trace))
+      (propose proc inputs restoring_trace new_trace))
     (trace_set (lookup new_trace target_address) new_value)
     (define
       log_p_accept
@@ -73,10 +73,10 @@
       (block
         (for_each
           (set-difference choice_addresses new_choice_addresses)
-          (program [addr] (block (trace_clear (lookup trace addr)))))
+          (gen [addr] (block (trace_clear (lookup trace addr)))))
         (for_each
           new_choice_addresses
-          (program
+          (gen
             [addr]
             (block
               (trace_set
@@ -86,14 +86,14 @@
 
 (define
   infer_lightweight_chain
-  (program
+  (gen
     [sp args target num_steps]
     (define candidate (empty-trace))
     (define constraints (addresses_of target))
     (trace_choices sp args target candidate)
     (repeat
       num_steps
-      (program
+      (gen
         []
         (single_site_metropolis_hastings_step
           sp
@@ -104,7 +104,7 @@
 
 (define
   infer_lightweight_mcmc
-  (program
+  (gen
     [sp args target num_steps query]
     (define state (empty-trace))
     (define constraints (trace_sites target))
@@ -112,7 +112,7 @@
     (define first_val (query state))
     (define
       step
-      (program
+      (gen
         [i]
         (single_site_metropolis_hastings_step
           sp

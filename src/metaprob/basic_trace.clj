@@ -24,8 +24,8 @@
   (set-subtrace-at! [_ addr subtrace] "(python: set_subtrace_at)")
   (subtrace-location-at [_ addr] "returns locative or trie as appropriate")
 
-  (trace-keys [_])
-  (trace-count [_])  ;Number of subtries
+  (trace-keys [_])                      ;Return a seq
+  (trace-count [_])                     ;Number of subtries
 
   (maybe-normalize [_])    ;If there's a trie corresponding to this trace, return it, else nil
   (blaze [_])

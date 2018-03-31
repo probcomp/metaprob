@@ -12,11 +12,11 @@
 ;; with a custom  address  name  for  each  coin  flip
 
 (define flip-n-coins
-  (probprog [n] 
+  (gen [n] 
     (define  root-addr (&this))
     (define  tricky (flip 0.1))
     (define  weight (if tricky (uniform 0 1) 0.5))
-    (map (probprog [i] (with-addr (addr root-addr "datum" i) (flip weight)))
+    (map (gen [i] (with-addr (addr root-addr "datum" i) (flip weight)))
          (range n))))
 
 ;; make a partial  trace  that  intervenes  on flip -coins
@@ -31,12 +31,12 @@
 (define trace-with-2-flips (empty-trace))
 
 (define run
-  (probprog []
-    (query :probprog flip-n-coins :inputs (tuple 2) :output-trace trace-with-2-flips)
+  (gen []
+    (query :procedure flip-n-coins :inputs (tuple 2) :output-trace trace-with-2-flips)
     (pprint trace-with-2-flips)
     ;; (*@\textit{=> ( ... )}@*)
 
-    (pprint (query :probprog flip-n-coins :inputs (tuple 2) :target-trace  trace-with-2-flips))
+    (pprint (query :procedure flip-n-coins :inputs (tuple 2) :target-trace  trace-with-2-flips))
     ;;  => value:score:
 
     (print "--ensure-tricky-and-biased--")
@@ -44,7 +44,7 @@
 
     (define output (empty-trace))
     ;; run  the  program  subject  to  these  interventions
-    (pprint (query :probprog flip-n-coins :inputs (tuple 10)
+    (pprint (query :procedure flip-n-coins :inputs (tuple 10)
                    :intervention-trace ensure-tricky-and-biased
                    :output-trace output))
     (print "--output--")

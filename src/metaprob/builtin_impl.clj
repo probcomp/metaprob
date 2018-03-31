@@ -3,8 +3,6 @@
 
 (ns metaprob.builtin-impl
   (:require [metaprob.trace :refer :all])
-  (:require [kixi.stats.math :as math])
-  (:require [kixi.stats.distribution :as dist])  ;for beta
   (:require [clojure.java.io :as io])
   (:require [clojure.set :as set]))
 
@@ -13,26 +11,27 @@
 ;; --------------------
 
 ;; Convert clojure seq to metaprob tuple
+;; Private except for tests
 
-(defn ^:private seq-to-metaprob-tuple [things]
+(defn seq-to-mutable-tuple [things]
   (trace-from-subtrace-seq (map new-trace things)))
 
-;; seq-to-metaprob-list - convert clojure sequence to metaprob list.
+;; seq-to-mutable-list - convert clojure sequence to metaprob list.
 ;; used by: distributions.clj
 
-(defn seq-to-metaprob-list [things]
+(defn seq-to-mutable-list [things]
   (let [things (seq things)]
     (if (empty? things)
       (empty-trace)
       (pair (first things)
-            (seq-to-metaprob-list (rest things))))))
+            (seq-to-mutable-list (rest things))))))
 
 ;; ----------------------------------------------------------------------
 ;; Builtins (defined in python in original-metaprob)
 
 (declare append)
 
-;; addr - like list, but pure
+;; addr - like `list`, but pure
 
 (defn addr [& things] things)    ;; a seq
 
@@ -54,37 +53,52 @@
     (let [s (sites trace)]
       (doseq [site s]
         (assert (trace-has? trace site) ["missing value at" site]))
-      (seq-to-metaprob-list s))))
+      s)))
+
+;; It is in principle possible to create traces that look like lists
+;; but aren't (i.e. terminate in a nonempty, non-pair value).  
+;; The `pair` function rules this out, but with effort it's possible
+;; to create such a beast.  Let's ignore this possibility.
+
+(defn metaprob-list? [x]
+  (or (empty-trace? x)
+      (metaprob-pair? x)))
 
 ;; list-to-tuple - convert metaprob list to metaprob tuple
 ;; used in: prelude.clj
 
-(defn list-to-tuple [mp-list]
-  (letfn [(r [mp-list n]
-            (if (empty-trace? mp-list)
-              {}
-              (assoc (r (metaprob-rest mp-list) (+ n 1))
-                     n
-                     (new-trace (metaprob-first mp-list)))))]
-    (trace-from-map (r mp-list 0))))
+(defn to-tuple [x]
+  (if (metaprob-tuple? x)
+    x
+    (if (metaprob-list? x)
+      (vec (metaprob-sequence-to-seq x))
+      (assert false ["Expected a list or tuple" x]))))
 
 ;; list - builtin
 
-;!!
+;!! used ?
 (defn metaprob-list [& things]
-  (seq-to-metaprob-list things))
+  (seq-to-mutable-list things))
 
-;; tuple-to-list - builtin - metaprob tuple to metaprob list
+;; to-list - builtin - convert metaprob tuple to metaprob list
 
-(defn tuple-to-list [tup]
-  (if (mutable-trace? tup)
-    (letfn [(scan [i]
-              (if (trace-has? tup i)
-                (pair (trace-get tup i) (scan (+ i 1)))
-                (empty-trace)))]
-      (scan 0))
-    ;; seqable?
-    (apply list tup)))
+(defn to-list [x]
+  (cond (metaprob-list? x)
+        x
+        (metaprob-tuple? x)
+        (letfn [(scan [i]
+                  (if (trace-has? x i)
+                    ;; Cons always returns a clojure seq
+                    ;;  and seqs are interpreted as metaprob lists
+                    (cons (trace-get x i) (scan (+ i 1)))
+                    '()))]
+          (scan 0))
+        ;; This is a kludge but it helps in dealing with [& foo]
+        ;;  (where if there are no args, foo is nil instead of ())
+        (= x nil)
+        '()
+        true
+        (assert false ["Expected a tuple or list" x])))
 
 ;; drop - use prelude version?
 
@@ -146,7 +160,7 @@
 ;; Translation of version found in builtin.py.
 
 (defn set-difference [s1 s2]
-  (seq-to-metaprob-list
+  (seq-to-mutable-list
    (seq (set/difference (set (map purify
                                   (metaprob-sequence-to-seq s1)))
                         (set (map purify
@@ -170,33 +184,36 @@
 (defn exactly [& body]
   (assert false "what is exactly, exactly?"))
 
-;; Probprog-related
+;; Procedure-related
 
-(defn make-foreign-probprog [name ifn]
-  (assert (or (string? name) (integer? name) (= name nil)) name)
-  (assert (instance? clojure.lang.IFn ifn) ifn)
-  (fn-qua-trace ifn
-                (trace-from-map
-                 {"name" (new-trace name)
-                  "foreign-generate-method" (new-trace ifn)}
-                 "prob prog")))
+;; Invoke a "foreign" procedure.  Called from query-foreign in interpreter.
+
+(defn generate-foreign [ifn inputs]
+  (apply ifn (metaprob-sequence-to-seq inputs)))
+
+(defn make-foreign-procedure [name ifn]
+  (if true
+    ifn
+    (do (assert (or (string? name) (integer? name) (= name nil)) name)
+        (assert (instance? clojure.lang.IFn ifn) ifn)
+        (trace-as-procedure (trace-from-map {"name" (new-trace name)
+                                             "foreign-generate-method" ifn}
+                                            "prob prog")
+                            ifn))))
 
 ;; !! REVIEW
 ;; This is a kludge, see syntax.clj, to use until there's a better solution.
-;; Its purpose is to strip off all properties from the probprog, especially "source".
+;; Its purpose is to strip off all properties from the procedure, especially "source".
 
-(defn export-probprog [ifn]
-  (make-foreign-probprog (trace-get ifn "name") (with-meta ifn nil)))
+(defn export-procedure [ifn]
+  (make-foreign-procedure (trace-get ifn "name") (with-meta ifn nil)))
 
-;; Invoke a foreign probprog.  Called from query-foreign in interpreter.
-
-(defn generate-foreign [ifn argseq]
-  (apply ifn (metaprob-sequence-to-seq argseq)))
-
-(defn probprog-name [pp]
-  (if (trace-has? pp "name")
-    (trace-get pp "name")
-    nil))
+(defn procedure-name [pp]
+  (if (trace? pp)
+    (if (trace-has? pp "name")
+      (trace-get pp "name")
+      (str pp))
+    (str pp)))    ; E.g. "clojure.core$str@1593f8c5"
 
 ;; prelude has: trace_of lookup_chain lookup_chain_with_exactly 
 
@@ -235,8 +252,8 @@
 
 (defn capture-tag-address [i t o]
   (assert (and (or (= i nil) (trace? i))
-                                         (or (= t nil) (trace? t))
-                                         (or (= o nil) (trace? o))))
+               (or (= t nil) (trace? t))
+               (or (= o nil) (trace? o))))
   (trace-from-map {"intervention" (new-trace i)
                    "target" (new-trace t)
                    "output" (new-trace o)}
@@ -258,14 +275,16 @@
         (assert (and (or (trace? i2) (= i2 nil))
                      (or (trace? t2) (= t2 nil))
                      (or (trace? o2) (= o2 nil))))
-        (seq-to-metaprob-tuple [i2 t2 o2])))))
+        (seq-to-mutable-tuple [i2 t2 o2])))))
 
 ;; ----------------------------------------------------------------------------
 ;; Metaprob top level environments are represented as clojure namespaces.
 
 (defn make-top-level-env [ns]
-  (if (symbol? ns)
-    (find-ns ns)
+  (let [ns (if (symbol? ns)
+             (find-ns ns)
+             ns)]
+    (assert (top-level-environment? ns))
     ns))
 
 (defn top-level-lookup [the-ns name]
@@ -285,63 +304,6 @@
     (ref-set r value)
     nil))
 
-;; Lexical environments, needed by program macro.
-;; TBD: Move to prelude
-
-(defn frame? [obj]
-  (and (trace? obj)
-       (trace-has? obj)
-       (= (trace-get obj) "frame")))
-
-(defn frame-parent [frame]
-  (trace-get frame "parent"))
-
-;; env-lookup - overrides original prelude
-
-(defn env-lookup [env name]
-  (if (frame? env)
-    (if (trace-has? env name)
-      (trace-get env name)
-      (env-lookup (frame-parent env) name))
-    ;; Top level environment
-    (top-level-lookup env name)))
-
-;; make-env - overrides original prelude
-
-(defn make-env [parent]
-  (trace-from-map {"parent" (new-trace parent)}
-                  "frame"))
-
-(defn env-bind! [env name val]
-  (if false
-    (top-level-bind! env name val)
-    (trace-set env name val)))
-
-;; match-bind - overrides original prelude.
-;; Liberal in what it accepts: the input can be either a list or a
-;; tuple, at any level.
-
-(defn match-bind [pattern input env]
-  (letfn [(re [pattern input]
-            ;; pattern is a trace (variable or list, I think, maybe seq)
-            (assert mutable-trace? pattern)
-            (case (trace-get pattern)
-              "variable" (env-bind! env (trace-get pattern "name") input)
-              "tuple"
-              ;; input is either a metaprob list or a metaprob tuple
-              (let [subpatterns (subtraces-to-seq pattern)
-                    parts (metaprob-sequence-to-seq input)]
-                (assert
-                 (= (count subpatterns) (count parts))
-                 ["number of subpatterns differs from number of input parts"
-                  (count subpatterns) (count parts)])
-                ;; Ugh. https://stackoverflow.com/questions/9121576/clojure-how-to-execute-a-function-on-elements-of-two-seqs-concurently
-                (doseq [[p i] (map list subpatterns parts)]
-                  (re p i)))))]
-    (dosync (re pattern input))
-    "return value of match-bind"))
-
-
 ;; ----------------------------------------------------------------------------
 ;; Mathematical
 
@@ -360,16 +322,14 @@
         (let [to-seq (fn [x]
                        (if (string? x)
                          (list x) ;????
-                         (let [p (purify x)]
-                           (assert (seqable? p) ["invalid argument for add" x y])
-                           p)))]
+                         (metaprob-sequence-to-seq x)))]
           (concat (to-seq x) (to-seq y)))))))
 
-(defn log [x] (math/log x))
-(defn cos [x] (math/cos x))
-(defn sin [x] (math/sin x))
-(defn log-gamma [x] (math/log-gamma x))
+(defn log [x] (java.lang.Math/log x))
+(defn cos [x] (java.lang.Math/cos x))
+(defn sin [x] (java.lang.Math/sin x))
 (defn log1p [x] (java.lang.Math/log1p x))
+(defn floor [x] (java.lang.Math/floor x))
 
 (def pi*2 (* 2 (java.lang.Math/acos -1)))
 (defn normal [mu variance]              ;not needed any more?
@@ -438,7 +398,9 @@
 (defn pprint-trace [tr indent]
   (letfn [(re [tr indent tag]
             (princ indent)
-            (pprint-atom tag)
+            (if (string? tag)
+              (princ tag)
+              (pprint-atom tag))
             (if (or (trace-has? tr)
                     (not (empty? (trace-keys tr))))
               (princ ": "))

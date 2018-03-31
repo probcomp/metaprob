@@ -4,10 +4,10 @@
             [metaprob.prelude :as p]
             [metaprob.metacirc.query :as query]))
 
-(defn query [& {:keys [probprog inputs intervention-trace
+(defn query [& {:keys [procedure inputs intervention-trace
                        target-trace output-trace]}]
   ;; (print (format "query: output_trace = %s" output-trace))
-  (query/query probprog
+  (query/query procedure
                inputs
                intervention-trace
                target-trace

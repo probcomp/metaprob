@@ -1,7 +1,6 @@
 (ns metaprob.to-clojure
-  (:require [metaprob.trace :refer :all])
+  (:require [metaprob.trace :as trace])
   (:require [metaprob.syntax :refer :all])
-  (:require [metaprob.builtin :as b])
   (:require [metaprob.builtin-impl :as impl])
   (:require [clojure.pprint :as pp])
   (:require [clojure.string :as cs])
@@ -11,23 +10,19 @@
 ; and translate it into Clojure.
 
 ; In emacs you will want this:
-;  (put 'program 'clojure-indent-function ':defn)
+;  (put 'get 'clojure-indent-function ':defn)
 ;  (put 'define 'clojure-indent-function ':defn)
 
 ; A 'form' is an expression or a definition or a block of forms.
-
-; *using-program?* - if true: generate (program ...), if false: generate (fn ...)
 
 ; `nest` is a dict.  Fields:
 ;   :top   - true iff at top level in a position that's OK for a define
 ;   :bare  - true iff at top level, no local vars in scope
 
-(def ^:dynamic *using-program?* true)
-
 (declare to-clojure)
 (declare subexpression-to-clojure)
 
-(defn to-list [x]
+(defn to-form [x]
   ;; Surely there has to be a better way to do this
   (if (list? x)
     x
@@ -36,26 +31,30 @@
       z)))
 
 (defn qons [x y]
-  (to-list (conj y x)))
+  (to-form (conj y x)))
 
 ; tr is a trie / trace.
 
 (defn subvalue [tr key]
-  (value (subtrace tr key)))
+  (trace/trace-get tr key))
+
+(defn subtrace [tr key]
+  (trace/trace-subtrace tr key))
 
 ; Definitions
 
 (defn definition? [tr]
-  (and (trie? tr)
-       (has-value? tr)
-       (= (value tr) "definition")))
+  (and (trace/trace? tr)
+       (trace/trace-has? tr)
+       (= (trace/trace-get tr) "definition")))
 
-(defn definition-pattern [tr] (subtrace tr "pattern"))
+(defn definition-pattern [tr]
+  (subtrace tr "pattern"))
 
 (defn definition-name [tr]
   (let [pattern (definition-pattern tr)]    ;trie
-    (if (and (has-value? pattern)
-             (= (value pattern) "variable"))
+    (if (and (trace/trace-has? pattern)
+             (= (trace/trace-get pattern) "variable"))
       (let [name (subvalue pattern "name")]
         (if (= name "_")
           "definiens"
@@ -65,17 +64,19 @@
 (defn definition-rhs [tr]
   (subtrace tr (definition-name tr)))
 
-(defn program-definition? [tr]
+; Is tr a definition whose right-hand side is a (gen ...))?
+
+(defn gen-definition? [tr]
   (and (definition? tr)
-       (= (value (definition-pattern tr)) "variable")
-       (= (value (definition-rhs tr)) "program")))
+       (= (trace/trace-get (definition-pattern tr)) "variable")
+       (= (trace/trace-get (definition-rhs tr)) "gen")))
 
 ; Metaprob code sometimes has local variables that collide with
 ; important special forms / macros.
 
 (def colliding-names
   #{;; "first" "rest" "last" "range" "pprint" "map" "replicate"
-    "program" "block" "define"})
+    "gen" "block" "define"})
 
 (defn to-symbol [strng]
   (symbol (if (contains? colliding-names strng)
@@ -83,9 +84,7 @@
             strng)))
 
 (defn ensure-list [z noise]
-  (assert (not (trie? z))
-          ["answer should be an s-expression" noise z])
-  (assert (if (seq? z) (list? z) true)
+  (assert (list? z)
           ["answer should be a list" noise z])
   z)
 
@@ -98,16 +97,16 @@
 (defn expr-to-clojure [tr nest]
   (form-to-clojure tr (assoc nest :top false)))
 
-;; Trace       => clojure                   => trace
-;; (x)->{a;b;} => (program [x] (block a b)) => (x)->{a;b;}
-;; (x)->{a;}   => (program [x] (block a))   => (x)->{a;}
-;; (x)->a      => (program [x] a)           => (x)->a
+;; Trace       => clojure               => trace
+;; (x)->{a;b;} => (gen [x] (block a b)) => (x)->{a;b;}
+;; (x)->{a;}   => (gen [x] (block a))   => (x)->{a;}
+;; (x)->a      => (gen [x] a)           => (x)->a
 ;;
 ;; safe abbreviation:
-;; (x)->{a;b;} => (program [x] a b) => (x)->{a;b;}
+;; (x)->{a;b;} => (gen [x] a b) => (x)->{a;b;}
 
-; Allow generation of (program [x] (foo) (bar)) instead of
-; (program [x] (block (foo) (bar)))
+; Allow generation of (gen [x] (foo) (bar)) instead of
+; (gen [x] (block (foo) (bar)))
 
 (def elide-block-sometimes true) ;screws up trace numbering
 
@@ -123,17 +122,17 @@
 ; a clojure form that can be used with the define macro
 
 (defn pattern-to-pattern [tr]
-  (case (value tr)
+  (case (trace/trace-get tr)
     "variable" (to-symbol (subvalue tr "name"))
     "tuple" (vec (map pattern-to-pattern
-                      (subtraces-to-seq tr)))
+                      (trace/subtraces-to-seq tr)))
     (do 
-      (print ["invalid pattern" (value tr)]) (newline)
-      (list "invalid pattern" (value tr)))))
+      (print ["invalid pattern" (trace/trace-get tr)]) (newline)
+      (list "invalid pattern" (trace/trace-get tr)))))
 
 ; Top-level definition.  Formerly, this condensed def + fn to defn, but
 ; that doesn't work if we're going to support metaprob reification - 
-; we always need def + program.
+; we always need def + gen.
 
 (defn definition-to-clojure [tr nest]
   (list 'define
@@ -142,12 +141,12 @@
 
 (defn subexpressions-to-clojure [tr nest]
   (map (fn [z] (expr-to-clojure z nest))
-       (subtraces-to-seq tr)))
+       (trace/subtraces-to-seq tr)))
 
 (defn block-to-clojure-1 [trs nest]
-  (if (empty? trs)
-    (qons 'block nil)
-    (qons 'block
+  (qons 'block
+        (if (empty? trs)
+          '()
           (letfn [(dive [trs]
                     (if (empty? (rest trs))
                       (qons (form-to-clojure (first trs) nest) nil)
@@ -159,21 +158,21 @@
   (ensure-list (block-to-clojure-1 trs nest)
                "block"))
 
-(defn program-to-clojure [pat-trace body-trace nest]
+(defn gen-to-clojure [pat-trace body-trace nest]
   ;; For readability, allow x y instead of (block x y)
-  (let [nest (if (impl/empty-trace? pat-trace)
+  (let [nest (if (trace/empty-trace? pat-trace)
                nest
                (assoc nest :bare false))
         body (form-to-formlist (to-clojure body-trace nest))
-        form (qons 'probprog
+        form (qons 'gen
                    (qons (pattern-to-pattern pat-trace)
                          body))]
     (if (get nest :bare)
       form
       ;; The environment isn't captured, so it's not possible to 
       ;; interpret the source code.
-      (qons 'export-probprog
-            (qons form nil)))))
+      (qons 'export-procedure
+            (qons form '())))))
 
 (defn with-address-to-clojure [tr nest]
   (list 'with-addr
@@ -191,24 +190,22 @@
    (form-to-clojure tr {:top true :bare true})))
 
 (defn form-to-clojure-1 [tr nest]
-  (let [tr (if (trie? tr) tr (new-trace tr))]
-    (case (value tr)
+  (let [tr (if (trace/trace? tr) tr (trace/empty-trace tr))]
+    (case (trace/trace-get tr)
       "application" (let [form (subexpressions-to-clojure tr nest)]
-                      (to-list (if (= (first form) 'mk_nil)
-                                 (cons 'new-trace (rest form))
+                      (to-form (if (= (first form) 'mk_nil)
+                                 (cons 'empty-trace (rest form))
                                  form)))
       "variable" (to-symbol (subvalue tr "name"))
       "literal" (subvalue tr "value")
-      "program" (program-to-clojure (subtrace tr "pattern")
-                                    (subtrace tr "body")
-                                    nest)
+      "gen" (gen-to-clojure (subtrace tr "pattern")
+                            (subtrace tr "body")
+                            nest)
       "if" (list 'if
                  (subexpression-to-clojure tr "predicate" nest)
                  (subexpression-to-clojure tr "then" nest)
                  (subexpression-to-clojure tr "else" nest))
-      "block" (ensure-list
-               (block-to-clojure (subtraces-to-seq tr) nest)
-               "blah")
+      "block" (block-to-clojure (trace/subtraces-to-seq tr) nest)
       "splice" (list 'mp-splice
                      (subexpression-to-clojure tr "expression" nest))
       "this" '(&this)
@@ -221,16 +218,16 @@
                          (print (format "** definition not allowed here: %s\n"
                                         (definition-pattern tr))))
                        (definition-to-clojure tr nest))
-      (list "unrecognized expression type" (value tr)))))
+      (list "unrecognized expression type" (trace/trace-get tr)))))
 
 (defn form-to-clojure [tr nest]
-  (ensure-list (form-to-clojure-1 tr nest) ["form-to-clojure" (value tr)]))
+  (form-to-clojure-1 tr nest))
 
 ;; Get list of names for clojure (declare ...) at top of generated file
 
 (defn declarations [subs]
   (assert (seq? subs))
-  (let [defs (filter program-definition? subs)]
+  (let [defs (filter gen-definition? subs)]
     (do (assert (seq? defs) "no brainer")
     (if (empty? defs)
       (list)
@@ -244,9 +241,9 @@
 
 (defn top-level-to-clojure [tr]
   (let [nest {:top true :bare true}]
-    (if (= (value tr) "block")
-      (let [subs (subtraces-to-seq tr)]
-        (to-list
+    (if (= (trace/trace-get tr) "block")
+      (let [subs (trace/subtraces-to-seq tr)]
+        (to-form
          (concat (declarations subs)
                  (map (fn [sub] (to-clojure sub nest))
                       subs))))
@@ -254,7 +251,7 @@
 
 (defn subexpression-to-clojure [tr key nest]
   (let [sub (subtrace tr key)]
-    (assert (trie? sub) ["missing field in parse tree" key])
+    (assert (trace/trace? sub) ["missing field in parse tree" key])
     (expr-to-clojure sub nest)))
 
 ; Create a trace from a file containing a representation of a
@@ -271,11 +268,11 @@
                          (reconstruct-trace (first (rest things))))))]
         (let [m (mapify (rest form))]
           (if (= val :none)
-            (trace-from-map m)
-            (if (and (= val "program")
-                     (= (count m) 2))    ;; (program pattern body)
-              (trace-from-map m "probprog")
-              (trace-from-map m val)))))
+            (trace/trace-from-map m)
+            (if (and (= val "program")   ;; From python script
+                     (= (count m) 2))    ;; (gen pattern body)
+              (trace/trace-from-map m "gen")
+              (trace/trace-from-map m val))))))
     (list "[not a trace!?]" form)))
 
 ; My this is painful.

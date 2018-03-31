@@ -8,12 +8,12 @@
             [metaprob.mapl2018.interpreters :refer :all]))
 
 (define rejection-sampling
-  (probprog [model-probprog inputs target-trace log-bound]
+  (gen [model-procedure inputs target-trace log-bound]
     (define candidate-trace (empty-trace))
     (define
       [_ score]
       (query
-        :probprog model-probprog
+        :procedure model-procedure
         :inputs inputs
         :intervention-trace (empty-trace)
 	:target-trace       target-trace
@@ -21,4 +21,4 @@
     (if (lt (log (uniform 0 1)) (sub score log-bound))
       candidate-trace
       (rejection-sampling
-	model-probprog inputs target-trace log-bound)) ))
+	model-procedure inputs target-trace log-bound)) ))

@@ -19,32 +19,32 @@
 
 (define
   flip_coins
-  (program
+  (gen
     [n]
     (define root_addr this)
     (define tricky (flip 0.1))
     (define weight (if tricky (block (uniform 0 1)) (block 0.5)))
     (map
-      (program
+      (gen
         [i]
         (with-address (list root_addr "datum" i) (flip weight)))
       (range n))))
 
 (define
   constrain_coin_flipper_trace
-  (program
+  (gen
     [n]
     (define t1 (empty-trace))
     (for_each
       (range n)
-      (program
+      (gen
         [k]
         (block (trace_set (lookup t1 (list "datum" k "flip")) true))))
     t1))
 
 (define
   extract_weight
-  (program
+  (gen
     [state]
     (define site1 (list 2 "weight" "then" 0 "uniform"))
     (if (trace_has (lookup state site1))
@@ -56,7 +56,7 @@
 
 (define
   transcript1
-  (program
+  (gen
     [do_print]
     (define a_trace (empty-trace))
     (trace_choices flip_coins (tuple 5) (empty-trace) a_trace)
@@ -69,7 +69,7 @@
 
 (define
   transcript2
-  (program
+  (gen
     []
     (define a_trace (transcript1 false))
     (trace_set (lookup a_trace (list "datum" 0 "flip")) true)
@@ -79,7 +79,7 @@
     (trace_set (lookup a_trace (list "datum" 4 "flip")) true)
     (define
       approximate_inference_update
-      (program
+      (geno
         []
         (block
           (single_site_metropolis_hastings_step

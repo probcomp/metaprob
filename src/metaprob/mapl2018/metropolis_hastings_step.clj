@@ -6,8 +6,8 @@
             [metaprob.mapl2018.interpreters :refer :all]))
 
 (define single-site-metropolis-hastings-step
-  (probprog
-    [model-probprog inputs trace constraint-addresses]
+  (gen
+    [model-procedure inputs trace constraint-addresses]
 
     ;; choose an address to modify, uniformly at random
     
@@ -23,7 +23,7 @@
     (define new-trace (empty-trace))
 
     (define (_ forward-score) (query
-                               :probprog model-probprog
+                               :procedure model-procedure
                                :inputs inputs
                                :intervention-trace (empty-trace)
                                :target-trace trace
@@ -43,7 +43,7 @@
     (trace_set (lookup restoring-trace target-address)
     	       initial-value)
     (for_each (set-difference choice-addresses new-choice-addresses)
-    	      (probprog [initial-addr] ;; initial-addr in original but not proposed trace
+    	      (gen [initial-addr] ;; initial-addr in original but not proposed trace
 	      		(trace_set (lookup restoring-trace initial-addr)
 				   (trace-get (lookup trace initial-addr)))))
 
@@ -51,7 +51,7 @@
     (trace-delete new-trace target-address)
 
     (define (__ reverse-score) (query
-                                   :probprog model-probprog
+                                   :procedure model-procedure
 				   :inputs   inputs
 				   :intervention-trace restoring-trace
 				   :target-trace new-trace
@@ -63,9 +63,9 @@
     (if (lt (log (uniform 0 1)) log-acceptance-probability)
         (block
 	    (for_each (set-difference choice-addresses new-choice-addresses)
-	              (probprog [initial-addr] (trace-delete trace initial-addr)))
+	              (gen [initial-addr] (trace-delete trace initial-addr)))
 	    (for_each new-choice-addresses
-	    	      (probprog [new-addr]
+	    	      (gen [new-addr]
 		      		(trace_set (lookup trace new-addr)
 					   (trace-get (lookup new-trace new-addr))))))
 	(trace_set (lookup trace target-address) initial-value))))
@@ -73,20 +73,20 @@
 ;; Should return a single trace.  Which one?
 
 (define lightweight-single-site-MH-sampling
-  (probprog [N model-probprog target-trace]
+  (gen [N model-procedure target-trace]
   	    (define state (empty-trace))
 	    (query
-	      :probprog model-probprog
+	      :procedure model-procedure
 	      :inputs (tuple)
 	      :intervention-trace (empty-trace)
 	      :target-trace target-trace
 	      :output-trace state)
             (repeat N
-	            (probprog
+	            (gen
 		      []
-                      ;; VKM had keywords :probprog :inputs :trace :constraint-addresses
+                      ;; VKM had keywords :procedure :inputs :trace :constraint-addresses
 		      (single-site-metropolis-hastings-step
-		        model-probprog
+		        model-procedure
 			(tuple)
 			state
 			(addresses_of target-trace))))
