@@ -77,9 +77,8 @@
     (trace_set (lookup a_trace (list "datum" 2 "flip")) true)
     (trace_set (lookup a_trace (list "datum" 3 "flip")) true)
     (trace_set (lookup a_trace (list "datum" 4 "flip")) true)
-    (define
-      approximate_inference_update
-      (geno
+    (define approximate_inference_update
+      (gen
         []
         (block
           (single_site_metropolis_hastings_step

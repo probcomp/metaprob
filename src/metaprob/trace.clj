@@ -94,9 +94,9 @@
 (def ^:local the-ns-type clojure.lang.Namespace)  ;was (type *ns*)
 (defn ^:local top-level-environment? [x] (= (type x) the-ns-type))  ;this is awful
 
-(defn metaprob-value? [val]
+(defn ok-value? [val]
   (or (ok-key? val)
-      (mutable-trace? val)                      ;possibly a locative
+      (trace? val)                      ;possibly a locative
       (top-level-environment? val)
       (foreign-procedure? val)))
 
@@ -426,7 +426,7 @@
       (cond (empty-trace? x)
               '()
             (metaprob-pair? x)
-              (map purify (metaprob-list-to-seq x)) ;cf. metaprob-value?
+              (map purify (metaprob-list-to-seq x)) ;cf. ok-value?
             (metaprob-tuple? x)
               (vec (map purify (metaprob-tuple-to-seq x)))
             true
@@ -438,12 +438,12 @@
       x)))
 
 
-;;    (assert (metaprob-value? val) ["storing non-metaprob value" val])
+;;    (assert (ok-value? val) ["storing non-metaprob value" val])
 
-;;   (assert (metaprob-value? val)
+;;   (assert (ok-value? val)
 ;;           ["initial value is non-metaprob" val (top-level-environment? val) (type val)])
 
-;;   (assert (metaprob-value? val) ["starting value is a non-metaprob value" val])
+;;   (assert (ok-value? val) ["starting value is a non-metaprob value" val])
 
 ;;    (assert (acceptable? key sub)
 ;;            ["unacceptable assignment" _ (reason-unacceptable key sub)])
@@ -457,16 +457,10 @@
 ;; value of key) in a trace?
 
 (defn acceptable? [key sub]
-  ;; Really stupid type system.  Functions should be stored, and only
-  ;; be stored, under the "foreign-generate" or "foreign-query" property.
   (if (ok-key? key)
     (if (mut/trie? sub)
       (if (mut/has-value? sub)
-        (let [val (mut/value sub)]
-          (if (string/starts-with? key "foreign-")
-            (or (instance? clojure.lang.IFn val)
-                (meta val))
-            (metaprob-value? val)))
+        (ok-value? (mut/value sub))
         true)
       false)
     false))
@@ -484,7 +478,7 @@
               (if (meta val)
                 ["acceptable - executable meta" key sub val]
                 ["not IFn and not meta" key sub val]))
-            (if (metaprob-value? val)
+            (if (ok-value? val)
               ["acceptable" key sub val]
               ["not a metaprob value" key sub val])))
         ["acceptable - no sub-value" key sub])

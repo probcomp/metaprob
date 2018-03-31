@@ -32,11 +32,11 @@
 
 (define run
   (gen []
-    (query :procedure flip-n-coins :inputs (tuple 2) :output-trace trace-with-2-flips)
+    (infer :procedure flip-n-coins :inputs (tuple 2) :output-trace trace-with-2-flips)
     (pprint trace-with-2-flips)
     ;; (*@\textit{=> ( ... )}@*)
 
-    (pprint (query :procedure flip-n-coins :inputs (tuple 2) :target-trace  trace-with-2-flips))
+    (pprint (infer :procedure flip-n-coins :inputs (tuple 2) :target-trace  trace-with-2-flips))
     ;;  => value:score:
 
     (print "--ensure-tricky-and-biased--")
@@ -44,7 +44,7 @@
 
     (define output (empty-trace))
     ;; run  the  program  subject  to  these  interventions
-    (pprint (query :procedure flip-n-coins :inputs (tuple 10)
+    (pprint (infer :procedure flip-n-coins :inputs (tuple 10)
                    :intervention-trace ensure-tricky-and-biased
                    :output-trace output))
     (print "--output--")

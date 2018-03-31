@@ -2,18 +2,18 @@
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :as b]
             [metaprob.prelude :as p]
-            [metaprob.metacirc.query :as query]))
+            [metaprob.metacirc.infer :as infer]))
 
-(defn query [& {:keys [procedure inputs intervention-trace
+(defn infer [& {:keys [procedure inputs intervention-trace
                        target-trace output-trace]}]
-  ;; (print (format "query: output_trace = %s" output-trace))
-  (query/query procedure
+  ;; (print (format "infer: output_trace = %s" output-trace))
+  (infer/infer procedure
                inputs
                intervention-trace
                target-trace
                output-trace))
 
 (defn interpret [& {:keys [program inputs interventions]}]
-  (b/nth (query/query program inputs interventions nil  nil)
+  (b/nth (infer/infer program inputs interventions nil  nil)
          0))
 

@@ -1,22 +1,22 @@
-(ns metaprob.query-test
+(ns metaprob.infer-test
   (:require [clojure.test :refer :all]
             [metaprob.trace :as trace]
             [metaprob.syntax :as syntax :refer :all]
-            [metaprob.builtin :as builtin]
             [metaprob.builtin-impl :as impl]
-            [metaprob.query :refer :all]))
+            [metaprob.builtin :as builtin]
+            [metaprob.infer :refer :all]))
 
 (deftest frame-1
   (testing "frame smoke test"
-    (let [top (impl/make-top-level-env 'metaprob.query-test)
+    (let [top (impl/make-top-level-env 'metaprob.infer)
           f (make-env top)]
       (env-bind! f "foo" 17)
       (is (= (env-lookup f "foo") 17))
-      (is (= (env-lookup f "cons") cons)))))
+      (is (= (env-lookup f "sub") builtin/sub)))))
 
 (deftest frame-2
   (testing "match-bind smoke test"
-    (let [top (impl/make-top-level-env 'metaprob.query-test)
+    (let [top (impl/make-top-level-env 'metaprob.infer)
           f (make-env top)
           pat (from-clojure '[a b])]
       (match-bind pat (list 1 2) f)
@@ -25,7 +25,7 @@
 
 
 
-(defn mk_nil [] (builtin/empty-trace))
+(defn mk_nil [] (trace/empty-trace))
 
 (defn ez-call [prob-prog & inputs]
   (let [inputs (if (= inputs nil) '() inputs)
@@ -39,7 +39,7 @@
 (deftest apply-1
   (testing "Apply a procedure to no inputs"
     (is (trace/empty-trace?
-         (ez-call builtin/empty-trace)))))
+         (ez-call trace/empty-trace)))))
 
 (deftest apply-2
   (testing "Apply a procedure to one arg"
@@ -50,7 +50,7 @@
   (let [[value score]
         (trace/metaprob-sequence-to-seq
          (ptc-eval (from-clojure x)
-                   (impl/make-top-level-env 'metaprob.query)
+                   (impl/make-top-level-env 'metaprob.infer)
                    (mk_nil)
                    (mk_nil)
                    (mk_nil)))]
@@ -63,8 +63,8 @@
 
 (deftest smoke-2
   (testing "Interpret a variable"
-    (is (= (ez-eval 'first)
-           builtin/first))))
+    (is (= (ez-eval 'trace-get)
+           builtin/trace-get))))
 
 (deftest thunk-1
   (testing "call a thunk"
@@ -95,16 +95,26 @@
   (testing "export a procedure"
     (let [x 5
           m1 (gen [] x)
-          m2 (builtin/export-procedure m1)]
+          m2 (impl/export-procedure m1)]
       (is (= (m2) (m1))))))
 
-;; Lift a generate method up to a query method
+;; Lift a generate method up to a infer method
 
 (deftest lift-1
-  (testing "lift a generate method up to a query method"
+  (testing "lift a generate method up to a infer method"
     (let [m (gen [argseq i t o]
                       (define [x y] argseq)
                       (tuple (+ x 1) 19))
           l (lift "testing" m)]
       (is (= (l 17 "z") 18)))))
 
+
+;(deftest lift-and-call
+;  (testing "can we lift a procedure and then call it"
+;    (let [qq (impl/make-foreign-procedure "qq" (fn [argseq i t o]
+;                                             [(+ (metaprob-nth argseq 0) (metaprob-nth argseq 1))
+;                                              50]))
+;          lifted (make-lifted-procedure "lifted" qq)]
+;      (let [[answer score] (infer lifted [7 8] nil nil nil)]
+;        (is (= answer 15))
+;        (is (= score 50))))))

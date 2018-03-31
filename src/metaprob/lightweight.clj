@@ -7,7 +7,7 @@
             [metaprob.prelude :refer :all]
             ;; Added
             [metaprob.trace]
-            [metaprob.metacirc.query :refer [query]]
+            [metaprob.metacirc.infer :refer [infer]]
             [metaprob.metacirc.propose :refer [propose]]
             [metaprob.metacirc.trace-choices :refer [trace_choices]]))
 
@@ -31,12 +31,11 @@
     (define new_trace (empty-trace))
     (define
       [_ forward_score]
-      (query
-        proc
-        inputs
-        (empty-trace)
-        trace
-        new_trace))
+      (infer proc
+             inputs
+             (empty-trace)
+             trace
+             new_trace))
     (define new_value (trace_get (lookup new_trace target_address)))
     (define new_choice_addresses (addresses_of new_trace))
     (define

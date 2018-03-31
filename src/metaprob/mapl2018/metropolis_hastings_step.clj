@@ -22,12 +22,11 @@
     (trace-delete trace target-address)
     (define new-trace (empty-trace))
 
-    (define (_ forward-score) (query
-                               :procedure model-procedure
-                               :inputs inputs
-                               :intervention-trace (empty-trace)
-                               :target-trace trace
-                               :output-trace new-trace))
+    (define (_ forward-score) (infer :procedure model-procedure
+                                     :inputs inputs
+                                     :intervention-trace (empty-trace)
+                                     :target-trace trace
+                                     :output-trace new-trace))
     (define new-value (trace-get new-trace target-address))
 
     ;; the proposal is to move from trace to new-trace
@@ -50,12 +49,12 @@
     ;; remove the new value
     (trace-delete new-trace target-address)
 
-    (define (__ reverse-score) (query
-                                   :procedure model-procedure
-				   :inputs   inputs
-				   :intervention-trace restoring-trace
-				   :target-trace new-trace
-				   :output-trace (empty-trace)))
+    (define (__ reverse-score)
+      (infer :procedure model-procedure
+             :inputs   inputs
+             :intervention-trace restoring-trace
+             :target-trace new-trace
+             :output-trace (empty-trace)))
     
     (trace_set (lookup new-trace target-address) new-value)
     (define log-acceptance-probability (sub (add forward-score (log new-num-choices))
@@ -74,20 +73,19 @@
 
 (define lightweight-single-site-MH-sampling
   (gen [N model-procedure target-trace]
-  	    (define state (empty-trace))
-	    (query
-	      :procedure model-procedure
-	      :inputs (tuple)
-	      :intervention-trace (empty-trace)
-	      :target-trace target-trace
-	      :output-trace state)
-            (repeat N
-	            (gen
-		      []
-                      ;; VKM had keywords :procedure :inputs :trace :constraint-addresses
-		      (single-site-metropolis-hastings-step
-		        model-procedure
-			(tuple)
-			state
-			(addresses_of target-trace))))
-            state))
+    (define state (empty-trace))
+    (infer :procedure model-procedure
+           :inputs (tuple)
+           :intervention-trace (empty-trace)
+           :target-trace target-trace
+           :output-trace state)
+    (repeat N
+            (gen
+              []
+              ;; VKM had keywords :procedure :inputs :trace :constraint-addresses
+              (single-site-metropolis-hastings-step
+               model-procedure
+               (tuple)
+               state
+               (addresses_of target-trace))))
+    state))

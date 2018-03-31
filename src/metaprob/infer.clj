@@ -4,7 +4,7 @@
 ;; is a goal to retain the ability to run it as metaprob
 ;; (i.e. to make it self-applicable!).
 
-(ns metaprob.query
+(ns metaprob.infer
   (:refer-clojure :only [declare ns])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
@@ -79,7 +79,7 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare infer query query-foreign infer-apply-native ptc-eval)
+(declare infer infer infer-foreign infer-apply-native ptc-eval)
 
 ;; infer
 (define infer
@@ -112,9 +112,6 @@
        (if output_trace
          (trace-set output_trace value2))
        [value2 score2]))))
-
-;; Deprecated; backward compatibility
-(define query infer)
 
 ;; Query a 'native' generator (i.e. one written in metaprob and interpreted).
 

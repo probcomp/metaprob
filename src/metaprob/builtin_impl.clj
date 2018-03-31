@@ -186,7 +186,7 @@
 
 ;; Procedure-related
 
-;; Invoke a "foreign" procedure.  Called from query-foreign in interpreter.
+;; Invoke a "foreign" procedure.  Called from interpreter.
 
 (defn generate-foreign [ifn inputs]
   (apply ifn (metaprob-sequence-to-seq inputs)))

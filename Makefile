@@ -68,5 +68,6 @@ h4.png: results/samples_from_lightweight_single-site_MH_with_20_iterations.sampl
 	mv gnuplot-hist-tmp.png h4.png
 	open h4.png
 
+# suppress '.#foo.clj' somehow
 tags:
-	etags --language=lisp `find src -name "*.clj"` `find test -name "*.clj"`
+	etags --language=lisp `find src -name "[a-z]*.clj"` `find test -name "[a-z]*.clj"`

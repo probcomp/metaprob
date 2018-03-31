@@ -71,23 +71,6 @@
     (let [pp (make-foreign-procedure "pp" (fn [x] (+ x 1)))]
       (is (= (generate-foreign pp [6]) 7)))))
 
-;(deftest basic-query
-;  (testing "query a foreign-procedure"
-;    (let [pp (make-foreign-procedure "pp" (fn [x] (+ x 1)))]
-;      (let [[answer score] (impl/mini-query pp [7] nil nil nil)]
-;        (is (= score 0))
-;        (is (= answer 8))))))
-;
-;(deftest lift-and-query
-;  (testing "can we lift a procedure and then query it"
-;    (let [qq (impl/make-foreign-procedure "qq" (fn [argseq i t o]
-;                                             [(+ (metaprob-nth argseq 0) (metaprob-nth argseq 1))
-;                                              50]))
-;          lifted (make-lifted-procedure "lifted" qq)]
-;      (let [[answer score] (impl/mini-query lifted [7 8] nil nil nil)]
-;        (is (= answer 15))
-;        (is (= score 50))))))
-
 (deftest length-2
   (testing "length smoke test"
     (let [m (seq-to-mutable-list [1 2 3 4])]

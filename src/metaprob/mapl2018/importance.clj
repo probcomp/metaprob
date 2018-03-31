@@ -18,7 +18,7 @@
 	      (gen []
                 (define candidate-trace (empty-trace))
                 (define [_ score]
-                  (query    ;; returns [value score]
+                  (infer    ;; returns [value score]
                    :procedure model-procedure
                    :inputs inputs
                    :intervention-trace (empty-trace)

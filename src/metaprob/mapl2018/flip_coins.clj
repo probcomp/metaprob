@@ -47,10 +47,10 @@
                                 :interventions ensure-tricky-and-biased)))
 
 (define go+ (gen []
-                      (define target (empty-trace))
-                      (define output (empty-trace))
-                      (query :procedure flip-n-coins
-                             :inputs  (tuple 10)
-                             :intervention-trace ensure-tricky-and-biased
-                             :target-trace target
-                             :output-trace output)))
+              (define target (empty-trace))
+              (define output (empty-trace))
+              (infer :procedure flip-n-coins
+                     :inputs  (tuple 10)
+                     :intervention-trace ensure-tricky-and-biased
+                     :target-trace target
+                     :output-trace output)))
