@@ -25,9 +25,9 @@
       candidates
       (set-difference choice_addresses constraint_addresses))
     (define target_address (uniform-sample candidates))
-    (define initial_value (trace_get (lookup trace target_address)))
+    (define initial_value (trace_get trace target_address))
     (define initial_num_choices (length candidates))
-    (trace_clear (lookup trace target_address))
+    (trace-clear (lookup trace target_address))
     (define new_trace (empty-trace))
     (define
       [_ forward_score]
@@ -36,7 +36,7 @@
              (empty-trace)
              trace
              new_trace))
-    (define new_value (trace_get (lookup new_trace target_address)))
+    (define new_value (trace-get new_trace target_address))
     (define new_choice_addresses (addresses_of new_trace))
     (define
       new_candidates
@@ -46,21 +46,21 @@
       restoring_trace
       (block
         (define __trace_0__ (empty-trace))
-        (trace_set (lookup __trace_0__ target_address) initial_value)
+        (trace-set __trace_0__ target_address initial_value)
         __trace_0__))
     (for_each
       (set-difference choice_addresses new_choice_addresses)
       (gen
         [addr]
         (block
-          (trace_set
-            (lookup restoring_trace addr)
-            (trace_get (lookup trace addr))))))
+          (trace_set restoring_trace
+                     addr
+                     (trace_get (lookup trace addr))))))
     (trace_clear (lookup new_trace target_address))
     (define
       [_ reverse_score]
       (propose proc inputs restoring_trace new_trace))
-    (trace_set (lookup new_trace target_address) new_value)
+    (trace_set new_trace target_address new_value)
     (define
       log_p_accept
       (add
@@ -78,10 +78,10 @@
           (gen
             [addr]
             (block
-              (trace_set
-                (lookup trace addr)
-                (trace_get (lookup new_trace addr)))))))
-      (block (trace_set (lookup trace target_address) initial_value)))))
+              (trace_set trace
+                         addr
+                         (trace_get new_trace addr))))))
+      (block (trace-set trace target_address initial_value)))))
 
 (define
   infer_lightweight_chain

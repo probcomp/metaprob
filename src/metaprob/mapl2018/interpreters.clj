@@ -2,7 +2,7 @@
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :as b]
             [metaprob.prelude :as p]
-            [metaprob.metacirc.infer :as infer]))
+            [metaprob.infer :as infer]))
 
 (defn infer [& {:keys [procedure inputs intervention-trace
                        target-trace output-trace]}]

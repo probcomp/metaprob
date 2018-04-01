@@ -54,12 +54,8 @@
   (let [exp `(~'gen ~params ~@body)
         exp-trace (from-clojure exp)
         env (impl/make-top-level-env top)
-        key (if true
-              (if name
-                (str (hash exp) "-" name)                ;JAR invention
-                (hash exp))
-              exp-trace)]               ;original metaprob
-    (trace-as-procedure (trace-from-map {"name" (new-trace key)
+        proc-name (impl/trace-name exp-trace name)]               ;original metaprob
+    (trace-as-procedure (trace-from-map {"name" (new-trace proc-name)
                                          "generative-source" exp-trace
                                          ;; Environment is always the top level
                                          ;; env, and often this is incorrect.

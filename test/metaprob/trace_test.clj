@@ -45,6 +45,8 @@
                               "b" (new-trace 33)
                               "c" tr2}
                              5)]
+      (is (trace? tr))
+      (is (mutable-trace? tr))
       (is (= (trace-get tr) 5))
       (is (= (count (trace-keys tr)) 3))
 
@@ -131,3 +133,24 @@
   (testing "length smoke test"
     (is (= (length (empty-trace)) 0))
     (is (= (length (pair 0 (empty-trace))) 1))))
+
+(deftest trace-1
+  (testing "trace constructor"
+    (is (trace? (trace)))
+    (let [tr (trace "x" 13)]
+      (is (trace? tr))
+      (is (= (trace-get tr "x") 13))
+      (is (= (count (trace-keys tr)) 1)))
+    (let [tr (trace "x" 13 :value 17)]
+      (is (= (trace-get tr) 17)))
+    (let [tr (trace "x" (** (trace :value 19)))]
+      (is (= (trace-get tr "x") 19)))))
+
+(deftest trace-set-1
+  (testing "trace-set"
+    (let [tr (empty-trace)]
+      (trace-set tr "foo" 17)
+      (is (= (trace-get tr "foo") 17))
+      (let [adr (list "bar" "baz")]
+        (trace-set tr adr 19)
+        (is (= (trace-get tr adr) 19))))))

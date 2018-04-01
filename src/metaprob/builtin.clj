@@ -31,10 +31,8 @@
 (define-foreign-procedure error impl/error)
 (define-foreign-procedure generate-foreign impl/generate-foreign)
 (define-foreign-procedure procedure-name impl/procedure-name)
-(define-foreign-procedure capture-tag-address impl/capture-tag-address)
-(define-foreign-procedure resolve-tag-address impl/resolve-tag-address)
+(define-foreign-procedure trace-name impl/trace-name)
 (define-foreign-procedure trace-as-procedure trace/trace-as-procedure)
-(define-foreign-procedure apply clojure.core/apply)
 
 ;; Logical
 (define-foreign-procedure not clojure.core/not)
@@ -78,6 +76,7 @@
 (define-foreign-procedure freeze trace/freeze)
 (define-foreign-procedure thaw trace/thaw)
 (define-foreign-procedure trace trace/trace)    ;constructor
+(define-foreign-procedure ** trace/**)
 
 (define-foreign-procedure addresses-of impl/addresses-of)
 

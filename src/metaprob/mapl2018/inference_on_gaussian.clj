@@ -31,7 +31,7 @@
                                (tuple "target" target-density)))))
 
 (define target-trace (empty-trace))
-(trace-set (lookup target-trace (addr 1 "y" "gaussian")) 3.0)
+(trace-set target-trace (addr 1 "y" "gaussian") 3.0)
 
 (define rejection-assay
   (gen [number-of-runs]
@@ -48,7 +48,7 @@
                      (tuple)  ; :inputs 
                      target-trace  ; :target-trace 
                      0.5))   ; :log-bound 
-                   (trace-get (lookup tr (addr 0 "x" "gaussian")))))
+                   (trace-get tr (addr 0 "x" "gaussian"))))
       :overlay-densities (list (tuple "prior" prior-density)
                                (tuple "target" target-density)))))
 
@@ -66,7 +66,7 @@
                       (tuple)  ; :inputs 
                       target-trace  ; :target-trace 
                       20))
-                   (trace-get (lookup tr (addr 0 "x" "gaussian")))))  ; :N 
+                   (trace-get tr (addr 0 "x" "gaussian"))))  ; :N 
       :overlay-densities (list (tuple "prior" prior-density)
                                (tuple "target" target-density)))))
 
@@ -81,6 +81,6 @@
                      (lightweight-single-site-MH-sampling 20
                                                           two-variable-gaussian-model
                                                           target-trace))
-                   (trace-get (lookup tr (addr 0 "x" "gaussian")))))
+                   (trace-get tr (addr 0 "x" "gaussian"))))
       :overlay-densities (list (tuple "prior" prior-density)
                                (tuple "target" target-density)))))

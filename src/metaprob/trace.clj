@@ -1,7 +1,7 @@
 ;; Trace interface - work in progress
 
 ;; Concrete types that are made to follow the trace interface:
-;;   basic-trace (trie, locative)
+;;   basic-trace (mutable)
 ;;   '()
 ;;   seq
 ;;   vector
@@ -42,7 +42,7 @@
 ;; with a :trace property whose value is a trace (which can then 
 ;; receive those properties).
 
-(declare trace? empty-trace? trace-has? trace-get)
+(declare trace? empty-trace? trace-has? trace-get empty-trace frozen?)
 
 (defn trace-as-procedure [tr ifn]
   (do (assert (instance? clojure.lang.IFn ifn) ifn)
@@ -71,10 +71,10 @@
 
 (defn immutable-trace? [x]
   (let [x (strip x)]
-    (or (and (seq? x)     ;; clojure lists are seqs
-             (not (string? x)))
-        (vector? x)
-        (map? x))))
+    (if (seq? x)     ;; clojure lists are seqs
+      (not (string? x))
+      (or (vector? x)
+          (map? x)))))
 
 (defn trace? [x]
   (or (mutable-trace? x)
@@ -90,13 +90,14 @@
       (immutable-trace? val)))
 
 ;; Storable as a value
+;; *** How about the keyword :value, used as argument to (trace ...)?
 
 (defn ^:local top-level-environment? [x]
   (instance? clojure.lang.Namespace x))
 
 (defn ok-value? [val]
   (or (ok-key? val)
-      (trace? val)                      ;possibly a locative
+      (trace? val)
       (top-level-environment? val)
       (foreign-procedure? val)))
 
@@ -109,9 +110,14 @@
 ;; An address is either a (pure) seq, or ().
 
 (defn addrify [addr]
-  (if (trace? addr)
-    (map freeze (metaprob-sequence-to-seq addr))
-    (list (freeze addr))))
+  (let [a (if (trace? addr)
+            (if (mutable-trace? addr)
+              (map freeze (metaprob-sequence-to-seq addr))
+              addr)
+            (list (freeze addr)))]
+    (assert (frozen? a)
+            ["addrify failed to freeze address" a addr (trace? addr) (mutable-trace? addr)])
+    a))
 
 ;; OK.  Now the generic trace accessors.
 
@@ -137,6 +143,7 @@
 ;; Assumes key has already been purified.
 
 (defn trace-subtrace [tr key]
+  (assert (ok-key? key))
   (let [tr (strip tr)]
     (cond (mut/basic-trace? tr) (mut/subtrace tr key)
           (seq? tr) (if (= key rest-marker)
@@ -146,7 +153,20 @@
           (map? tr) (get tr key)
           true (assert false ["expected a trace" tr key]))))
 
+;; Assume for now that addr is a seq or ()
+
+(defn lookup [tr addr]                  ; e[e]
+  (let [addr (addrify addr)             ;converts to seq
+        tr (strip tr)]
+    (if (empty? addr)
+      tr
+      (if (trace-has? tr (first addr))
+        (lookup (trace-subtrace tr (first addr))
+                (rest addr))
+        (mut/make-locative tr addr)))))
+
 (defn trace-has-subtrace? [tr key]
+  (assert (ok-key? key))
   (let [tr (strip tr)]
     (cond (mut/basic-trace? tr) (mut/has-subtrace? tr key)
           ;; empty seqs don't answer true to seq?
@@ -157,18 +177,6 @@
                             (< key (count tr)))
           (map? tr) (not (= (get tr key :not-present) :not-present))
           true (assert false ["expected a trace" tr key]))))
-
-;; Assume for now that addr is a seq or ()
-
-(defn lookup [tr addr]                  ; e[e]
-  (let [addr (addrify addr)             ;converts to seq
-        tr (strip tr)]
-    (if (mut/basic-trace? tr)    ;could be a locative
-      (mut/subtrace-location-at tr addr)
-      (if (empty? addr)
-        tr
-        (lookup (trace-subtrace tr (first addr))
-                (rest addr))))))
 
 ;; Returns a seq (n.b. clojure `keys` can return nil which is not a seq)
 
@@ -193,29 +201,63 @@
   ([tr addr]
    (trace-get (lookup tr addr))))
 
+(defn ^:private trace-has-value-at? [tr adr]
+  (let [adr (addrify adr)]
+    (if (empty? adr)
+      (trace-has-value? tr)
+      (and (trace-has-subtrace? tr (first adr))
+           (trace-has? (trace-subtrace tr (first adr))
+                       (rest adr))))))
+
 (defn trace-has?
   ([tr] (trace-has-value? tr))
-  ([tr addr]
-   (let [addr (addrify addr)]
-     (if (empty? addr)
-       (trace-has-value? tr)
-       (and (trace-has-subtrace? tr (first addr))
-            (trace-has? (trace-subtrace tr (first addr))
-                        (rest addr)))))))
+  ([tr adr] (trace-has-value-at? tr adr)))
 
 ;; ----------------------------------------------------------------------------
 ;; Side effects.
 
+(defn trace-set-subtrace [tr key sub]
+  (assert (ok-key? key))
+  (let [tr (strip tr)]
+    (if (mut/basic-trace? tr)
+      (mut/set-subtrace! tr key sub)
+      (assert false ["expected a mutable trace" tr key sub]))))
+
+(defn trace-set-subtrace-at [tr adr sub]
+  (let [adr (addrify adr)
+        tr (strip tr)]
+    (assert (not (empty? adr)))
+    (let [[head & tail] adr]
+      (if (empty? tail)
+        (trace-set-subtrace tr head sub)
+        (let [more (if (trace-has-subtrace? tr head)
+                     (trace-subtrace tr head)
+                     (let [novo (empty-trace)]
+                       (trace-set-subtrace tr head novo)
+                       novo))]
+          (trace-set-subtrace-at more tail sub))))))
+
 (defn ^:private trace-set-value! [tr val]
-  (assert (ok-value? val) ["storing non-metaprob value" val])
   (let [tr (strip tr)]
     (if (mut/basic-trace? tr)
       (mut/set-value! tr val)
       (assert false ["expected a mutable trace" tr val]))))
 
+(defn ^:private trace-set-value-at! [tr adr val]
+  (if (empty? adr)
+    (trace-set-value! tr val)
+    (let [key (first adr)
+          sub (if (trace-has-subtrace? tr key)
+                (trace-subtrace tr key)
+                (let [novo (empty-trace)]
+                  (trace-set-subtrace tr key novo)
+                  novo))]
+      (trace-set-value-at! sub (rest adr) val))))
+
 (defn trace-set
   ([tr val] (trace-set-value! tr val))
-  ([tr addr val] (trace-set-value! (lookup tr addr) val)))
+  ([tr adr val]
+   (trace-set-value-at! tr (addrify adr) val)))
 
 (defn trace-clear [tr]
   (let [tr (strip tr)]
@@ -225,19 +267,7 @@
 
 (defn trace-delete
   ([tr] (trace-clear tr))
-  ([tr addr] (trace-clear (lookup tr addr))))
-
-(defn trace-set-subtrace [tr key sub]
-  (let [tr (strip tr)]
-    (if (mut/basic-trace? tr)
-      (mut/set-subtrace! tr key sub)
-      (assert false ["expected a mutable trace" tr key sub]))))
-
-(defn trace-set-subtrace-at [tr addr sub]
-  (let [tr (strip tr)]
-    (if (mut/basic-trace? tr)
-      (mut/set-subtrace-at! tr (addrify addr) sub)
-      (assert false ["expected a mutable trace" tr addr sub]))))
+  ([tr adr] (trace-clear (lookup tr adr))))
 
 ;; ----------------------------------------------------------------------------
 ;; Trace constructors
@@ -249,11 +279,7 @@
 ;; TBD: Check well-formedness of map.
 ;; TBD: Currently the subtraces all have to be mutable.  Fix.
 
-(defn trace-from-map
-  ([maap]
-   (mut/trie-from-map mut/no-value maap))
-  ([maap val]
-   (mut/trie-from-map val maap)))
+(def trace-from-map mut/trie-from-map)
 
 ;; Returns a mutable trace whose subtraces are the members of the clojure sequence tlist
 ;; Used by: syntax.clj
@@ -345,17 +371,16 @@
     (seq tup)))
 
 (defn metaprob-list-to-seq [things]
-  (let [things (strip things)]
-    (if (mut/basic-trace? things)
-      (letfn [(re [things]
-                (if (metaprob-pair? things)
-                  (cons (metaprob-first things)
-                        (re (metaprob-rest things)))
-                  (do (assert (empty-trace? things))
-                      '())))]
-        (re things))
-      (do (assert (seq? things))    ;seq = immutable mp list
-          things))))
+  (if (mut/basic-trace? things)
+    (letfn [(re [things]
+              (if (metaprob-pair? things)
+                (cons (metaprob-first things)
+                      (re (metaprob-rest things)))
+                (do (assert (empty-trace? things) "badly terminated list")
+                    '())))]
+      (re things))
+    (do (assert (seq? things))    ;seq = immutable mp list
+        things)))
 
 (defn metaprob-sequence-to-seq [things]
   (let [things (strip things)]
@@ -366,15 +391,15 @@
             (metaprob-tuple? things)
               (metaprob-tuple-to-seq things)
             true
-              (assert false
-                      ["expected a metaprob-sequence" things]))
+            (assert false
+                    ["expected a metaprob-sequence" things]))
       (cond (vector? things)
-              things
+            things
             (seq? things)
-              things
+            things
             true
-              (assert false
-                      ["expected a metaprob-sequence" things])))))
+            (assert false
+                    ["expected a metaprob-sequence" things])))))
 
 ;; length - overrides original prelude (performance + generalization)
 
@@ -395,7 +420,7 @@
           (vector? tr) (count tr)
           true (assert false ["doesn't have a length" tr]))))
 
-;; Returns a clojure seq of the numbered subtries of the trie tr.
+;; Returns a clojure seq of the numbered subtraces of the trace tr.
 ;; Used in: to-clojure and related
 
 (defn subtraces-to-seq [tr]
@@ -403,7 +428,7 @@
   (for [i (range (mut/trace-count tr))]
     (mut/subtrace tr i)))
 
-;; Returns a clojure seq of the values of the numbered subtries of tr.
+;; Returns a clojure seq of the values of the numbered subtraces of tr.
 
 (defn ^:private subtrace-values-to-seq [tr]
   (assert (trace? tr))
@@ -433,11 +458,11 @@
   (if (mutable-trace? x)
     (let [x (strip x)]
       (cond (empty-trace? x)
-              '()
+            '()
             (metaprob-pair? x)
-              (map freeze (metaprob-list-to-seq x)) ;cf. ok-value?
+            (map freeze (metaprob-list-to-seq x)) ;cf. ok-value?
             (metaprob-tuple? x)
-              (vec (map freeze (metaprob-tuple-to-seq x)))
+            (vec (map freeze (metaprob-tuple-to-seq x)))
             true
             (let [keys (mut/trace-keys x)
                   maap (into {} (for [key keys] [key (freeze (mut/subtrace x key))]))]
@@ -445,6 +470,16 @@
                 (assoc maap :value (freeze (mut/value x)))
                 maap))))
     x))
+
+(defn frozen? [x]
+  (if (trace? x)
+    (if (mutable-trace? x)
+      false
+      (and (or (not (trace-has? x))
+               (frozen? (trace-get x)))
+           (every? (fn [key] (frozen? (trace-subtrace x key)))
+                   (trace-keys x))))
+    true))
 
 ;; Convert an immutable trace to a mutable trace
 
@@ -498,7 +533,7 @@
 ;; trie-from-map
 ;;  (doseq [[key sub] (seq maap)]
 ;;    (assert (acceptable? key sub)
-;;            ["bad subtrie assignment" (reason-unacceptable key sub)]))
+;;            ["bad subtrace assignment" (reason-unacceptable key sub)]))
 
 ;; Is the combination of key and sub acceptable (sub as the subtrace
 ;; value of key) in a trace?
@@ -529,7 +564,7 @@
               ["acceptable" key sub val]
               ["not a metaprob value" key sub val])))
         ["acceptable - no sub-value" key sub])
-      ["subtrie is a non-trie" key sub (type sub)])
+      ["prosepctive subtrace is a non-trace" key sub (type sub)])
     ["not to be used as a key" key sub]))
 
 ;; ----------------------------------------------------------------------------

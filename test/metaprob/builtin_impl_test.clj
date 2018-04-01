@@ -51,19 +51,6 @@
           (let [v2 (vec s)]
             (is (= v2 tup))))))))
 
-(deftest tag-capture
-  (testing "capture- and retrieve-tag-address smoke test"
-    (let [root (trace/new-trace "root")
-          q (capture-tag-address root root root)
-          a (metaprob-list "this" "that")
-          r (resolve-tag-address (trace/pair q a))
-          o2 (metaprob-nth r 2)]
-      (is (trace/trace? o2))
-      (trace/trace-set o2 "value")
-      (is (= (trace/trace-get o2) "value"))
-      (is (= (trace/trace-get (trace/lookup root a)) "value"))
-      (is (= (trace/trace-get root a) "value")))))
-
 ;; Procedure stuff
 
 (deftest foreign-procedure

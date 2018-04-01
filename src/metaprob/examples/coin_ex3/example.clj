@@ -36,18 +36,17 @@
     (for_each
       (range n)
       (gen [k]
-        (block (trace_set (lookup t1 (addr "datum" k "flip")) true))))
+        (block (trace-set t1 (addr "datum" k "flip") true))))
     t1))
 
 (define extract_weight
   (gen [state]
     (define site1 (addr 2 "weight" "then" 0 "uniform"))
-    (if (trace_has (lookup state site1))
-      (block (trace_get (lookup state site1)))
+    (if (trace-has? (lookup state site1))
+      (trace-get state site1)
       (block
         (define site2 (addr "native-generate" "body" 2 "weight" "else" 0))
-        (trace_get
-          (lookup (lookup flip_coins site2) (addr "value")))))))
+        (trace_get (lookup flip_coins site2) "value")))))
 
 (define transcript1
   (gen [do_print]
@@ -63,16 +62,14 @@
 (define transcript2
   (gen []
     (define a_trace (transcript1 false))
-    (trace_set (lookup a_trace (addr "datum" 0 "flip")) true)
-    (trace_set (lookup a_trace (addr "datum" 1 "flip")) true)
-    (trace_set (lookup a_trace (addr "datum" 2 "flip")) true)
-    (trace_set (lookup a_trace (addr "datum" 3 "flip")) true)
-    (trace_set (lookup a_trace (addr "datum" 4 "flip")) true)
+    (trace-set a_trace (addr "datum" 0 "flip") true)
+    (trace-set a_trace (addr "datum" 1 "flip") true)
+    (trace-set a_trace (addr "datum" 2 "flip") true)
+    (trace-set a_trace (addr "datum" 3 "flip") true)
+    (trace-set a_trace (addr "datum" 4 "flip") true)
     (define approximate_inference_update
-      (gen
-        []
-        (block
-          (single_site_metropolis_hastings_step
+      (gen []
+        (single_site_metropolis_hastings_step
             flip_coins
             (tuple 5)
             a_trace
@@ -80,7 +77,7 @@
               (addresses_of a_trace)
               (tuple
                 (addr 1 "tricky" "flip")
-                (addr 2 "weight" "then" 0 "uniform")))))))
+                (addr 2 "weight" "then" 0 "uniform"))))))
     (repeat 20 approximate_inference_update)
-    (print (trace_get (lookup a_trace (addr 1 "tricky" "flip"))))))
+    (print (trace-get a_trace (addr 1 "tricky" "flip")))))
 

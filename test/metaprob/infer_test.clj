@@ -4,7 +4,7 @@
             [metaprob.syntax :as syntax :refer :all]
             [metaprob.builtin-impl :as impl]
             [metaprob.builtin :as builtin]
-            [metaprob.infer :refer :all]))
+            [metaprob.infer :refer :all :exclude [apply]]))
 
 (deftest frame-1
   (testing "frame smoke test"
@@ -22,6 +22,20 @@
       (match-bind pat (list 1 2) f)
       (is (= (env-lookup f "a") 1))
       (is (= (env-lookup f "b") 2)))))
+
+(deftest tag-capture
+  (testing "capture- and retrieve-tag-address smoke test"
+    (let [root (trace/new-trace "root")
+          q (capture-tag-address root root root)
+          a (impl/metaprob-list "this" "that")
+          r (resolve-tag-address (trace/pair q a))
+          o2 (impl/metaprob-nth r 2)]
+      (is (trace/trace? o2))
+      (trace/trace-set o2 "value")
+      (is (= (trace/trace-get o2) "value"))
+      (is (= (trace/trace-get (trace/lookup root a)) "value"))
+      (is (= (trace/trace-get root a) "value")))))
+
 
 
 

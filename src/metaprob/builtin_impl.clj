@@ -33,24 +33,27 @@
 
 ;; addr - like `list`, but pure
 
-(defn addr [& things] things)    ;; a seq
+(defn addr [& things]
+  (if (= things nil)
+    '()
+    (map freeze things)))    ;; a seq
 
 ;; Translation of .sites method from trace.py.
 ;; Returns a seq of addresses, I believe.  (and addresses are themselves seqs.)
 
 (defn addresses-of [trace]
-  (letfn [(sites [tr]
+  (letfn [(get-sites [tr]
             ;; returns a seq of traces
             (let [site-list
                   (mapcat (fn [key]
                             (map (fn [site]
                                    (cons key site))
-                                 (sites (lookup tr key))))
+                                 (get-sites (lookup tr key))))
                           (trace-keys tr))]
               (if (trace-has? tr)
                 (cons '() site-list)
                 site-list)))]
-    (let [s (sites trace)]
+    (let [s (get-sites trace)]
       (doseq [site s]
         (assert (trace-has? trace site) ["missing value at" site]))
       s)))
@@ -143,16 +146,23 @@
 (defn metaprob-range [n]
   (_range n 0))
 
-;; append - overrides original prelude (performance)
-;; This is only for metaprob lists, not for tuples.
+;; append - overrides original prelude (for performance, generality)
+;;; Currently only handles lists; could extend to tuples.
+;; Mutability is contagious.
 
 (defn append [x y]
-  (if (metaprob-pair? x)
-    (pair (metaprob-first x) (append (metaprob-rest x) y))
-    (do (assert (or (empty-trace? y)
-                    (metaprob-pair? y))
-                ["expected append 2nd arg to be a mp list" y])
-        y)))
+  ;; Mutable or immutable?
+  (if (or (mutable-trace? x) (mutable-trace? y))
+    (letfn [(re [x]
+              (if (empty-trace? x)
+                y
+                (if (metaprob-pair? x)
+                  (pair (metaprob-first x)
+                        (re (metaprob-rest x)))
+                  (assert false "bad appender"))))]
+      (re x))
+    ;; Neither is mutable; should be seqables.  concat always returns a seq.
+    (concat x y)))
 
 ;; Random stuff
 
@@ -201,12 +211,29 @@
                                             "prob prog")
                             ifn))))
 
+(defn foreign-procedure-name [ifn]
+  (str ifn))
+
+;; This is for computing a name for a procedure at its point of creation.
+;; Careful, this loses if there's a cycle.  Don't include a lexical
+;; environment in tr.
+
+(defn trace-name
+  ([proc-parse-tree]
+   (str (hash (freeze proc-parse-tree))))
+  ([proc-parse-tree name] 
+   (if name
+     (str name "-" (trace-name proc-parse-tree))
+     (trace-name proc-parse-tree))))
+
+;; Mainly for foreign procedures.
+
 (defn procedure-name [pp]
   (if (trace? pp)
     (if (trace-has? pp "name")
-      (trace-get pp "name")
-      (str pp))
-    (str pp)))    ; E.g. "clojure.core$str@1593f8c5"
+      (trace-get pp "name")          ;Cached
+      (str "?-" (trace-name pp)))    ;???
+    (foreign-procedure-name pp)))    ;E.g. "clojure.core$str@1593f8c5"
 
 ;; !! REVIEW
 ;; This is a kludge, see syntax.clj, to use until there's a better solution.
@@ -245,39 +272,6 @@
 (defn error [& irritants]
   (assert false irritants))                     ;from prelude.vnts
 
-;; -----------------------------------------------------------------------------
-;; The tag address business
-
-;; capture-tag-address - overrides original prelude - but definition is the same.
-;; Overrides definition in prelude.clj.
-
-(defn capture-tag-address [i t o]
-  (assert (and (or (= i nil) (trace? i))
-               (or (= t nil) (trace? t))
-               (or (= o nil) (trace? o))))
-  (trace-from-map {"intervention" (new-trace i)
-                   "target" (new-trace t)
-                   "output" (new-trace o)}
-                  "captured tag address"))
-
-;; resolve-tag-address - original is in builtin.py
-
-(defn resolve-tag-address [quasi_addr]
-  (let [captured (metaprob-first quasi_addr)
-        addr (addrify (metaprob-rest quasi_addr))]
-    (assert (trace? captured))
-    (assert (= (count (trace-keys captured)) 3))
-    (let [i (trace-get captured "intervention")
-          t (trace-get captured "target")
-          o (trace-get captured "output")]
-      (let [i2 (if i (lookup i addr) nil)
-            t2 (if t (lookup t addr) nil)
-            o2 (if o (lookup o addr) nil)]
-        (assert (and (or (trace? i2) (= i2 nil))
-                     (or (trace? t2) (= t2 nil))
-                     (or (trace? o2) (= o2 nil))))
-        (seq-to-mutable-tuple [i2 t2 o2])))))
-
 ;; ----------------------------------------------------------------------------
 ;; Metaprob top level environments are represented as clojure namespaces.
 
@@ -311,20 +305,16 @@
 (defn exp [x] (java.lang.Math/exp x))
 (defn sqrt [x] (java.lang.Math/sqrt x))
 
-;; Purity is contagious.
-
 (defn add [x y]
   (if (number? x)
     (+ x y)
-    (if (and (trace? x) (trace? y))
-      (append x y)
-      (if (and (string? x) (string? y))
-        (concat x y)
-        (let [to-seq (fn [x]
-                       (if (string? x)
-                         (list x) ;????
-                         (metaprob-sequence-to-seq x)))]
-          (concat (to-seq x) (to-seq y)))))))
+    (if (and (string? x) (string? y))
+      (concat x y)
+      (let [x (if (string? x) (list x) x)
+            y (if (string? y) (list y) y)]
+        (if (and (trace? x) (trace? y))
+          (append x y)
+          (assert false ["not addable" x y]))))))
 
 (defn log [x] (java.lang.Math/log x))
 (defn cos [x] (java.lang.Math/cos x))

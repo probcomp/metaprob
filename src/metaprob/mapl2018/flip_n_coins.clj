@@ -6,6 +6,7 @@
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
+            [metaprob.distributions :refer :all]
             [metaprob.mapl2018.interpreters :refer :all]))
 
 ;;  Define a probabilistic  model  for n flips  of a coin
@@ -24,9 +25,9 @@
 ;; but  the  fourth  flip  comes  up  false
 
 (define ensure-tricky-and-biased (empty-trace))
-(trace-set (lookup ensure-tricky-and-biased (addr 1 "tricky" "flip ")) true)
-(trace-set (lookup ensure-tricky-and-biased (addr 2 "weight" "then" 0 "uniform")) 0.99)
-(trace-set (lookup ensure-tricky-and-biased (addr "datum" 3 "flip ")) false)
+(trace-set ensure-tricky-and-biased (addr 1 "tricky" "flip ") true)
+(trace-set ensure-tricky-and-biased (addr 2 "weight" "then" 0 "uniform") 0.99)
+(trace-set ensure-tricky-and-biased (addr "datum" 3 "flip ") false)
 
 (define trace-with-2-flips (empty-trace))
 

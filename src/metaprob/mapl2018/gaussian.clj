@@ -5,6 +5,7 @@
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
+            [metaprob.distributions :refer :all]
             [metaprob.mapl2018.interpreters :refer :all]))
 
 ;; sampling from a Gaussian with user-specified mean

@@ -5,6 +5,7 @@
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
+            [metaprob.distributions :refer :all]
             [metaprob.mapl2018.interpreters :refer :all]))
 
 (define importance-resampling
@@ -26,9 +27,9 @@
                    :output-trace       candidate-trace))
                 (tuple candidate-trace score))))
     (define traces 
-      (map (gen [p] (trace_get (lookup p (addr 0)))) particles))
+      (map (gen [p] (trace-get p 0)) particles))
     (define scores
-      (map (gen [p] (trace_get (lookup p (addr 1)))) particles))
+      (map (gen [p] (trace-get p 1)) particles))
 
     ;; return a trace with probability proportional to (exp score)
     (define which (log-categorical scores))
