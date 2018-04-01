@@ -240,7 +240,7 @@
 ;; Its purpose is to strip off all properties from the procedure, especially 
 ;; "generative_source".
 
-(defn export-procedure [ifn]
+(defn make-opaque [ifn]
   (make-foreign-procedure (procedure-name ifn) (with-meta ifn nil)))
 
 ;; prelude has: trace_of lookup_chain lookup_chain_with_exactly 

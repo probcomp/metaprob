@@ -7,7 +7,8 @@
             [metaprob.prelude :refer :all]
             ;; Added
             [metaprob.trace]
-            [metaprob.metacirc.infer :refer [infer]]
+            [metaprob.infer :refer [infer]]
+            [metaprob.distributions :refer [infer]]
             [metaprob.metacirc.propose :refer [propose]]
             [metaprob.metacirc.trace-choices :refer [trace_choices]]))
 
@@ -16,21 +17,18 @@
   infer_lightweight_chain
   infer_lightweight_mcmc)
 
-(define
-  single_site_metropolis_hastings_step
-  (gen
-    [proc inputs trace constraint_addresses]
+(define single_site_metropolis_hastings_step
+  (gen [proc inputs trace constraint_addresses]
     (define choice_addresses (addresses_of trace))
     (define
       candidates
       (set-difference choice_addresses constraint_addresses))
     (define target_address (uniform-sample candidates))
-    (define initial_value (trace_get trace target_address))
+    (define initial_value (trace-get trace target_address))
     (define initial_num_choices (length candidates))
     (trace-clear (lookup trace target_address))
     (define new_trace (empty-trace))
-    (define
-      [_ forward_score]
+    (define [_ forward_score]
       (infer proc
              inputs
              (empty-trace)
@@ -38,8 +36,7 @@
              new_trace))
     (define new_value (trace-get new_trace target_address))
     (define new_choice_addresses (addresses_of new_trace))
-    (define
-      new_candidates
+    (define new_candidates
       (set-difference new_choice_addresses constraint_addresses))
     (define new_num_choices (length new_candidates))
     (define
@@ -50,17 +47,15 @@
         __trace_0__))
     (for_each
       (set-difference choice_addresses new_choice_addresses)
-      (gen
-        [addr]
+      (gen [addr]
         (block
-          (trace_set restoring_trace
+          (trace-set restoring_trace
                      addr
-                     (trace_get (lookup trace addr))))))
-    (trace_clear (lookup new_trace target_address))
-    (define
-      [_ reverse_score]
+                     (trace-get trace addr)))))
+    (trace-clear (lookup new_trace target_address))
+    (define [_ reverse_score]
       (propose proc inputs restoring_trace new_trace))
-    (trace_set new_trace target_address new_value)
+    (trace-set new_trace target_address new_value)
     (define
       log_p_accept
       (add
@@ -72,21 +67,17 @@
       (block
         (for_each
           (set-difference choice_addresses new_choice_addresses)
-          (gen [addr] (block (trace_clear (lookup trace addr)))))
+          (gen [addr] (trace-clear (lookup trace addr))))
         (for_each
           new_choice_addresses
-          (gen
-            [addr]
-            (block
-              (trace_set trace
-                         addr
-                         (trace_get new_trace addr))))))
+          (gen [addr]
+            (trace-set trace
+                       addr
+                       (trace-get new_trace addr)))))
       (block (trace-set trace target_address initial_value)))))
 
-(define
-  infer_lightweight_chain
-  (gen
-    [sp args target num_steps]
+(define infer_lightweight_chain
+  (gen [sp args target num_steps]
     (define candidate (empty-trace))
     (define constraints (addresses_of target))
     (trace_choices sp args target candidate)
@@ -101,18 +92,14 @@
           constraints)))
     candidate))
 
-(define
-  infer_lightweight_mcmc
-  (gen
-    [sp args target num_steps query]
+(define infer_lightweight_mcmc
+  (gen [sp args target num_steps query]
     (define state (empty-trace))
-    (define constraints (trace_sites target))
+    (define constraints (addresses-of target))
     (trace_choices sp args target state)
     (define first_val (query state))
-    (define
-      step
-      (gen
-        [i]
+    (define step
+      (gen [i]
         (single_site_metropolis_hastings_step
           sp
           args

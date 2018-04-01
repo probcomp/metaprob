@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [metaprob.builtin-impl :as builtin]
             [metaprob.syntax :refer :all]
-            [metaprob.infer :refer :all]
+            [metaprob.infer :as infer]
             [metaprob.distributions :refer :all]))
 
 (deftest flip-1
@@ -13,7 +13,7 @@
       (is (not (every? (fn [x] x) flips))))))
 
 (defn get-score [proc inputs]
-  (let [[answer score] (infer proc inputs nil nil nil)]
+  (let [[answer score] (infer/infer proc inputs nil nil nil)]
     score))
 
 (deftest score-0

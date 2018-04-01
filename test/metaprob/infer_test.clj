@@ -109,7 +109,7 @@
   (testing "export a procedure"
     (let [x 5
           m1 (gen [] x)
-          m2 (impl/export-procedure m1)]
+          m2 (impl/make-opaque m1)]
       (is (= (m2) (m1))))))
 
 ;; Lift a generate method up to a infer method

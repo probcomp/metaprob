@@ -164,15 +164,12 @@
                nest
                (assoc nest :bare false))
         body (form-to-formlist (to-clojure body-trace nest))
-        form (qons 'gen
-                   (qons (pattern-to-pattern pat-trace)
-                         body))]
+        tail (qons (pattern-to-pattern pat-trace) body)]
     (if (get nest :bare)
-      form
+      (qons 'gen tail)
       ;; The environment isn't captured, so it's not possible to 
       ;; interpret the source code.
-      (qons 'export-procedure
-            (qons form '())))))
+      (qons 'opaque tail))))
 
 (defn with-address-to-clojure [tr nest]
   (list 'with-addr

@@ -17,6 +17,8 @@
   (trace-keys [_])                      ;Return a seq
   (trace-count [_])                     ;Number of subtraces
 
+  (make-locative [_ adr])
+
   (debug [_]))
 
 (defn basic-trace? [x]
@@ -24,10 +26,7 @@
 
 ; Concrete implementation of the above interface
 
-(declare mutable-trace)
-(declare trie?)
-
-(defn address? [x] (or (seq? x) (vector? x) (= x nil)))
+(declare mutable-trace really-make-locative trie?)
 
 (deftype Trie
     ;; Should probably be one or two refs instead
@@ -70,6 +69,9 @@
   (trace-count [_]
     (count subtraces))
 
+  (make-locative [_ adr]
+    (really-make-locative _ adr))
+
   (debug [_] :trie))
 
 ;; Not clear whether this is the most idiomatic / best approach.
@@ -98,6 +100,7 @@
     tr
     (let [[head & tail] adr]
       (if (has-subtrace? tr head)
+        ;; Snap the link?
         (subtrace-at (subtrace tr head) tail)
         :none))))
 
@@ -105,6 +108,7 @@
   (if (empty? adr)
     tr
     (let [[head & tail] adr]
+      ;; Snap the link?
       (ensure-subtrace-at (if (has-subtrace? tr head)
                             (subtrace tr head)
                             (let [novo (mutable-trace)]
@@ -143,10 +147,14 @@
         '()
         (trace-keys sub))))
   (trace-count [tr]
-    (trace-count (subtrace-at trace adr))))
+    (trace-count (subtrace-at trace adr)))
 
-(defn make-locative [tr adr]
-  (assert (trie? tr))
-  (assert (seq? adr))
+  (make-locative [_ more-adr]
+    (really-make-locative trace (concat adr more-adr)))
+  )
+
+(defn really-make-locative [tr adr]
+  (assert (trie? tr) ["trace in make-locative must be mutable" tr adr])
+  (assert (seq? adr) ["address in make-locative must be a seq" tr adr])
   (Locative. tr adr))
 

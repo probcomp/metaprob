@@ -117,5 +117,5 @@
 
 (define-foreign-procedure generate-foreign impl/generate-foreign)
 (define-foreign-procedure make-foreign-procedure impl/make-foreign-procedure)
-(define-foreign-procedure export-procedure impl/export-procedure)
+(define-foreign-procedure make-opaque impl/make-opaque)
 (define-foreign-procedure foreign-procedure? trace/foreign-procedure?)
