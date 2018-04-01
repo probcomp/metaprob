@@ -188,9 +188,9 @@
                   (qons `do (concat (list) forms))))))]
     (formlist-to-form (block-to-body forms))))
 
-(defmacro tuple [& members]
-  `(trace-from-map ~(zipmap (range (count members))
-                           (map (fn [x] `(new-trace ~x)) members))))
+;(defmacro tuple [& members]
+;  `(trace-from-map ~(zipmap (range (count members))
+;                           (map (fn [x] `(new-trace ~x)) members))))
 
 (defmacro with-addr [addr & body]
   `(do ~addr ~@body))
@@ -274,7 +274,7 @@
   (from-clojure-seq exp "application"))
 
 (defn from-clojure-tuple [exp]
-  (from-clojure-seq exp "tuple"))
+  (from-clojure-application (cons 'tuple exp)))
 
 ;; N.b. strings are seqable
 
@@ -286,7 +286,6 @@
 
 ;; Don't create variables with these names...
 ;;   (tbd: look for :meta on a Var in this namespace ??)
-;; tbd: add "tuple" - requires coordination
 (def prohibited-names #{"block" "gen" "define" "if"})
 
 (defn from-clojure-1 [exp]
@@ -313,7 +312,6 @@
                          block (from-clojure-block exp)
                          mp-splice (trace-from-map {"expression" (from-clojure exp)} "splice")
                          mp-unquote (trace-from-map {"expression" (from-clojure exp)} "unquote")
-                         tuple (from-clojure-seq exp "tuple")
                          with-address (from-clojure-with-address exp)
                          with-addr (from-clojure-with-address exp)
                          define (from-clojure-definition exp)

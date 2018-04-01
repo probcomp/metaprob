@@ -18,7 +18,7 @@
   (testing "match-bind smoke test"
     (let [top (impl/make-top-level-env 'metaprob.infer)
           f (make-env top)
-          pat (from-clojure '[a b])]
+          pat (from-clojure-pattern '[a b])]
       (match-bind pat (list 1 2) f)
       (is (= (env-lookup f "a") 1))
       (is (= (env-lookup f "b") 2)))))
@@ -118,7 +118,7 @@
   (testing "lift a generate method up to a infer method"
     (let [m (gen [argseq i t o]
                       (define [x y] argseq)
-                      (tuple (+ x 1) 19))
+                      (trace/tuple (+ x 1) 19))
           l (inf "testing" m)]
       (is (= (l 17 "z") 18)))))
 

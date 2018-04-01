@@ -75,7 +75,7 @@
                             (match-bind p i env))
                           subpatterns
                           inputs))
-        (assert false "bad pattern")))
+        (assert false ["bad pattern" pattern input])))
     "return value of match-bind"))
 
 ;; Manual edit: moved from interpret.clj
@@ -212,13 +212,11 @@
                       (if output_trace
                         (lookup output_trace (add address (addr name)))
                         nil)))
-             (tuple val (add (trace-get subscore) score)))
+             [val (add (trace-get subscore) score)])
             (if (eq (trace-get exp) "variable")
-              (tuple (env-lookup env
-                                 (trace-get exp "name"))
-                     0)
+              [(env-lookup env (trace-get exp "name")) 0]
               (if (eq (trace-get exp) "literal")
-                (tuple (trace-get exp "value") 0)
+                [(trace-get exp "value") 0]
                 (if (eq (trace-get exp) "gen")
                   (block
                    (tuple
@@ -249,26 +247,20 @@
                      (if pred
                        (block
                         (define [val score]
-                          (walk
-                           (lookup exp "then")
-                           (add address (list "then"))))
-                        (tuple val (add p_score score)))
+                          (walk (lookup exp "then")
+                                (add address (list "then"))))
+                        [val (add p_score score)])
                        (block
                         (define [val score]
-                          (walk
-                           (lookup exp "else")
-                           (add address (list "else"))))
-                        (tuple val (add p_score score)))))
+                          (walk (lookup exp "else")
+                                (add address (list "else"))))
+                        [val (add p_score score)])))
                     (if (eq (trace-get exp) "block")
                       (block
                        (define n (length (trace-keys exp)))
                        ;; (define new-env (make-env env))
-                       (define
-                         subscore
-                         (block
-                          (define __trace_2__ (empty-trace))
-                          (trace-set __trace_2__ 0)
-                          __trace_2__))
+                       (define subscore (empty-trace))
+                       (trace-set subscore 0)
                        (define
                          values
                          (map          ;; How do we know map is left to right?
@@ -282,72 +274,44 @@
                             v)
                           (range n)))
                        (if (gt (length values) 0)
-                         (block
-                          (tuple (last values) (trace-get subscore)))
-                         (block
-                          (tuple (empty-trace) (trace-get subscore)))))
-                      (if (eq (trace-get exp) "tuple")
+                         [(last values) (trace-get subscore)]
+                         [(empty-trace) (trace-get subscore)]))
+                      (if (eq (trace-get exp) "definition")
                         (block
-                         (define n (length (trace-keys exp)))
-                         (define
-                           subscore
-                           (block
-                            (define __trace_3__ (empty-trace))
-                            (trace-set __trace_3__ 0)
-                            __trace_3__))
-                         (define
-                           values
-                           (map
-                            (gen [i]
-                              (define [v s]
-                                (walk (lookup exp i)
-                                      (add address (list i))))
-                              (trace-set
-                               subscore
-                               (add (trace-get subscore) s))
-                              v)
-                            (range n)))
-                         (tuple
-                          (to-tuple values)
-                          (trace-get subscore)))
-                        (if (eq (trace-get exp) "definition")
-                          (block
-                           (define subaddr
-                             (name_for_definiens
-                              (lookup exp "pattern")))
-                           (define [val score]
-                             (walk (lookup exp subaddr)
-                                   (add address subaddr)))
-                           (tuple
-                            (match-bind
-                             (lookup exp "pattern")
-                             val
-                             env)
-                            score))
-                          (if (eq (trace-get exp) "this")
-                            (tuple (capture-tag-address
-                                    intervention_trace
-                                    target_trace
-                                    output_trace)
-                                   0)
-                            (if (eq (trace-get exp) "with_address")
-                              (block
-                               (define [tag_addr tag_score]
-                                 (walk (lookup exp "tag")
-                                       (add address (addr "tag"))))
-                               (define [new_intervene new_target new_output]
-                                 (resolve-tag-address tag_addr))
-                               (define [val score]
-                                 (infer-eval (lookup exp "expression")
-                                             env
-                                             new_intervene
-                                             new_target
-                                             new_output))
-                               (tuple val (add tag_score score)))
-                              (block
-                               (pprint exp)
-                               (error
-                                "Not a code expression")))))))))))))
+                         (define subaddr
+                           (name_for_definiens
+                            (lookup exp "pattern")))
+                         (define [val score]
+                           (walk (lookup exp subaddr)
+                                 (add address subaddr)))
+                         [(match-bind
+                           (lookup exp "pattern")
+                           val
+                           env)
+                          score])
+                        (if (eq (trace-get exp) "this")
+                          [(capture-tag-address intervention_trace
+                                                target_trace
+                                                output_trace)
+                           0]
+                          (if (eq (trace-get exp) "with_address")
+                            (block
+                             (define [tag_addr tag_score]
+                               (walk (lookup exp "tag")
+                                     (add address (addr "tag"))))
+                             (define [new_intervene new_target new_output]
+                               (resolve-tag-address tag_addr))
+                             (define [val score]
+                               (infer-eval (lookup exp "expression")
+                                           env
+                                           new_intervene
+                                           new_target
+                                           new_output))
+                             (tuple val (add tag_score score)))
+                            (block
+                             (pprint exp)
+                             (error
+                              "Not a code expression"))))))))))))
         (if (if intervention_trace
               (trace-has? intervention_trace address)
               false)

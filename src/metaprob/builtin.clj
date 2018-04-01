@@ -90,6 +90,7 @@
 (define-foreign-procedure list? impl/metaprob-list?)
 (define-foreign-procedure to-list impl/to-list)
 (define-foreign-procedure tuple? trace/metaprob-tuple?)
+(define-foreign-procedure tuple trace/tuple)
 
 ;; Generic
 (define-foreign-procedure first trace/metaprob-first)

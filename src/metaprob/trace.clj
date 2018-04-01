@@ -353,6 +353,8 @@
 ;; Tuple
 ;; Maybe rename this to just `tuple` instead of `metaprob-tuple` ?
 
+(defn tuple [& inputs] (vec inputs))
+
 (defn metaprob-tuple? [x]
   (let [x (strip x)]
     (if (mut/basic-trace? x)
@@ -400,6 +402,16 @@
             true
             (assert false
                     ["expected a metaprob-sequence" things])))))
+
+;; Number of subtraces
+
+(defn trace-count [tr]
+  (let [tr (strip tr)]
+    (cond (mut/basic-trace? tr) (mut/trace-count tr)
+          (seq? tr) (count tr)
+          (vector? tr) (count tr)
+          (map? tr) (count tr)
+          true (assert false ["doesn't have a count" tr]))))
 
 ;; length - overrides original prelude (performance + generalization)
 

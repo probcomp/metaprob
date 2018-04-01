@@ -54,7 +54,7 @@
 (deftest map-3
   (testing "Map over a metaprob tuple"
     (is (= (builtin/trace-get (prelude/map (fn [x] (+ x 1))
-                                           (tuple 6 7 8))
+                                           (builtin/tuple 6 7 8))
                               '(1))
            8))))
 

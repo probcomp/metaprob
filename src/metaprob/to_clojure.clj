@@ -160,7 +160,7 @@
 
 (defn gen-to-clojure [pat-trace body-trace nest]
   ;; For readability, allow x y instead of (block x y)
-  (let [nest (if (trace/empty-trace? pat-trace)
+  (let [nest (if (= (trace/trace-count pat-trace) 0)
                nest
                (assoc nest :bare false))
         body (form-to-formlist (to-clojure body-trace nest))
