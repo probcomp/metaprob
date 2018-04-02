@@ -6,18 +6,18 @@
             [metaprob.builtin :as builtin]
             [metaprob.infer :refer :all :exclude [apply]]))
 
+(def top (impl/make-top-level-env 'metaprob.infer))
+
 (deftest frame-1
   (testing "frame smoke test"
-    (let [top (impl/make-top-level-env 'metaprob.infer)
-          f (make-env top)]
+    (let [f (make-env top)]
       (env-bind! f "foo" 17)
       (is (= (env-lookup f "foo") 17))
       (is (= (env-lookup f "sub") builtin/sub)))))
 
 (deftest frame-2
   (testing "match-bind smoke test"
-    (let [top (impl/make-top-level-env 'metaprob.infer)
-          f (make-env top)
+    (let [f (make-env top)
           pat (from-clojure-pattern '[a b])]
       (match-bind pat (list 1 2) f)
       (is (= (env-lookup f "a") 1))
@@ -67,7 +67,7 @@
   (let [[value score]
         (trace/metaprob-sequence-to-seq
          (infer-eval (from-clojure x)
-                     (impl/make-top-level-env 'metaprob.infer)
+                     top
                      (mk_nil)
                      (mk_nil)
                      (mk_nil)))]
@@ -157,3 +157,29 @@
     (is (= (ez-eval '(case 1 2)) 2))
     (is (= (ez-eval '(case 1 1 2)) 2))
     (is (= (ez-eval '(case 1 2 3 1 4)) 4))))
+
+
+(deftest intervene-1
+  (testing "simple intervention"
+    (let [form (from-clojure '(block 17 19))
+          [value1 _] (infer-eval form top nil nil nil)]
+      (is (= value1 19))
+      (let [intervene (builtin/empty-trace)]
+        (trace/trace-set intervene 1 23)
+        (let [[value2 _] (infer-eval form top intervene nil nil)]
+          (is (= value2 23)))))))
+
+
+(deftest intervene-2
+  (testing "output capture, then intervention"
+    (let [form (from-clojure '(block (add 15 2) (sub 21 2)))
+          output (builtin/empty-trace)
+          [value1 _] (infer-eval form top nil nil output)]
+      (is (= value1 19))
+      (let [intervene (builtin/empty-trace)
+            addresses (builtin/addresses-of output)]
+        ;; (builtin/pprint output)
+        (doseq [a addresses]
+          (trace/trace-set intervene a 23))
+        (let [[value2 _] (infer-eval form top intervene nil nil)]
+          (is (= value2 23)))))))

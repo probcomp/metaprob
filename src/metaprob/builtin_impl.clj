@@ -348,7 +348,10 @@
           (princ (format "{{%s: ...}}" (first keyseq))))))
     (pr a)))
 
+;; x is a seq
+
 (defn pprint-seq [x indent open close]
+  (assert (seq? x))
   (princ open)
   (let [vertical? (some mutable-trace? x)
         indent (str indent " ")]
@@ -367,6 +370,8 @@
 (defn pprint-trace [tr indent]
   (letfn [(re [tr indent tag]
             (princ indent)
+            (if (mutable-trace? tr)
+              (princ "!"))
             (if (string? tag)
               (princ tag)
               (pprint-atom tag))
@@ -384,22 +389,25 @@
 
 (defn pprint-indented [x indent]
   (cond (empty-trace? x)
-        (princ "{{}}")
+        (pprint-atom x)
         
-        (metaprob-pair? x)
-        (pprint-seq (metaprob-list-to-seq x) indent "(" ")")
-
-        (metaprob-tuple? x)
-        (pprint-seq (metaprob-tuple-to-seq x) indent "[" "]")
-
-        (mutable-trace? x)
-        (pprint-trace x indent)
-
         (seq? x)
         (pprint-seq x indent "(" ")")
 
         (vector? x)
-        (pprint-seq x indent "[" "]")
+        (pprint-seq (seq x) indent "[" "]")
+
+        (map? x)
+        (pprint-trace x indent)
+
+        (metaprob-pair? x)
+        (pprint-seq (metaprob-list-to-seq x) indent "!(" ")")
+
+        (metaprob-tuple? x)
+        (pprint-seq (metaprob-tuple-to-seq x) indent "![" "]")
+
+        (mutable-trace? x)
+        (pprint-trace x indent)
 
         true
         (pprint-atom x))

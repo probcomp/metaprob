@@ -384,11 +384,14 @@
 (defn metaprob-tuple? [x]
   (let [x (strip x)]
     (if (mut/basic-trace? x)
-      (let [n (mut/trace-count x)]
-        (or (= n 0)
-            (and (mut/has-subtrace? x 0)
-                 (mut/has-subtrace? x (- n 1)))))
-      (vector? x))))
+      (and (not (mut/has-value? x))
+           (let [n (mut/trace-count x)]
+             (or (= n 0)
+                 (and (mut/has-subtrace? x 0)
+                      (mut/has-value? (mut/subtrace x 0))
+                      (mut/has-subtrace? x (- n 1))
+                      (mut/has-value? (mut/subtrace x (- n 1)))))))
+      (vector? x))))                     ;??? (empty? x) maybe
 
 ;; metaprob-sequence-to-seq - convert metaprob sequence (list or tuple) to clojure seq (list).
 (declare subtrace-values-to-seq)
@@ -429,12 +432,13 @@
             (assert false
                     ["expected a metaprob-sequence" things])))))
 
-;; Number of subtraces
+;; Total number of subtraces
 
 (defn trace-count [tr]
   (let [tr (strip tr)]
     (cond (mut/basic-trace? tr) (mut/trace-count tr)
-          (seq? tr) (count tr)
+          (empty? tr) 0
+          (seq? tr) 1
           (vector? tr) (count tr)
           (map? tr) (if (contains? tr :value)
                       (- (count tr) 1)
@@ -467,11 +471,31 @@
   (for [i (range (trace-count tr))] (trace-subtrace tr i)))
 
 ;; Returns a clojure seq of the values of the numbered subtraces of tr.
+;; (there might be a value, so tr isn't necessarily a vector)
 
 (defn ^:private subtrace-values-to-seq [tr]
-  (assert (trace? tr))
-  (for [i (range (trace-count tr))]
-    (trace-get tr i)))
+  (let [r (range (trace-count tr))]
+  (map (fn [i]
+         (assert (trace-has-subtrace? tr i)
+                 ["missing index" 
+                  (if (mutable-trace? tr)
+                    (mut/get-state tr)
+                    tr)
+                  i
+                  (trace-count tr)
+                  (trace-keys tr)
+                  r])
+         (assert (trace-has? tr i)
+                 ["missing value" 
+                  (if (mutable-trace? tr)
+                    (mut/get-state tr)
+                    tr)
+                  i
+                  (trace-count tr)
+                  (trace-keys tr)
+                  r])
+         (trace-get tr i))
+       r)))
 
 (defn metaprob-sequence-to-seq [mp-seq]
   (let [mp-seq (strip mp-seq)]
@@ -565,7 +589,7 @@
       (if (trace-has-value? x)
         ;; should we thaw the value too?
         (trace-set tr (trace-get x)))
-      (for [key (trace-keys x)]
+      (doseq [key (trace-keys x)]
         (trace-set-direct-subtrace! tr key (thaw (trace-direct-subtrace tr key))))
       tr)
     x))
@@ -611,7 +635,7 @@
 ;;    (assert (acceptable? key sub)
 ;;            ["unacceptable assignment" _ (reason-unacceptable key sub)])
 
-;; trie-from-map
+;; trace-from-map
 ;;  (doseq [[key sub] (seq maap)]
 ;;    (assert (acceptable? key sub)
 ;;            ["bad subtrace assignment" (reason-unacceptable key sub)]))

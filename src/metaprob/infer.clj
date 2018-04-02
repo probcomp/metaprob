@@ -10,6 +10,7 @@
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]))
 
+;; ----------------------------------------------------------------------------
 ;; Lexical environments, needed by gen macro.
 ;; TBD: Move to prelude
 
@@ -90,7 +91,6 @@
         (addr (trace-get pattern "name"))
         (addr "definiens"))
       (addr "definiens"))))
-
 
 ;; -----------------------------------------------------------------------------
 ;; The tag address business

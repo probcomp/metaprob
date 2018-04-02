@@ -16,6 +16,10 @@
       (is (not (trace-as-procedure? ifn)))
       (is (= (strip ifn) ifn)))))
 
+(defn count-is? [tr n]
+  (and (= (trace-count tr) n)
+       (= (count (trace-keys tr)) n)))
+
 (deftest tap-1
   (testing "tests for traces-as-procedures"
     (let [tr (empty-trace)
@@ -25,16 +29,16 @@
       (is (not (trace-as-procedure? 'foo)))
       (is (not (trace-as-procedure? nil)))
       (is (= (strip p) tr))
-      (is (= (count (trace-keys p)) 0)))))
+      (is (count-is? p 0)))))
 
 (deftest tap-2
   (testing "tests for empty-as-procedure"
     (let [tr '()
-          p (trace-as-procedure tr (fn [x] x))]
+          p (trace-as-procedure '() (fn [x] x))]
       (is (trace-as-procedure? p))
       (is (trace? p))
       (is (= (strip p) tr))
-      (is (= (count (trace-keys p)) 0)))))
+      (is (count-is? p 0)))))
 
 (deftest basic-traces
   (testing "battery of tests applied to basic traces"
@@ -48,7 +52,7 @@
       (is (trace? tr))
       (is (mutable-trace? tr))
       (is (= (trace-get tr) 5))
-      (is (= (count (trace-keys tr)) 3))
+      (is (count-is? tr 3))
 
       (is (= (trace-get (lookup tr "a")) 17))
       (is (= (trace-get tr "b") 33))
@@ -59,18 +63,18 @@
       (let [c (lookup tr "c")]
         (is (= (trace-get c) 31))
         (is (= (trace-get c "x") 13))
-        (is (= (count (trace-keys c)) 2)))
+        (is (count-is? c 2)))
 
       (is (= (trace-get (lookup tr '("c" "x"))) 13))
       (is (= (trace-get tr '("c" "x")) 13)))))
 
 (deftest empty-as-trace
   (testing "see how well empty seq serves as a trace"
-    (is (= (count (trace-keys '())) 0))
+    (is (count-is? '() 0))
     (is (not (trace-has? '() "a")))
-    (is (= (count (trace-keys [])) 0))
+    (is (count-is? [] 0))
     (is (not (trace-has? [] "a")))
-    (is (= (count (trace-keys {})) 0))
+    (is (count-is? {} 0))
     (is (not (trace-has? {} "a")))))
 
 (deftest seq-as-trace
@@ -81,7 +85,7 @@
 
       (is (= (trace-get tr) 17))
       (is (= (metaprob-first tr) 17))
-      (is (= (count (trace-keys tr)) 1))
+      (is (count-is? tr 1))    ; rest
 
       (is (= (trace-get (metaprob-rest tr)) 33))
       (is (= (trace-get (lookup tr "rest")) 33))
@@ -96,7 +100,7 @@
       (is (= (trace-get tr 0) 17))
       (is (= (trace-get tr 2) 97))
 
-      (is (= (count (trace-keys tr)) 3))
+      (is (count-is? tr 3))
       (is (= (length tr) 3))
       (is (= (length (metaprob-sequence-to-seq tr)) 3)))))
 
@@ -113,7 +117,7 @@
                               "c" tr2}
                              5)]
       (is (= (trace-get tr) 5))
-      (is (= (count (trace-keys tr)) 3))
+      (is (count-is? tr 3))
 
       (is (= (trace-get (lookup tr "a")) 17))
       (is (= (trace-get tr "b") 33))
@@ -124,7 +128,7 @@
       (let [c (lookup tr "c")]
         (is (= (trace-get c) 31))
         (is (= (trace-get c "x") 13))
-        (is (= (count (trace-keys c)) 2)))
+        (is (count-is? c 2)))
 
       (is (= (trace-get (lookup tr '("c" "x"))) 13))
       (is (= (trace-get tr '("c" "x")) 13)))))
@@ -138,11 +142,11 @@
   (testing "trace constructor, immutable"
     (let [tr (immutable-trace "x" 13)]
       (is (trace? tr))
-      (is (= (count (trace-keys tr)) 1))
+      (is (count-is? tr 1))
       (is (trace-has? tr "x"))
       (is (= (trace-get tr "x") 13)))
     (let [tr (immutable-trace "x" 13 :value 17)]
-      (is (= (count (trace-keys tr)) 1))
+      (is (count-is? tr 1))
       (is (trace-has? tr "x"))
       (is (= (trace-get tr) 17)))))
 
@@ -152,12 +156,12 @@
       (is (trace? m))
       (trace-set m "x" 13)
       (let [tr (make-immutable m)]
-        (is (= (count (trace-keys tr)) 1))
+        (is (count-is? tr 1))
         (is (trace-has? tr "x"))
         (is (= (trace-get tr "x") 13)))
       (trace-set m 17)
       (let [tr (make-immutable m)]
-        (is (= (count (trace-keys tr)) 1))
+        (is (count-is? tr 1))
         (is (trace-has? tr "x"))
         (is (= (trace-get tr) 17))))))
 
@@ -166,7 +170,7 @@
     (is (trace? (trace)))
     (let [tr (trace "x" 13)]
       (is (trace? tr))
-      (is (= (count (trace-keys tr)) 1))
+      (is (count-is? tr 1))
       (is (trace-has? tr "x"))
       (is (= (trace-get tr "x") 13)))
     (let [tr (trace "x" 13 :value 17)]

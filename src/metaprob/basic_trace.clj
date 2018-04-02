@@ -1,6 +1,11 @@
 (ns metaprob.basic-trace
   (:require [clojure.string :as string]))
 
+;; I wish I understand clojure side effects.  Seems like a total hodgepodge
+
+(defn clobber [a x]
+  (compare-and-set! a (deref a) x))
+
 (defprotocol ITrace
   "A prefix tree"
   (has-value? [_])
@@ -15,9 +20,8 @@
   (trace-keys [_])                      ;Return a seq
   (trace-count [_])                     ;Number of subtraces
 
-  (make-locative [_ adr])
-
-  (debug [_]))
+  (get-state [_])
+  (make-locative [_ adr]))
 
 (defn basic-trace? [x]
   (satisfies? ITrace x))
@@ -34,17 +38,19 @@
   ITrace
 
   (has-value? [_]
-    (has-subtrace? _ :value))
+    (contains? (deref subtraces-ref) :value))
   (value [_]
-    (subtrace _ :value))
+    (let [probe (get (deref subtraces-ref) :value :not-present)]
+      (assert (not (= probe :not-present)) ["no value" _ :value])
+      probe))
   (set-value! [_ val]
-    (dosync (ref-set subtraces-ref (assoc (deref subtraces-ref) :value val)))
+    (dosync (clobber subtraces-ref (assoc (deref subtraces-ref) :value val)))
     nil)
   (clear-value! [_]
     ;; Something fishy about this; if doing this causes the trie to become empty
     ;; then shouldn't the trie go away entirely?  Well, we don't have parent 
     ;; pointers, so nothing we can do about this.
-    (dosync (ref-set subtraces-ref (dissoc (deref subtraces-ref) :value)))
+    (dosync (clobber subtraces-ref (dissoc (deref subtraces-ref) :value)))
     nil)
 
   ;; Direct children
@@ -56,8 +62,8 @@
       (assert (not (= probe :not-present)) ["no such subtrace" _ key])
       probe))
   (set-subtrace! [_ key sub]
-    (assert trie? sub)
-    (dosync (ref-set subtraces-ref (assoc (deref subtraces-ref) key sub)))
+    ;; N.b. sub might an immutable trace.
+    (dosync (clobber subtraces-ref (assoc (deref subtraces-ref) key sub)))
     nil)
 
   (trace-keys [_] 
@@ -71,10 +77,10 @@
         (- (count subs) 1)
         (count subs))))
 
-  (make-locative [_ adr]
-    (really-make-locative _ adr))
+  (get-state [_] (deref subtraces-ref))
 
-  (debug [_] :trie))
+  (make-locative [_ adr]
+    (really-make-locative _ adr)))
 
 ;; Not clear whether this is the most idiomatic / best approach.
 (defn trie? [x]
@@ -83,7 +89,7 @@
   )
 
 (defn make-trace [maap]
-  (Trie. (ref maap)))
+  (Trie. (atom maap)))
 
 (defn mutable-trace
   ([]
@@ -103,7 +109,8 @@
 (defn ^:private subtrace-at [tr adr]
   (if (empty? adr)
     tr
-    (let [[head & tail] adr]
+    (let [head (first adr)
+          tail (rest adr)]              ;don't use [head & tail]
       (if (has-subtrace? tr head)
         ;; Snap the link?
         (subtrace-at (subtrace tr head) tail)
@@ -112,7 +119,8 @@
 (defn ^:private ensure-subtrace-at [tr adr]
   (if (empty? adr)
     tr
-    (let [[head & tail] adr]
+    (let [head (first adr)
+          tail (rest adr)]              ;don't use [head & tail]
       ;; Snap the link?
       (ensure-subtrace-at (if (has-subtrace? tr head)
                             (subtrace tr head)
@@ -163,7 +171,8 @@
   (assert (seq? adr) ["address in make-locative must be a seq" tr adr])
   (if (empty? adr)
     tr
-    (let [[head & tail] adr]
+    (let [head (first adr)
+          tail (rest adr)]              ;don't use [head & tail]
       (if (has-subtrace? tr head)
         (really-make-locative (subtrace tr head) tail)
         (Locative. tr adr)))))
