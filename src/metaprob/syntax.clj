@@ -298,6 +298,56 @@
 (defn from-clojure-tuple [exp]
   (from-clojure-application (cons 'tuple exp)))
 
+(defn from-clojure-literal [value]
+  (set-value {"value" (new-trace value)} "literal"))
+
+(defn from-clojure-and [exp]
+  (letfn [(expand [forms]
+            (cond (empty? forms)
+                    'true
+                  (empty? (rest forms))
+                    (first forms)
+                  true
+                    (list 'if
+                        (first forms)
+                        (expand (rest forms))
+                        'false)))]
+    (from-clojure (expand (rest exp)))))
+
+(defn from-clojure-or [exp]
+  (letfn [(expand [forms]
+            (cond (empty? forms)
+                    'false
+                  (empty? (rest forms))
+                    (first forms)
+                  true
+                    (let [g '_or_temp_]
+                      (list 'block
+                          (list 'define g (first forms))
+                          (list 'if
+                                g
+                                g
+                                (expand (rest forms)))))))]
+    (from-clojure (expand (rest exp)))))
+
+(defn from-clojure-case [exp]
+  (let [g '_case_temp_]
+    (letfn [(expand [forms]
+              (cond (empty? forms)
+                      'nil
+                    (empty? (rest forms))
+                      (first forms)
+                    true
+                      (list 'if
+                            (list 'eq g (first forms))
+                            (first (rest forms))
+                            (expand (rest (rest forms))))))]
+      (let [[_ subj & clauses] exp]
+        (from-clojure
+         (list 'block
+               (list 'define g subj)
+               (expand clauses)))))))
+
 ;; N.b. strings are seqable
 
 (defn literal-exp? [exp]
@@ -314,7 +364,7 @@
   (cond (vector? exp) (from-clojure-tuple exp)    ;; Pattern - shouldn't happen
 
         (literal-exp? exp)    ;; including string
-          (set-value {"value" (new-trace exp)} "literal")
+          (from-clojure-literal exp)
 
         (symbol? exp)
         (let [s (str exp)]
@@ -338,6 +388,10 @@
                          with-addr (from-clojure-with-address exp)
                          define (from-clojure-definition exp)
                          &this (set-value {} "this")
+                         ;; Syntactic sugar
+                         and (from-clojure-and exp)
+                         or (from-clojure-or exp)
+                         case (from-clojure-case exp)
                          ;; else
                          (from-clojure-application exp))
         ;; Literal

@@ -36,8 +36,6 @@
 
 ;; Logical
 (define-foreign-procedure not clojure.core/not)
-(define-foreign-procedure and impl/metaprob-and)
-(define-foreign-procedure or impl/metaprob-or)
 
 ;; Numeric
 (define-foreign-procedure gt >)

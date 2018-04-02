@@ -5,7 +5,7 @@
 ;; (i.e. to make it self-applicable!).
 
 (ns metaprob.infer
-  (:refer-clojure :only [declare ns])
+  (:refer-clojure :only [declare ns and or case])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]))
@@ -185,7 +185,7 @@
 (define infer-eval
   (gen [exp env intervention_trace target_trace output_trace]
     (define walk
-      (gen [exp address]
+      (gen [exp env address]
         (define [v score]
           (if (eq (trace-get exp) "application")
             (block
@@ -195,7 +195,7 @@
              (define values
                (map (gen [i]
                       (define [v s]
-                        (walk (trace-subtrace exp i) (add address (list i))))
+                        (walk (trace-subtrace exp i) env (add address (list i))))
                       (trace-set subscore (add (trace-get subscore) s))
                       v)
                     (range n)))
@@ -230,8 +230,8 @@
                     (trace-as-procedure proc
                                         ;; This may be unnecessary, but leaving it
                                         ;; in place for the time being
-                                        (gen [& args]
-                                          (nth (infer-apply proc args
+                                        (gen [& inputs]
+                                          (nth (infer-apply proc inputs
                                                             nil nil nil)
                                                0))))
                    0]
@@ -239,23 +239,23 @@
                     (block
                      (define [pred p_score]
                        (walk
-                        (lookup exp "predicate")
+                        (lookup exp "predicate") env
                         (add address (list "predicate"))))
                      (if pred
                        (block
                         (define [val score]
-                          (walk (lookup exp "then")
+                          (walk (lookup exp "then") env
                                 (add address (list "then"))))
                         [val (add p_score score)])
                        (block
                         (define [val score]
-                          (walk (lookup exp "else")
+                          (walk (lookup exp "else") env
                                 (add address (list "else"))))
                         [val (add p_score score)])))
                     (if (eq (trace-get exp) "block")
                       (block
                        (define n (length (trace-keys exp)))
-                       ;; (define new-env (make-env env))
+                       (define new-env (make-env env))
                        (define subscore (empty-trace))
                        (trace-set subscore 0)
                        (define
@@ -263,7 +263,7 @@
                          (map          ;; How do we know map is left to right?
                           (gen [i]
                             (define [v s]
-                              (walk (lookup exp i)
+                              (walk (lookup exp i) new-env
                                     (add address (list i))))
                             (trace-set
                              subscore
@@ -279,7 +279,7 @@
                            (name_for_definiens
                             (lookup exp "pattern")))
                          (define [val score]
-                           (walk (lookup exp subaddr)
+                           (walk (lookup exp subaddr) env
                                  (add address subaddr)))
                          [(match-bind
                            (lookup exp "pattern")
@@ -294,7 +294,7 @@
                           (if (eq (trace-get exp) "with_address")
                             (block
                              (define [tag_addr tag_score]
-                               (walk (lookup exp "tag")
+                               (walk (lookup exp "tag") env
                                      (add address (addr "tag"))))
                              ;; tag_addr is actually a quasi-address 
                              ;; (captured . address) - not an address.
@@ -318,7 +318,7 @@
           (block
            [(trace-get intervention_trace address) score])
           (block [v score]))))
-    (walk exp (addr))))
+    (walk exp env (addr))))
 
 (define inf
   (gen [name infer-method]

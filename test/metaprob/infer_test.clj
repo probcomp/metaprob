@@ -135,3 +135,25 @@
 ;      (let [[answer score] (infer-apply lifted [7 8] nil nil nil)]
 ;        (is (= answer 15))
 ;        (is (= score 50))))))
+
+(deftest and-1
+  (testing "and smoke test"
+    (is (= (ez-eval '(and)) true))
+    (is (= (ez-eval '(and 1)) 1))
+    (is (= (ez-eval '(and 1 2)) 2))
+    (is (= (ez-eval '(and 1 false)) false))
+    (is (= (ez-eval '(and 1 2 3)) 3))))
+
+(deftest or-1
+  (testing "or smoke test"
+    (is (= (ez-eval '(or)) false))
+    (is (= (ez-eval '(or 1)) 1))
+    (is (= (ez-eval '(or 1 2)) 1))
+    (is (= (ez-eval '(or false 2)) 2))
+    (is (= (ez-eval '(or false false 3)) 3))))
+
+(deftest case-1
+  (testing "case smoke test"
+    (is (= (ez-eval '(case 1 2)) 2))
+    (is (= (ez-eval '(case 1 1 2)) 2))
+    (is (= (ez-eval '(case 1 2 3 1 4)) 4))))

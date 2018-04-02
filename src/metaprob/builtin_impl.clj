@@ -172,14 +172,6 @@
 
 ;; In metaprob, these are strict functions.
 
-;!!
-(defn metaprob-and [a b]
-  (and a b))
-
-;!!
-(defn metaprob-or [a b]
-  (or a b))
-
 (defn neq [x y] (not (= x y)))
 
 (defn exactly [& body]
@@ -193,14 +185,7 @@
   (apply ifn (metaprob-sequence-to-seq inputs)))
 
 (defn make-foreign-procedure [name ifn]
-  (if true
-    ifn
-    (do (assert (or (string? name) (integer? name) (= name nil)) name)
-        (assert (instance? clojure.lang.IFn ifn) ifn)
-        (trace-as-procedure (trace-from-map {"name" (new-trace name)
-                                             "foreign-generate-method" ifn}
-                                            "prob prog")
-                            ifn))))
+  ifn)
 
 (defn foreign-procedure-name [ifn]
   (str ifn))
@@ -232,7 +217,7 @@
 ;; "generative_source".
 
 (defn make-opaque [ifn]
-  (make-foreign-procedure (procedure-name ifn) (with-meta ifn nil)))
+  (with-meta ifn nil))
 
 ;; prelude has: trace_of lookup_chain lookup_chain_with_exactly 
 
@@ -273,9 +258,11 @@
     (assert (top-level-environment? ns))
     ns))
 
+;; TBD: extend this to allow namespace-prefixed variable references foo/bar
+
 (defn top-level-lookup [the-ns name]
   (let [v (ns-resolve the-ns (symbol name))]
-    (assert (var? v) ["not bound" name the-ns])
+    (assert (var? v) ["unbound variable" name the-ns])
     (assert (not (get (meta v) :macro)) ["reference to macro" name the-ns])
     (deref v)))
 
