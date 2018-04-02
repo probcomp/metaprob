@@ -67,8 +67,11 @@
                (if (not (eq (length subpatterns) (length inputs)))
                  (assert false
                          ["number of subpatterns differs from number of input parts"
-                          (freeze pattern) (length (trace-keys pattern))
-                          (freeze inputs) (length inputs) env]))
+                          (make-immutable pattern)
+                          (length (trace-keys pattern))
+                          (make-immutable inputs)
+                          (length inputs)
+                          env]))
                ;; TBD: handle [x & y] properly
                (for-each2 (gen [p i]
                             (assert (not (eq p "&")) "NYI")
@@ -93,13 +96,14 @@
 ;; The tag address business
 
 ;; capture-tag-address - overrides original prelude - but definition is the same.
-;; Use with (pair (capture-tag-address ...) (addr ...))
+;; Used in interpretation of `this`.
+;; Use as first element of an address, e.g. (addr (capture-tag-address ...) ...).
 
 (define capture-tag-address
   (gen [i t o]
     ;; Cannot freeze, freezing is hereditary
     ;; Ergo, these things can't go into addresses (addr)
-    (trace "intervention-trace" i
+    (immutable-trace "intervention-trace" i
            "target-trace" t
            "output-trace" o
            :value "captured tag address")))
@@ -115,16 +119,16 @@
     (define i (trace-get captured "intervention-trace"))
     (define t (trace-get captured "target-trace"))
     (define o (trace-get captured "output-trace"))
-    (tuple (if i (lookup i more) nil)
-           (if t (lookup t more) nil)
-           (if o (lookup o more) nil))))
+    [(if i (lookup i more) nil)
+     (if t (lookup t more) nil)
+     (if o (lookup o more) nil)]))
 
 ;; ----------------------------------------------------------------------------
 
-(declare infer infer-apply-native infer-eval)
+(declare infer-apply-native infer-eval)
 
 ;; infer
-(define infer
+(define infer-apply
   (gen [prog inputs intervention_trace target_trace output_trace]
     (assert (or (list? inputs) (tuple? inputs)) ["inputs neither list nor tuple" inputs])
     (if (if (trace? prog) (trace-has? prog "infer-method") false)
@@ -186,11 +190,8 @@
           (if (eq (trace-get exp) "application")
             (block
              (define n (length (trace-keys exp)))
-             (define subscore
-               (block
-                (define __trace_0__ (empty-trace))
-                (trace-set __trace_0__ 0)
-                __trace_0__))
+             (define subscore (empty-trace))
+             (trace-set subscore 0)
              (define values
                (map (gen [i]
                       (define [v s]
@@ -201,43 +202,39 @@
              (define oper (first values))
              (define name (procedure-name oper))
              (define [val score]
-               (infer oper
-                      (rest values)
-                      (if intervention_trace
-                        (lookup intervention_trace (add address (addr name)))
-                        nil)
-                      (if target_trace
-                        (lookup target_trace (add address (addr name)))
-                        nil)
-                      (if output_trace
-                        (lookup output_trace (add address (addr name)))
-                        nil)))
+               (infer-apply oper
+                            (rest values)
+                            (if intervention_trace
+                              (lookup intervention_trace (add address (addr name)))
+                              nil)
+                            (if target_trace
+                              (lookup target_trace (add address (addr name)))
+                              nil)
+                            (if output_trace
+                              (lookup output_trace (add address (addr name)))
+                              nil)))
              [val (add (trace-get subscore) score)])
             (if (eq (trace-get exp) "variable")
               [(env-lookup env (trace-get exp "name")) 0]
               (if (eq (trace-get exp) "literal")
                 [(trace-get exp "value") 0]
                 (if (eq (trace-get exp) "gen")
-                  (block
-                   (tuple
-                    (block
-                     (define __trace_1__ (empty-trace))
-                     (trace-set __trace_1__ "prob prog")
-                     (trace-set __trace_1__ "name" (trace-name exp))
-                     (trace-set-subtrace-at
-                      __trace_1__
-                      (list "generative-source")
-                      exp)
-                     (trace-set __trace_1__ "environment" env)
-                     (trace-as-procedure __trace_1__
-                                         ;; This may be unnecessary, but leaving it
-                                         ;; in place for the time being
-                                         (gen [& args]
-                                           (nth (infer __trace_1__
-                                                       args
-                                                       nil nil nil)
-                                                0))))
-                    0))
+                  [(block
+                    (define proc (empty-trace))
+                    (trace-set proc "prob prog")
+                    (trace-set proc "name" (trace-name exp))
+                    (trace-set-subtrace proc
+                                        "generative-source"
+                                        exp)
+                    (trace-set proc "environment" env)
+                    (trace-as-procedure proc
+                                        ;; This may be unnecessary, but leaving it
+                                        ;; in place for the time being
+                                        (gen [& args]
+                                          (nth (infer-apply proc args
+                                                            nil nil nil)
+                                               0))))
+                   0]
                   (if (eq (trace-get exp) "if")
                     (block
                      (define [pred p_score]
@@ -299,6 +296,9 @@
                              (define [tag_addr tag_score]
                                (walk (lookup exp "tag")
                                      (add address (addr "tag"))))
+                             ;; tag_addr is actually a quasi-address 
+                             ;; (captured . address) - not an address.
+                             ;; Must be constructed using (pair x (addr ...))
                              (define [new_intervene new_target new_output]
                                (resolve-tag-address tag_addr))
                              (define [val score]
@@ -307,7 +307,7 @@
                                            new_intervene
                                            new_target
                                            new_output))
-                             (tuple val (add tag_score score)))
+                             [val (add tag_score score)])
                             (block
                              (pprint exp)
                              (error
@@ -316,8 +316,8 @@
               (trace-has? intervention_trace address)
               false)
           (block
-           (tuple (trace-get intervention_trace address) score))
-          (block (tuple v score)))))
+           [(trace-get intervention_trace address) score])
+          (block [v score]))))
     (walk exp (addr))))
 
 (define inf
@@ -333,4 +333,4 @@
 (define apply
   (inf "apply"
        (gen [inputs i t o]
-         (infer (first inputs) (rest inputs) i t o))))
+         (infer-apply (first inputs) (rest inputs) i t o))))

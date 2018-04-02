@@ -135,15 +135,47 @@
     (is (= (length (pair 0 (empty-trace))) 1))))
 
 (deftest trace-1
-  (testing "trace constructor"
+  (testing "trace constructor, immutable"
+    (let [tr (immutable-trace "x" 13)]
+      (is (trace? tr))
+      (is (= (count (trace-keys tr)) 1))
+      (is (trace-has? tr "x"))
+      (is (= (trace-get tr "x") 13)))
+    (let [tr (immutable-trace "x" 13 :value 17)]
+      (is (= (count (trace-keys tr)) 1))
+      (is (trace-has? tr "x"))
+      (is (= (trace-get tr) 17)))))
+
+(deftest trace-mut
+  (testing "make-mutable smoke test"
+    (let [m (empty-trace)]
+      (is (trace? m))
+      (trace-set m "x" 13)
+      (let [tr (make-immutable m)]
+        (is (= (count (trace-keys tr)) 1))
+        (is (trace-has? tr "x"))
+        (is (= (trace-get tr "x") 13)))
+      (trace-set m 17)
+      (let [tr (make-immutable m)]
+        (is (= (count (trace-keys tr)) 1))
+        (is (trace-has? tr "x"))
+        (is (= (trace-get tr) 17))))))
+
+(deftest trace-1a
+  (testing "trace constructor, mutable"
     (is (trace? (trace)))
     (let [tr (trace "x" 13)]
       (is (trace? tr))
-      (is (= (trace-get tr "x") 13))
-      (is (= (count (trace-keys tr)) 1)))
+      (is (= (count (trace-keys tr)) 1))
+      (is (trace-has? tr "x"))
+      (is (= (trace-get tr "x") 13)))
     (let [tr (trace "x" 13 :value 17)]
-      (is (= (trace-get tr) 17)))
+      (is (= (trace-get tr) 17)))))
+
+(deftest trace-2
+  (testing "trace splicing"
     (let [tr (trace "x" (** (trace :value 19)))]
+      (is (trace-has-subtrace? tr "x"))
       (is (= (trace-get tr "x") 19)))))
 
 (deftest trace-set-1

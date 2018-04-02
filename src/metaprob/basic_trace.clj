@@ -1,8 +1,6 @@
 (ns metaprob.basic-trace
   (:require [clojure.string :as string]))
 
-(def no-value '**no-value**)
-
 (defprotocol ITrace
   "A prefix tree"
   (has-value? [_])
@@ -30,44 +28,48 @@
 
 (deftype Trie
     ;; Should probably be one or two refs instead
-    [^:volatile-mutable the-value
-     ^:volatile-mutable subtraces]    ; hash-map
+    [subtraces-ref]
 
   ; Implements the ITrace interface
   ITrace
 
   (has-value? [_]
-    (not (= the-value no-value)))
+    (has-subtrace? _ :value))
   (value [_]
-    (assert (not (= the-value no-value)) "no value")
-    the-value)
+    (subtrace _ :value))
   (set-value! [_ val]
-    (assert (not (= val no-value)) "storing no value")
-    (set! the-value val))
+    (dosync (ref-set subtraces-ref (assoc (deref subtraces-ref) :value val)))
+    nil)
   (clear-value! [_]
     ;; Something fishy about this; if doing this causes the trie to become empty
     ;; then shouldn't the trie go away entirely?  Well, we don't have parent 
     ;; pointers, so nothing we can do about this.
-    (set! the-value no-value))
+    (dosync (ref-set subtraces-ref (dissoc (deref subtraces-ref) :value)))
+    nil)
 
   ;; Direct children
   (has-subtrace? [_ key]
     ;; python has_key, trace_has_key
-    (contains? subtraces key))
+    (contains? (deref subtraces-ref) key))
   (subtrace [_ key]
-    (get subtraces key))
+    (let [probe (get (deref subtraces-ref) key :not-present)]
+      (assert (not (= probe :not-present)) ["no such subtrace" _ key])
+      probe))
   (set-subtrace! [_ key sub]
     (assert trie? sub)
-    (set! subtraces (assoc subtraces key sub))
+    (dosync (ref-set subtraces-ref (assoc (deref subtraces-ref) key sub)))
     nil)
 
   (trace-keys [_] 
-    (let [ks (keys subtraces)]
+    (let [ks (keys (deref subtraces-ref))]
       (if (= ks nil)
         '()
-        ks)))
+        (remove #{:value} ks))))
   (trace-count [_]
-    (count subtraces))
+    (let [subs (deref subtraces-ref)]
+      (if (contains? subs :value)
+        (- (count subs) 1)
+        (count subs))))
 
   (make-locative [_ adr]
     (really-make-locative _ adr))
@@ -80,17 +82,20 @@
   ;; (= (type x) Trie)
   )
 
+(defn make-trace [maap]
+  (Trie. (ref maap)))
+
 (defn mutable-trace
   ([]
-   (Trie. no-value (hash-map)))
+   (make-trace (hash-map)))
   ([val]
-   (Trie. val (hash-map))))
+   (make-trace (assoc (hash-map) :value val))))
 
 ;; Utilities
 
 (defn trie-from-map
-  ([maap] (Trie. no-value maap))
-  ([maap val] (Trie. val maap)))
+  ([maap] (make-trace maap))
+  ([maap val] (make-trace (assoc maap :value val))))
 
 ;; ----------------------------------------------------------------------------
 ;; Locatives!
@@ -120,33 +125,33 @@
     [trace adr]
   ITrace
 
-  (has-value? [tr]
+  (has-value? [_]
     (let [sub (subtrace-at trace adr)]
       (if (= sub :none)
         false
         (has-value? sub))))
-  (value [tr]
+  (value [_]
     (value (subtrace-at trace adr)))
-  (set-value! [tr val]
+  (set-value! [_ val]
     (set-value! (ensure-subtrace-at trace adr) val))
-  (clear-value! [tr]
-    (set-value! (ensure-subtrace-at trace adr) no-value))
+  (clear-value! [_]
+    (clear-value! (ensure-subtrace-at trace adr)))
 
-  (has-subtrace? [tr key]
+  (has-subtrace? [_ key]
     (not (= (subtrace-at trace adr) :none)))
-  (subtrace [tr key]
+  (subtrace [_ key]
     (let [sub (subtrace-at trace adr)]
       (assert (not (= sub :none)))
       sub))
-  (set-subtrace! [tr key val]
+  (set-subtrace! [_ key val]
     (set-subtrace! (ensure-subtrace-at trace adr) key val))
 
-  (trace-keys [tr]
+  (trace-keys [_]
     (let [sub (subtrace-at trace adr)]
       (if (= sub :none)
         '()
         (trace-keys sub))))
-  (trace-count [tr]
+  (trace-count [_]
     (trace-count (subtrace-at trace adr)))
 
   (make-locative [_ more-adr]
@@ -156,5 +161,10 @@
 (defn really-make-locative [tr adr]
   (assert (trie? tr) ["trace in make-locative must be mutable" tr adr])
   (assert (seq? adr) ["address in make-locative must be a seq" tr adr])
-  (Locative. tr adr))
+  (if (empty? adr)
+    tr
+    (let [[head & tail] adr]
+      (if (has-subtrace? tr head)
+        (really-make-locative (subtrace tr head) tail)
+        (Locative. tr adr)))))
 

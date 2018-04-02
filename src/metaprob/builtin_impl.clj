@@ -31,31 +31,24 @@
 
 (declare append)
 
-;; addr - like `list`, but pure
-
-(defn addr [& things]
-  (if (= things nil)
-    '()
-    (map freeze things)))    ;; a seq
-
 ;; Translation of .sites method from trace.py.
 ;; Returns a seq of addresses, I believe.  (and addresses are themselves seqs.)
 
-(defn addresses-of [trace]
+(defn addresses-of [tr]
   (letfn [(get-sites [tr]
             ;; returns a seq of traces
             (let [site-list
                   (mapcat (fn [key]
                             (map (fn [site]
                                    (cons key site))
-                                 (get-sites (lookup tr key))))
+                                 (get-sites (trace-subtrace tr key))))
                           (trace-keys tr))]
               (if (trace-has? tr)
                 (cons '() site-list)
                 site-list)))]
-    (let [s (get-sites trace)]
+    (let [s (get-sites tr)]
       (doseq [site s]
-        (assert (trace-has? trace site) ["missing value at" site]))
+        (assert (trace-has? tr site) ["missing value at" site]))
       s)))
 
 ;; It is in principle possible to create traces that look like lists
@@ -171,10 +164,8 @@
 
 (defn set-difference [s1 s2]
   (seq-to-mutable-list
-   (seq (set/difference (set (map freeze
-                                  (metaprob-sequence-to-seq s1)))
-                        (set (map freeze
-                                  (metaprob-sequence-to-seq s2)))))))
+   (seq (set/difference (set (metaprob-sequence-to-seq s1))
+                        (set (metaprob-sequence-to-seq s2))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Control
@@ -401,7 +392,7 @@
             (newline)
             (let [indent (str indent "  ")]
               (doseq [key (trace-keys tr)]
-                (re (lookup tr key) indent key))))]
+                (re (trace-subtrace tr key) indent key))))]
     (re tr indent "trace")))
 
 (defn pprint-indented [x indent]

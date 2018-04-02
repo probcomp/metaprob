@@ -68,29 +68,33 @@
 (define-foreign-procedure lookup trace/lookup)
 (define-foreign-procedure trace-delete trace/trace-delete)
 (define-foreign-procedure trace-keys trace/trace-keys)
-(define-foreign-procedure trace-set-subtrace-at trace/trace-set-subtrace-at)
+(define-foreign-procedure trace-set-subtrace trace/trace-set-subtrace)
 (define-foreign-procedure trace? trace/trace?)
 (define-foreign-procedure mutable-trace? trace/mutable-trace?)
 (define-foreign-procedure trace-has-subtrace? trace/trace-has-subtrace?)
 (define-foreign-procedure trace-subtrace trace/trace-subtrace)
-(define-foreign-procedure freeze trace/freeze)
-(define-foreign-procedure thaw trace/thaw)
+(define-foreign-procedure make-mutable trace/make-mutable)
+(define-foreign-procedure make-immutable trace/make-immutable)
+(define-foreign-procedure mutable-trace? trace/mutable-trace?)
+(define-foreign-procedure immutable-trace? trace/immutable-trace?)
 (define-foreign-procedure trace trace/trace)    ;constructor
-(define-foreign-procedure ** trace/**)
+(define-foreign-procedure immutable-trace trace/immutable-trace)    ;constructor
+(define-foreign-procedure ** trace/**)          ;for (trace ... (** ...) ...)
 
 (define-foreign-procedure addresses-of impl/addresses-of)
+(define-foreign-procedure addr trace/addr)
 
 ;; Lists
 (define-foreign-procedure pair trace/pair)
 (define-foreign-procedure pair? trace/metaprob-pair?)
 (define-foreign-procedure list impl/metaprob-list)
-
-;; Tuple
-(define-foreign-procedure to-tuple impl/to-tuple)
 (define-foreign-procedure list? impl/metaprob-list?)
 (define-foreign-procedure to-list impl/to-list)
-(define-foreign-procedure tuple? trace/metaprob-tuple?)
+
+;; Tuple
 (define-foreign-procedure tuple trace/tuple)
+(define-foreign-procedure tuple? trace/metaprob-tuple?)
+(define-foreign-procedure to-tuple impl/to-tuple)
 
 ;; Generic
 (define-foreign-procedure first trace/metaprob-first)
@@ -101,9 +105,6 @@
 (define-foreign-procedure range impl/metaprob-range)
 (define-foreign-procedure append impl/append)
 (define-foreign-procedure set-difference impl/set-difference)
-
-;; addr - like list
-(define-foreign-procedure addr impl/addr)
 
 ;; Environments
 (define-foreign-procedure top-level-lookup impl/top-level-lookup)

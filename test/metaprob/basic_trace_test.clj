@@ -43,3 +43,15 @@
       (set-subtrace! trace "key" sub)
       (is (= (subtrace trace "key") sub)))))
 
+(deftest keys-1
+  (testing "keys"
+    (let [tr2 (mutable-trace)]
+      (set-value! tr2 1)
+      (let [tr (mutable-trace)]
+        (set-subtrace! tr "a" tr2)
+        (is (= (trace-count tr) 1))
+        (is (= (trace-keys tr) '("a")))
+
+        (set-value! tr 2)
+        (is (= (trace-count tr) 1))
+        (is (= (trace-keys tr) '("a")))))))

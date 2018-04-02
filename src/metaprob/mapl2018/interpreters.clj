@@ -1,19 +1,17 @@
 (ns metaprob.mapl2018.interpreters
   (:require [metaprob.syntax :refer :all]
-            [metaprob.builtin :as b]
-            [metaprob.prelude :as p]
-            [metaprob.infer :as infer]))
+            [metaprob.builtin-impl :as impl]
+            [metaprob.infer :refer [infer-apply]]))
 
 (defn infer [& {:keys [procedure inputs intervention-trace
                        target-trace output-trace]}]
-  ;; (print (format "infer: output_trace = %s" output-trace))
-  (infer/infer procedure
+  (infer-apply procedure
                inputs
                intervention-trace
                target-trace
                output-trace))
 
 (defn interpret [& {:keys [program inputs interventions]}]
-  (b/nth (infer/infer program inputs interventions nil  nil)
-         0))
+  (impl/metaprob-nth (infer-apply program inputs interventions nil  nil)
+                     0))
 

@@ -26,15 +26,18 @@
 (deftest tag-capture
   (testing "capture- and retrieve-tag-address smoke test"
     (let [root (trace/new-trace "root")
-          q (capture-tag-address root root root)
-          a (impl/metaprob-list "this" "that")
-          r (resolve-tag-address (trace/pair q a))
-          o2 (impl/metaprob-nth r 2)]
-      (is (trace/trace? o2))
-      (trace/trace-set o2 "value")
-      (is (= (trace/trace-get o2) "value"))
-      (is (= (trace/trace-get (trace/lookup root a)) "value"))
-      (is (= (trace/trace-get root a) "value")))))
+          cap (capture-tag-address root root root)]
+      (is (= (trace/trace-count cap) 3))
+      (let [a (trace/addr "that" "those")
+            quasi (trace/pair cap a)      ; /*this/that/those/ ?
+            [i t o] (resolve-tag-address quasi)]
+        (is (trace/trace? i))
+        (trace/trace-set i "value")
+        (is (= (trace/trace-get i) "value"))
+
+        (let [again (trace/trace-subtrace root a)]
+          (is (= (trace/trace-get again) "value"))
+          (is (= (trace/trace-get root a) "value")))))))
 
 
 
@@ -45,9 +48,9 @@
   (let [inputs (if (= inputs nil) '() inputs)
         [value score]
         (trace/metaprob-sequence-to-seq
-         (infer prob-prog
-                inputs
-                (mk_nil) (mk_nil) (mk_nil)))]
+         (infer-apply prob-prog
+                      inputs
+                      (mk_nil) (mk_nil) (mk_nil)))]
     value))
 
 (deftest apply-1
@@ -116,8 +119,8 @@
 
 (deftest lift-1
   (testing "lift a generate method up to a infer method"
-    (let [m (gen [argseq i t o]
-                      (define [x y] argseq)
+    (let [m (gen [inputs i t o]
+                      (define [x y] inputs)
                       (trace/tuple (+ x 1) 19))
           l (inf "testing" m)]
       (is (= (l 17 "z") 18)))))
@@ -125,10 +128,10 @@
 
 ;(deftest lift-and-call
 ;  (testing "can we lift a procedure and then call it"
-;    (let [qq (impl/make-foreign-procedure "qq" (fn [argseq i t o]
-;                                             [(+ (metaprob-nth argseq 0) (metaprob-nth argseq 1))
+;    (let [qq (impl/make-foreign-procedure "qq" (fn [inputs i t o]
+;                                             [(+ (metaprob-nth inputs 0) (metaprob-nth inputs 1))
 ;                                              50]))
 ;          lifted (inf "lifted" qq)]
-;      (let [[answer score] (infer lifted [7 8] nil nil nil)]
+;      (let [[answer score] (infer-apply lifted [7 8] nil nil nil)]
 ;        (is (= answer 15))
 ;        (is (= score 50))))))

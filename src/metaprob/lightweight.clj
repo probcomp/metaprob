@@ -29,11 +29,11 @@
     (trace-clear (lookup trace target_address))
     (define new_trace (empty-trace))
     (define [_ forward_score]
-      (infer proc
-             inputs
-             (empty-trace)
-             trace
-             new_trace))
+      (infer-apply proc
+                   inputs
+                   (empty-trace)
+                   trace
+                   new_trace))
     (define new_value (trace-get new_trace target_address))
     (define new_choice_addresses (addresses_of new_trace))
     (define new_candidates
