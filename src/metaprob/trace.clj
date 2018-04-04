@@ -30,12 +30,15 @@
 (defn trace-as-procedure? [x]
   (not (= (get (meta x) :trace :not-found) :not-found)))
 
-(defn foreign-procedure? [x]
+(defn procedure? [x]
   (and (instance? clojure.lang.IFn x)
        (not (seq? x))
        (not (vector? x))
        (not (symbol? x))
-       (not (keyword? x))
+       (not (keyword? x))))
+
+(defn foreign-procedure? [x]
+  (and (procedure? x)
        (not (trace-as-procedure? x))))
 
 ;; We can add properties to a procedure by adding a `meta` table
@@ -100,21 +103,13 @@
       (trace? val)
       (keyword? val)
       (top-level-environment? val)
-      (foreign-procedure? val)))
+      (procedure? val)))
 
 ;; ----------------------------------------------------------------------------
 
 (declare metaprob-sequence-to-seq immutable-trace)
 (declare metaprob-first metaprob-rest metaprob-pair?)
 (declare trace-has-subtrace?)
-
-;; addr - like `list`, but pure
-
-(defn addr [& keys]
-  (assert (every? ok-key? keys))
-  (if (= keys nil)
-    '()
-    keys))
 
 ;; Coerce an address-like thing to an address.
 ;; A non-seq is coerced to a singleton seq.

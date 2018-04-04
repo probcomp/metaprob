@@ -26,15 +26,20 @@
 ;; The larger the weight, the more likely it is that the sample is
 ;; true rather than false.
 
+(define sample-flip
+  (gen [weight]
+    (lt (sample-uniform) weight)))
+
+(define score-flip
+  (gen [sample inputs] ;; [sample [weight]]
+    (define weight (nth inputs 0))
+    (if sample
+      (log weight)
+      (log1p (sub 0 weight)))))
+
 (define flip
-  (provide-score-method
-   "flip"
-   (gen [weight]
-     (lt (sample-uniform) weight))
-   (gen [sample [weight]]
-     (if sample
-       (log weight)
-       (log1p (sub 0 weight))))))
+  (provide-score-method "flip" sample-flip score-flip))
+
 
 ;; Uniform
 
@@ -42,7 +47,9 @@
   (provide-score-method
    "uniform"
    sample-uniform
-   (gen [x [a b]]
+   (gen [x inputs] ;; [x [a b]]
+     (define a (nth inputs 0))
+     (define b (nth inputs 1))
      (sub 0.0 (log (sub b a))))))
 
 ;; Categorical

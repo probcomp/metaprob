@@ -28,7 +28,7 @@
     (let [root (trace/new-trace "root")
           cap (capture-tag-address root root root)]
       (is (= (trace/trace-count cap) 3))
-      (let [a (trace/addr "that" "those")
+      (let [a (impl/addr "that" "those")
             quasi (trace/pair cap a)      ; /*this/that/those/ ?
             [i t o] (resolve-tag-address quasi)]
         (is (trace/trace? i))

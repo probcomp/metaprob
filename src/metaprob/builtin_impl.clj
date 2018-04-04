@@ -26,6 +26,20 @@
       (pair (first things)
             (seq-to-mutable-list (rest things))))))
 
+;; addr - create an address out of a key sequence
+
+(declare procedure-name)
+
+(defn addr [& keys]
+  (if (= keys nil)
+    '()
+    (map (fn [key]
+           (if (procedure? key)
+             (procedure-name key)
+             (do (assert (ok-key? key))
+                 key)))
+         keys)))
+
 ;; ----------------------------------------------------------------------
 ;; Builtins (defined in python in original-metaprob)
 
@@ -287,7 +301,7 @@
   (if (number? x)
     (+ x y)
     (if (and (string? x) (string? y))
-      (concat x y)
+      (str x y)
       (let [x (if (string? x) (list x) x)
             y (if (string? y) (list y) y)]
         (if (and (trace? x) (trace? y))
@@ -310,8 +324,8 @@
 (def ^:dynamic *rng* (java.util.Random. 42))
 
 (defn sample-uniform
-  ([] (.nextLong *rng*))
-  ([a b] (+ a (* (.nextLong *rng*) (- b a)))))
+  ([] (.nextDouble *rng*))
+  ([a b] (+ a (* (.nextDouble *rng*) (- b a)))))
   
 
 ;; -----------------------------------------------------------------------------

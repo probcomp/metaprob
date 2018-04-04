@@ -80,7 +80,7 @@
 (define-foreign-procedure ** trace/**)          ;for (trace ... (** ...) ...)
 
 (define-foreign-procedure addresses-of impl/addresses-of)
-(define-foreign-procedure addr trace/addr)
+(define-foreign-procedure addr impl/addr)
 
 ;; Lists
 (define-foreign-procedure pair trace/pair)

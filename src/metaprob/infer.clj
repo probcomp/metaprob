@@ -326,6 +326,7 @@
     (trace-set tr "name" (add "inf-" (procedure-name infer-method)))
     (trace-set tr "infer-method" infer-method)
     (trace-as-procedure tr
+                        ;; When callsed from Clojure:
                         (gen [& inputs]
                           (nth (infer-method inputs nil nil nil)
                                0)))))

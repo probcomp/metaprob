@@ -145,3 +145,21 @@
           has? (fn [val] (some (fn [x] (= x val)) vals))]
       (has? 17)
       (has? 71))))
+
+(deftest nth-1
+  (testing "nth smoke tests"
+    (is (= (metaprob-nth (list 5 7 11) 1) 7))
+    (is (= (metaprob-nth (vector 5 7 11) 1) 7))
+    (is (= (metaprob-nth (metaprob-list 5 7 11) 1) 7))
+    (is (= (metaprob-nth (metaprob-list 5 7 11) 0) 5))
+    (is (= (metaprob-nth (metaprob-list 5 7 11) 2) 11))))
+
+(deftest sample-1
+  (testing "sample-uniform smoke tests"
+    (let [x (sample-uniform)
+          y (sample-uniform)]
+      (is (> x 0))
+      (is (< x 1))
+      (is (> y 0))
+      (is (< y 1))
+      (is (not (= x y))))))
