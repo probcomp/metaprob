@@ -3,7 +3,7 @@
 
 (ns metaprob.builtin
   (:refer-clojure :exclude
-                  [not and or
+                  [not and or case
                    assert pprint print apply
                    list list? first rest last nth range])
   (:require [metaprob.trace :as trace])
@@ -119,3 +119,11 @@
 (define-foreign-procedure make-foreign-procedure impl/make-foreign-procedure)
 (define-foreign-procedure make-opaque impl/make-opaque)
 (define-foreign-procedure foreign-procedure? trace/foreign-procedure?)
+
+(def positive-infinity Double/POSITIVE_INFINITY)
+(def negative-infinity Double/NEGATIVE_INFINITY)
+(define-foreign-procedure same-trace-states? impl/same-trace-states?)
+
+(defmacro and [& forms] `(clojure.core/and ~@forms))
+(defmacro or [& forms] `(clojure.core/or ~@forms))
+(defmacro case [& forms] `(clojure.core/or ~@forms))

@@ -183,3 +183,8 @@
           (trace/trace-set intervene a 23))
         (let [[value2 _] (infer-eval form top intervene nil nil)]
           (is (= value2 23)))))))
+
+(deftest apply-1
+  (testing "apply smoke test"
+    (is (= (apply builtin/sub (list 3 2)) 1))
+    (is (= (apply apply (list builtin/sub (list 3 2))) 1))))

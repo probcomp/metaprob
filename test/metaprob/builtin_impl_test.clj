@@ -1,6 +1,6 @@
 (ns metaprob.builtin-impl-test
   (:require [clojure.test :refer :all]
-            [metaprob.trace :as trace]
+            [metaprob.trace :as trace :refer [trace]]
             [metaprob.builtin-impl :refer :all]))
 
 (deftest last-1
@@ -163,3 +163,19 @@
       (is (> y 0))
       (is (< y 1))
       (is (not (= x y))))))
+
+(deftest same-1
+  (testing "object comparison smoke test"
+    (is (same-trace-states? 7 7))
+    (is (not (same-trace-states? 7 8)))
+    (is (same-trace-states? '(11 13) (list 11 13)))
+    (is (not (same-trace-states? '(17 19) '(17 19 23))))
+    (is (same-trace-states? (trace "a" 29 "b" 31)
+                            (trace "a" 29 "b" 31)))
+    (is (not (same-trace-states? (trace "a" 29 "b" 31)
+                                 (trace "a" 29 "b" 31 "c" 37))))
+    (is (not (same-trace-states? (trace "a" 29 "b" 31 "c" 37)
+                                 (trace "a" 29 "b" 31))))
+    (is (not (same-trace-states? (trace "a" 29 "b" 31)
+                                 (trace "a" 29 "b" 31 :value 12))))))
+

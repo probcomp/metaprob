@@ -36,7 +36,7 @@
          (log sigma))))
 
 (define gaussian
-  (provide-score-method "gaussian"
+  (hard-to-name "gaussian"
                         generate-gaussian
                         score-gaussian))
 

@@ -8,45 +8,62 @@
 ;; -----------------------------------------------------------------------------
 ;; Distributions (nondeterministic procedures)
 
-;; Provide a procedure with a score method.
-;; The score-method can be an IFn here, but it can also be a
-;; procedure with the appropriate meta magic to make it callable.
-
-;; Arguments to score-method are [sample params]
-
-(define provide-score-method
-  (gen [name prog score-method]
-    (inf name
-         (gen [inputs i t o]
-           (define [answer _] (infer-apply prog inputs i t o))
-           [answer (score-method answer inputs)]))))
-
 ;; Code translated from class BernoulliOutputPSP(DiscretePSP):
 ;;
 ;; The larger the weight, the more likely it is that the sample is
 ;; true rather than false.
 
-(define sample-flip
-  (gen [weight]
-    (lt (sample-uniform) weight)))
-
-(define score-flip
-  (gen [sample inputs] ;; [sample [weight]]
-    (define weight (nth inputs 0))
-    (if sample
-      (log weight)
-      (log1p (sub 0 weight)))))
-
 (define flip
-  (provide-score-method "flip" sample-flip score-flip))
+  (inf "flip"
+       (gen [inputs intervene target output]
+         (define weight (nth inputs 0))
+         (define [value score]
+           (if (and intervene (trace-has? intervene))
+             ;; Deterministic, so score is 0
+             [(trace-get intervene) 0]
+             (if (and target (trace-has? target))
+               [(trace-get target)
+                (if (trace-get target)
+                  ;; E.g. if weight is 0.5, (log weight) is -0.69
+                  (log weight)
+                  (log1p (sub 0 weight)))]
+               [(lt (sample-uniform) weight) 0])))
+         (if output
+           (trace-set output value))
+         [value score])))
 
+(define hard-to-name
+  (gen [name sampler scorer]
+    (inf name
+         (gen [inputs intervene target output]
+           (define [value score]
+             (if (and intervene (trace-has? intervene))
+               ;; Deterministic, so score is 0
+               [(trace-get intervene) 0]
+               (if (and target (trace-has? target))
+                 [(trace-get target)
+                  (scorer (trace-get target) inputs)]
+                 [(apply sampler inputs) 0])))
+           (if output
+             (trace-set output value))
+           [value score]))))
+
+(define flip3
+  (hard-to-name "flip"
+                (gen [weight] (lt (sample-uniform) weight))
+                (gen [value inputs]
+                  (define weight (nth inputs 0))
+                  (if value
+                    (log weight)
+                    (log1p (sub 0 weight))))))
+                  
 
 ;; Uniform
 
 (define uniform
-  (provide-score-method
+  (hard-to-name
    "uniform"
-   sample-uniform
+   (gen [a b] (sample-uniform a b))
    (gen [x inputs] ;; [x [a b]]
      (define a (nth inputs 0))
      (define b (nth inputs 1))
@@ -55,7 +72,7 @@
 ;; Categorical
 
 (define uniform-sample
-  (provide-score-method
+  (hard-to-name
    "uniform-sample"
    (gen [items]
      ;; items is a metaprob list (or tuple??)
@@ -68,7 +85,7 @@
 ;; 
 
 (define log-categorical
-  (provide-score-method
+  (hard-to-name
    "log-categorical"
    (gen [scores]
      ;; if scores is a tuple, coerce to list
@@ -113,7 +130,7 @@
 ;; Please read the comments in lite/continuous.py in Venture
 
 ;(define beta
-;  (provide-score-method
+;  (hard-to-name
 ;   "beta"
 ;   (fn beta [a b]
 ;     ;; From kixi/stats/distribution.cljc :

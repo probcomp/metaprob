@@ -440,3 +440,19 @@
   (princ x)
   (flush))
 
+(defn same-trace-states? [trace1 trace2]
+  (or (= trace1 trace2)
+      (and (trace? trace1)
+           (trace? trace2)
+           (let [h1 (trace-has? trace1)
+                 h2 (trace-has? trace2)]
+             (and (= h1 h2)
+                  (or (not h1) (= (trace-get trace1) (trace-get trace2)))))
+           (let [keys1 (set (trace-keys trace1))
+                 keys2 (set (trace-keys trace2))]
+             (and (= keys1 keys2)
+                  (every? (fn [key]
+                            (and (trace-has? trace2 key)
+                                 (same-trace-states? (trace-subtrace trace1 key)
+                                                     (trace-subtrace trace2 key))))
+                          keys1))))))

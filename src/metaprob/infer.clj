@@ -5,7 +5,7 @@
 ;; (i.e. to make it self-applicable!).
 
 (ns metaprob.infer
-  (:refer-clojure :only [declare ns and or case])
+  (:refer-clojure :only [declare ns])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]))
@@ -70,7 +70,8 @@
                          ["number of subpatterns differs from number of input parts"
                           (make-immutable pattern)
                           (length (trace-keys pattern))
-                          (make-immutable inputs)
+                          (clojure.core/map make-immutable
+                               (make-immutable inputs))
                           (length inputs)
                           env]))
                ;; TBD: handle [x & y] properly
@@ -100,12 +101,12 @@
 ;; Use as first element of an address, e.g. (addr (capture-tag-address ...) ...).
 
 (define capture-tag-address
-  (gen [i t o]
+  (gen [intervene target output]
     ;; Cannot freeze, freezing is hereditary
     ;; Ergo, these things can't go into addresses (addr)
-    (immutable-trace "intervention-trace" i
-           "target-trace" t
-           "output-trace" o
+    (immutable-trace "intervention-trace" intervene
+           "target-trace" target
+           "output-trace" output
            :value "captured tag address")))
 
 ;; resolve-tag-address
@@ -116,12 +117,18 @@
   (gen [quasi_addr]
     (define captured (first quasi_addr))
     (define more (rest quasi_addr))
-    (define i (trace-get captured "intervention-trace"))
-    (define t (trace-get captured "target-trace"))
-    (define o (trace-get captured "output-trace"))
-    [(if i (lookup i more) nil)
-     (if t (lookup t more) nil)
-     (if o (lookup o more) nil)]))
+    (define intervene (trace-get captured "intervention-trace"))
+    (define target (trace-get captured "target-trace"))
+    (define output (trace-get captured "output-trace"))
+    [(if intervene (lookup intervene more) nil)
+     (if target (lookup target more) nil)
+     (if output (lookup output more) nil)]))
+
+(define procedure-key
+  (gen [exp]
+    (if (eq (trace-get exp) "variable")
+      (trace-get exp "name")
+      "call")))
 
 ;; ----------------------------------------------------------------------------
 
@@ -129,34 +136,38 @@
 
 ;; infer
 (define infer-apply
-  (gen [prog inputs intervention_trace target_trace output_trace]
+  (gen [prog inputs intervene target output]
     (assert (or (list? inputs) (tuple? inputs)) ["inputs neither list nor tuple" inputs])
     (if (if (trace? prog) (trace-has? prog "infer-method") false)
       ;; return the value+score that the infer-method computes
       ((trace-get prog "infer-method")
-       inputs intervention_trace target_trace output_trace)
+       inputs intervene target output)
       (block
+       ;; Call the procedure (n.b. it might have side effects)
        (define [value score]
-         (if (if (trace? prog) (trace-has? prog "generative-source") false)
-           (infer-apply-native prog
-                               inputs
-                               intervention_trace
-                               target_trace
-                               output_trace)
+         (if (and (trace? prog) (trace-has? prog "generative-source"))
+           (infer-apply-native prog inputs intervene target output)
            (if (foreign-procedure? prog)
              [(generate-foreign prog inputs) 0]
              (block (pprint prog)
-                    (error "not a procedure" prog)))))
-       ;; Potentially modify value and score based on intervention and target traces
+                    (error "infer-apply: not a procedure" prog)))))
+       ;; Potentially modify value based on intervention trace
+       (define intervened-value
+         (if (and intervene (trace-has? intervene))
+           (trace-get intervene)
+           value))
+       ;; Potentially modify value (and score) based on target trace
        (define [value2 score2]
-         (if (if target_trace (trace-has? target_trace) false)
-           [(trace-get target_trace) 0]    ;???
-           (if (if intervention_trace (trace-has? intervention_trace) false)
-             [(trace-get intervention_trace) 0]  ;???
-             [value score])))
+         (if (and target (trace-has? target))
+           [(trace-get target)          ;Discard intervened-value
+            (if (same-trace-states? (trace-get target) intervened-value)
+              score
+              (do (print ["mismatch!" (trace-get target) intervened-value])
+                  negative-infinity))]
+           [intervened-value score]))
        ;; Store value in output trace
-       (if output_trace
-         (trace-set output_trace value2))
+       (if output
+         (trace-set output value2))
        [value2 score2]))))
 
 ;; Query a 'native' generator (i.e. one written in metaprob and interpreted).
@@ -164,9 +175,9 @@
 (define infer-apply-native
   (gen [self
         inputs
-        intervention_trace
-        target_trace
-        output_trace]
+        intervene
+        target
+        output]
     (define source (lookup self "generative-source"))
     (define environment (trace-get self "environment"))
     (define new_env (make-env environment))
@@ -178,12 +189,12 @@
               ;; Do not let the interpreter affect any of the traces.
               ;; Any changes to the traces needs to be made by the code
               ;; itself.
-              intervention_trace
-              target_trace
-              output_trace)))
+              intervene
+              target
+              output)))
 
 (define infer-eval
-  (gen [exp env intervention_trace target_trace output_trace]
+  (gen [exp env intervene target output]
     (define walk
       (gen [exp env address]
         (define [v score]
@@ -199,20 +210,13 @@
                       (trace-set subscore (add (trace-get subscore) s))
                       v)
                     (range n)))
-             (define oper (first values))
-             (define name (procedure-name oper))
+             (define new-addr (add address (addr (procedure-key (trace-subtrace exp 0)))))
              (define [val score]
-               (infer-apply oper
+               (infer-apply (first values)
                             (rest values)
-                            (if intervention_trace
-                              (lookup intervention_trace (add address (addr name)))
-                              nil)
-                            (if target_trace
-                              (lookup target_trace (add address (addr name)))
-                              nil)
-                            (if output_trace
-                              (lookup output_trace (add address (addr name)))
-                              nil)))
+                            (if intervene (lookup intervene new-addr) nil)
+                            (if target (lookup target new-addr) nil)
+                            (if output (lookup output new-addr) nil)))
              [val (add (trace-get subscore) score)])
             (if (eq (trace-get exp) "variable")
               [(env-lookup env (trace-get exp "name")) 0]
@@ -287,9 +291,7 @@
                            env)
                           score])
                         (if (eq (trace-get exp) "this")
-                          [(capture-tag-address intervention_trace
-                                                target_trace
-                                                output_trace)
+                          [(capture-tag-address intervene target output)
                            0]
                           (if (eq (trace-get exp) "with_address")
                             (block
@@ -312,12 +314,9 @@
                              (pprint exp)
                              (error
                               "Not a code expression"))))))))))))
-        (if (if intervention_trace
-              (trace-has? intervention_trace address)
-              false)
-          (block
-           [(trace-get intervention_trace address) score])
-          (block [v score]))))
+        (if (and intervene (trace-has? intervene address))
+          [(trace-get intervene address) score]
+          [v score])))
     (walk exp env (addr))))
 
 (define inf
@@ -332,6 +331,10 @@
                                0)))))
 
 (define apply
-  (inf "apply"
-       (gen [inputs i t o]
-         (infer-apply (first inputs) (rest inputs) i t o))))
+  (trace-as-procedure
+   (inf "apply"
+        (gen [inputs intervene target output]
+          (infer-apply (first inputs) (rest inputs) intervene target output)))
+   ;; Kludge
+   (gen [proc inputs] (clojure.core/apply proc (make-immutable inputs)))))
+
