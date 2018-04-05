@@ -12,7 +12,7 @@
 (define flip-n-coins
   (gen [n] 
     (define root-addr (&this))
-    (define tricky (flip 0.1))
+    (define tricky (flip 0.1))    ;unlikely to be true
     (define weight (if tricky (uniform 0 1) 0.5))
     (map (gen [i] (with-address (pair root-addr (addr "datum" i)) ;foo
                     (flip weight)))
@@ -24,7 +24,7 @@
 
 (define ensure-tricky-and-biased (empty-trace))
 (trace-set ensure-tricky-and-biased (addr 1 "tricky" "flip") true)
-(trace-set ensure-tricky-and-biased (addr 2 "weight" "then" 0 "uniform") 0.99)
+(trace-set ensure-tricky-and-biased (addr 2 "weight" "then" "uniform") 0.99)
 (trace-set ensure-tricky-and-biased (addr "datum" 3 "flip") false)
 
 (define run

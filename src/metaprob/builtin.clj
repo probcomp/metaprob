@@ -126,4 +126,4 @@
 
 (defmacro and [& forms] `(clojure.core/and ~@forms))
 (defmacro or [& forms] `(clojure.core/or ~@forms))
-(defmacro case [& forms] `(clojure.core/or ~@forms))
+(defmacro case [& forms] `(clojure.core/case ~@forms))

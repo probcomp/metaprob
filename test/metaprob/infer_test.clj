@@ -156,6 +156,7 @@
   (testing "case smoke test"
     (is (= (ez-eval '(case 1 2)) 2))
     (is (= (ez-eval '(case 1 1 2)) 2))
+    (is (= (ez-eval '(case 1 1 2 3)) 2))
     (is (= (ez-eval '(case 1 2 3 1 4)) 4))))
 
 

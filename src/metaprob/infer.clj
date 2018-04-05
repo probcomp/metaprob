@@ -152,19 +152,22 @@
              (block (pprint prog)
                     (error "infer-apply: not a procedure" prog)))))
        ;; Potentially modify value based on intervention trace
-       (define intervened-value
-         (if (and intervene (trace-has? intervene))
+       (define intervention? (and intervene (trace-has? intervene)))
+       (define intervention-value
+         (if intervention?
            (trace-get intervene)
            value))
        ;; Potentially modify value (and score) based on target trace
        (define [value2 score2]
          (if (and target (trace-has? target))
-           [(trace-get target)          ;Discard intervened-value
-            (if (same-trace-states? (trace-get target) intervened-value)
-              score
-              (do (print ["mismatch!" (trace-get target) intervened-value])
-                  negative-infinity))]
-           [intervened-value score]))
+           (if intervention?
+             [(trace-get target)
+              (if (same-trace-states? (trace-get target) intervention-value)
+                score
+                (do (print ["mismatch!" (trace-get target) intervention-value])
+                    negative-infinity))]
+             [(trace-get target) score])
+           [intervention-value score]))
        ;; Store value in output trace
        (if output
          (trace-set output value2))
@@ -198,33 +201,35 @@
     (define walk
       (gen [exp env address]
         (define [v score]
-          (if (eq (trace-get exp) "application")
-            (block
-             (define n (length (trace-keys exp)))
-             (define subscore (empty-trace))
-             (trace-set subscore 0)
-             (define values
-               (map (gen [i]
-                      (define [v s]
-                        (walk (trace-subtrace exp i) env (add address (list i))))
-                      (trace-set subscore (add (trace-get subscore) s))
-                      v)
-                    (range n)))
-             (define new-addr (add address (addr (procedure-key (trace-subtrace exp 0)))))
-             (define [val score]
-               (infer-apply (first values)
-                            (rest values)
-                            (if intervene (lookup intervene new-addr) nil)
-                            (if target (lookup target new-addr) nil)
-                            (if output (lookup output new-addr) nil)))
-             [val (add (trace-get subscore) score)])
-            (if (eq (trace-get exp) "variable")
-              [(env-lookup env (trace-get exp "name")) 0]
-              (if (eq (trace-get exp) "literal")
-                [(trace-get exp "value") 0]
-                (if (eq (trace-get exp) "gen")
-                  [(block
-                    (define proc (empty-trace))
+          (case (trace-get exp)
+            "application"
+            (block (define n (length (trace-keys exp)))
+                   (define subscore (empty-trace))
+                   (trace-set subscore 0)
+                   (define values
+                     (map (gen [i]
+                            (define [v s]
+                              (walk (trace-subtrace exp i) env (add address (list i))))
+                            (trace-set subscore (add (trace-get subscore) s))
+                            v)
+                          (range n)))
+                   (define new-addr (add address (addr (procedure-key (trace-subtrace exp 0)))))
+                   (define [val score]
+                     (infer-apply (first values)
+                                  (rest values)
+                                  (if intervene (lookup intervene new-addr) nil)
+                                  (if target (lookup target new-addr) nil)
+                                  (if output (lookup output new-addr) nil)))
+                   [val (add (trace-get subscore) score)])
+
+            "variable"
+            [(env-lookup env (trace-get exp "name")) 0]
+
+            "literal"
+            [(trace-get exp "value") 0]
+
+            "gen"
+            [(block (define proc (empty-trace))
                     (trace-set proc "prob prog")
                     (trace-set proc "name" (trace-name exp))
                     (trace-set-subtrace proc
@@ -238,82 +243,81 @@
                                           (nth (infer-apply proc inputs
                                                             nil nil nil)
                                                0))))
-                   0]
-                  (if (eq (trace-get exp) "if")
-                    (block
-                     (define [pred p_score]
-                       (walk
-                        (lookup exp "predicate") env
-                        (add address (list "predicate"))))
-                     (if pred
-                       (block
-                        (define [val score]
-                          (walk (lookup exp "then") env
-                                (add address (list "then"))))
-                        [val (add p_score score)])
-                       (block
-                        (define [val score]
-                          (walk (lookup exp "else") env
-                                (add address (list "else"))))
-                        [val (add p_score score)])))
-                    (if (eq (trace-get exp) "block")
-                      (block
-                       (define n (length (trace-keys exp)))
-                       (define new-env (make-env env))
-                       (define subscore (empty-trace))
-                       (trace-set subscore 0)
-                       (define
-                         values
-                         (map          ;; How do we know map is left to right?
-                          (gen [i]
-                            (define [v s]
-                              (walk (lookup exp i) new-env
-                                    (add address (list i))))
-                            (trace-set
-                             subscore
-                             (add (trace-get subscore) s))
-                            v)
-                          (range n)))
-                       (if (gt (length values) 0)
-                         [(last values) (trace-get subscore)]
-                         [(empty-trace) (trace-get subscore)]))
-                      (if (eq (trace-get exp) "definition")
-                        (block
-                         (define subaddr
-                           (name_for_definiens
-                            (lookup exp "pattern")))
-                         (define [val score]
-                           (walk (lookup exp subaddr) env
-                                 (add address subaddr)))
-                         [(match-bind
-                           (lookup exp "pattern")
-                           val
-                           env)
-                          score])
-                        (if (eq (trace-get exp) "this")
-                          [(capture-tag-address intervene target output)
-                           0]
-                          (if (eq (trace-get exp) "with_address")
-                            (block
-                             (define [tag_addr tag_score]
-                               (walk (lookup exp "tag") env
-                                     (add address (addr "tag"))))
-                             ;; tag_addr is actually a quasi-address 
-                             ;; (captured . address) - not an address.
-                             ;; Must be constructed using (pair x (addr ...))
-                             (define [new_intervene new_target new_output]
-                               (resolve-tag-address tag_addr))
-                             (define [val score]
-                               (infer-eval (lookup exp "expression")
-                                           env
-                                           new_intervene
-                                           new_target
-                                           new_output))
-                             [val (add tag_score score)])
-                            (block
-                             (pprint exp)
-                             (error
-                              "Not a code expression"))))))))))))
+             0]
+
+            "if"
+            (block
+             (define [pred p_score]
+               (walk
+                (lookup exp "predicate") env
+                (add address (list "predicate"))))
+             (if pred
+               (block
+                (define [val score]
+                  (walk (lookup exp "then") env
+                        (add address (list "then"))))
+                [val (add p_score score)])
+               (block
+                (define [val score]
+                  (walk (lookup exp "else") env
+                        (add address (list "else"))))
+                [val (add p_score score)])))
+
+            "block"
+            (block (define n (length (trace-keys exp)))
+                   (define new-env (make-env env))
+                   (define subscore (empty-trace))
+                   (trace-set subscore 0)
+                   (define values
+                     (map          ;; How do we know map is left to right?
+                      (gen [i]
+                        (define [v s]
+                          (walk (lookup exp i) new-env
+                                (add address (list i))))
+                        (trace-set
+                         subscore
+                         (add (trace-get subscore) s))
+                        v)
+                      (range n)))
+                   (if (gt (length values) 0)
+                     [(last values) (trace-get subscore)]
+                     [(empty-trace) (trace-get subscore)]))
+            "definition"
+            (block (define subaddr
+                     (name_for_definiens
+                      (lookup exp "pattern")))
+                   (define [val score]
+                     (walk (lookup exp subaddr) env
+                           (add address subaddr)))
+                   [(match-bind
+                     (lookup exp "pattern")
+                     val
+                     env)
+                    score])
+
+            "this"
+            [(capture-tag-address intervene target output)
+             0]
+
+            "with_address"
+            (block (define [tag_addr tag_score]
+                     (walk (lookup exp "tag") env
+                           (add address (addr "tag"))))
+                   ;; tag_addr is actually a quasi-address 
+                   ;; (captured . address) - not an address.
+                   ;; Must be constructed using (pair x (addr ...))
+                   (define [new_intervene new_target new_output]
+                     (resolve-tag-address tag_addr))
+                   (define [val score]
+                     (infer-eval (lookup exp "expression")
+                                 env
+                                 new_intervene
+                                 new_target
+                                 new_output))
+                   [val (add tag_score score)])
+
+            (block (pprint exp)
+                   (error "Not a code expression"))))
         (if (and intervene (trace-has? intervene address))
           [(trace-get intervene address) score]
           [v score])))

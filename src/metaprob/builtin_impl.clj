@@ -384,8 +384,7 @@
 (defn pprint-trace [tr indent]
   (letfn [(re [tr indent tag]
             (princ indent)
-            (if (mutable-trace? tr)
-              (princ "!"))
+            (if (mutable-trace? tr) (princ "!"))
             (if (string? tag)
               (princ tag)
               (pprint-atom tag))
@@ -397,7 +396,7 @@
               (pprint-atom (trace-get tr)))
             (newline)
             (let [indent (str indent "  ")]
-              (doseq [key (trace-keys tr)]
+              (doseq [key (sort (trace-keys tr))]
                 (re (trace-subtrace tr key) indent key))))]
     (re tr indent "trace")))
 
