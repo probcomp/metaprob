@@ -39,15 +39,14 @@
       :name    "samples from the target"
       :samples (replicate
                  number-of-runs
-                 (gen
-                   []
+                 (gen []
                    (print "rejection sample")
                    (define tr
-                    (rejection-sampling
-                     two-variable-gaussian-model  ; :model-procedure 
-                     (tuple)  ; :inputs 
-                     target-trace  ; :target-trace 
-                     0.5))   ; :log-bound 
+                     (rejection-sampling
+                      two-variable-gaussian-model  ; :model-procedure 
+                      (tuple)  ; :inputs 
+                      target-trace  ; :target-trace 
+                      0.5))   ; :log-bound 
                    (trace-get tr (addr 0 "x" "gaussian"))))
       :overlay-densities (list (tuple "prior" prior-density)
                                (tuple "target" target-density)))))
@@ -58,8 +57,7 @@
       :name    "samples from importance sampling with 20 particles"
       :samples (replicate
                  number-of-runs
-                 (gen
-                   []
+                 (gen []
                    (define tr
                      (importance-resampling
                       two-variable-gaussian-model  ; :model-procedure 
