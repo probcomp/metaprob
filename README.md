@@ -4,28 +4,146 @@ Metaprob implemented in Clojure
 ## Install Java
 
 You will of course need Java to run Leiningen and Clojure, e.g. OpenJDK
-version 8.  You need full Java, not just the VM.
+version 8 or later.  You need full Java, not just the JVM.
 
 ## Installing Leiningen and Clojure
 
 It is not necessary to separately install Clojure if Leiningen is
 installed.  Just install Leiningen, and let it take care of installing
-Clojure.
+the right version of Clojure.
 
-Instructions for installing Leiningen are [here](https://leiningen.org/#install), but for a quick install use
+Instructions for installing Leiningen are [here](https://leiningen.org/#install), 
+but for a quick install use 
 the short script in the Makefile: `make lein`.
 This script assumes that `~/bin` is on your `PATH`.
 
 Leiningen keeps some state in the `~/.lein` directory.
 
-## Parsing metaprob
+## Using Clojure under Emacs
+
+There are many ways to do development or other activities in Clojure.
+Here is what I do, which is not necessarily right or best:
+
+Put the following in your `.emacs` file:
+
+    ;; From http://clojure-doc.org/articles/tutorials/emacs.html.
+    (require 'package)
+    (add-to-list 'package-archives
+                 '("melpa-stable" . "http://stable.melpa.org/packages/")
+                 t)
+    ;; "Run M-x package-refresh-contents to pull in the package listing."
+    (package-initialize)
+    (defvar clojure-packages '(projectile
+                               clojure-mode
+                               cider))
+    (dolist (p clojure-packages)
+      (unless (package-installed-p p)
+        (package-install p)))
+
+Here is my `~/.lein/profiles.clj`; I'm not sure why it is as it is,
+but it seems to be harmless:
+
+    ; Sample profile: https://gist.github.com/jamesmacaulay/5603176
+    {:repl {:dependencies [[org.clojure/tools.namespace "0.2.11"]]
+            :injections [(require '(clojure.tools.namespace repl find))]
+            :plugins [[cider/cider-nrepl "0.15.1"]]}}
+
+At a shell, in its own terminal window or tab (not necessarily in
+emacs), go to the directory that contains project.clj, and do:
+
+    $ lein repl :headless
+
+This takes a few seconds, then prints the TCP port number that you
+need to enter in the next step.  In emacs, do:
+
+    M-x cider-connect
+    localhost
+    <port> control-J
+
+where `<port>` is the port you saw when you did `lein repl :headless`.
+
+You can load a clojure file by visiting it in a buffer and doing C-c
+C-k.  I think it will load dependencies as inferred from the `ns` form
+at the top.
+
+The `(refresh)` function reloads your project:
+
+    (require '[clojure.tools.namespace.repl :refer [refresh]])
+
+I guess this can be put in project.clj so that it happens every time
+you start Clojure?  Need to look into this.
+
+Exploration from the REPL is a little bit annoying due to the
+namespace system.  I typically set up namespace prefixes manually, e.g.
+
+    (require '[metaprob.builtin :as builtin])
+
+so that I can say
+
+    (builtin/trace-get x "foo")
+    (builtin/pprint x)
+
+and so on.  Alternatively, and more concisely:
+
+    (require '[metaprob.trace :refer :all])
+    (require '[metaprob.builtin-impl :refer :all])
+
+    (trace-get x "foo")
+    (metaprob-pprint x)
+
+This seems better; I don't know why I don't it; maybe afraid of name collisions.
+
+(Note the `builtin` module has many name conflicts with Clojure so it's not possible
+to do `(require '[metaprob.builtin :refer :all])`.)
+
+Often during development, if the namespaces or `deftype` types change
+in some incompatible way, I find it necessary to restart clojure (C-c
+C-q followed by killing the `lein repl :headless` process).  It may
+also be helpful in such situations to remove the `target` directory.
+
+This is a pain in the butt because it can take a minute or so ro kill
+any running clojure under emacs, restart the REPL, connect to the new
+REPL, and reload the project.
+
+Sometimes I lose patience with this process and work exclusively from
+the shell, by writing and debugging tests (in concert with writing and
+debugging the main code).  This is nice because all files are freshly
+loaded every time.  The downside is an overhead of a couple of seconds
+for every time you want to run a test, and slogging through long
+backtraces to figure out what went wrong.
+
+## Testing
+
+You can run tests either from the shell or from inside Clojure.  From Clojure:
+
+    (require '[clojure.test :refer :all])
+
+    (run-tests 'metaprob.trace-test)    ;single module
+
+From the shell: tests for all modules in the project:
+
+    lein test
+
+Just one module at a time:
+
+    lein test metaprob.trace-test
+
+Don't forget the `-test` at the end!  I spent a long time being
+confused because I hadn't realized it was needed.
+
+Tests are all in the `test/metaprob/` directory.  The tests for `src/metaprob/x.clj` are in 
+`test/metaprob/x_test.clj`.
+
+-----
+
+## Parsing metaprob [DEPRECATED]
 
 Currently if you want to use the native metaprob syntax, you will have
 to use the "curly-metaprob" parser written in Python to write a file that can
 be read by Clojure.  This requires installing metaprob, which in turn
 requires Venture.
 
-### Installing metaprob
+### Installing python-metaprob
 
 Install metaprob if you want to be able to parse metaprob code expressed in
 original metaprob syntax.
@@ -66,7 +184,7 @@ or just
 
 This writes to a `parsings` directory which has a directory structure parallel to that of `src`.
 
-## Converting a metaprob parse tree to Clojure
+## Converting a metaprob parse tree to Clojure [DEPRECATED]
 
 A tiny bit of setup:
 
@@ -88,72 +206,4 @@ Clojure program, something like:
 To convert *all* of the metaprob files from the metaprob repository, following `make parse`:
 
     make convert
-
-## Using Clojure
-
-There are many ways to do development or other activities in Clojure.
-Here is what I do, which is not necessarily right or best:
-
-Put the following in your `.emacs` file:
-
-    ;; From http://clojure-doc.org/articles/tutorials/emacs.html.
-    (require 'package)
-    (add-to-list 'package-archives
-                 '("melpa-stable" . "http://stable.melpa.org/packages/")
-                 t)
-    ;; "Run M-x package-refresh-contents to pull in the package listing."
-    (package-initialize)
-    (defvar clojure-packages '(projectile
-                               clojure-mode
-                               cider))
-    (dolist (p clojure-packages)
-      (unless (package-installed-p p)
-        (package-install p)))
-
-Here is my `~/.lein/profiles.clj`; I'm not sure why it is as it is,
-but it seems to be harmless:
-
-    ; Sample profile: https://gist.github.com/jamesmacaulay/5603176
-    {:repl {:dependencies [[org.clojure/tools.namespace "0.2.11"]]
-            :injections [(require '(clojure.tools.namespace repl find))]
-            :plugins [[cider/cider-nrepl "0.15.1"]]}}
-
-At a shell, in its own window or tab (not necessarily in emacs), do:
-
-    $ lein repl :headless
-
-This prints the TCP port to connect to in the next step.  In emacs, do:
-
-    M-x cider-connect
-    localhost
-    <port> control-J
-
-where `<port>` is the port you saw earlier.
-
-Useful libraries: `clojure.test` and `clojure.tools.namespace.repl`, e.g.
-
-    (require '[clojure.test :refer :all])
-    (require '[clojure.tools.namespace.repl :refer [refresh]])
-
-I guess these can be put somewhere so that they happen every time you
-start Clojure this way?
-
-Often during development, if the namespaces change in some
-incompatible way, I find it necessary to restart clojure (C-c C-q
-followed by killing the `lein repl :headless` process).  It is also
-helpful in suchg situations to remove the `target` directory.
-
-
-## Test
-
-There are some tests of the Clojure code.  To run them all:
-
-    lein test
-
-(Apparently the `lein` command automagically compiles clojure to
-java, as needed, placing the `.class` files in the `target` directory.)
-
-You can also test individual files:
-
-    lein test metaprob.to-clojure-test
 
