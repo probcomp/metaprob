@@ -1,12 +1,12 @@
 ;; 4.
 
-(ns metaprob.mapl2018.rejection
+(ns metaprob.oopsla.rejection
   (:refer-clojure :only [ns declare])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
             [metaprob.distributions :refer :all]
-            [metaprob.mapl2018.interpreters :refer :all]))
+            [metaprob.oopsla.interpreters :refer :all]))
 
 (define rejection-sampling
   (gen [model-procedure inputs target-trace log-bound]

@@ -1,10 +1,10 @@
-(ns metaprob.mapl2018.metropolis-hastings-step
+(ns metaprob.oopsla.metropolis-hastings-step
   (:refer-clojure :only [ns declare])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
             [metaprob.distributions :refer :all]
-            [metaprob.mapl2018.interpreters :refer :all]))
+            [metaprob.oopsla.interpreters :refer :all]))
 
 (define single-site-metropolis-hastings-step
   (gen

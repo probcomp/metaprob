@@ -1,12 +1,12 @@
 ;; 2.
 
-(ns metaprob.mapl2018.gaussian
+(ns metaprob.oopsla.gaussian
   (:refer-clojure :only [ns declare])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
             [metaprob.distributions :refer :all]
-            [metaprob.mapl2018.interpreters :refer :all]))
+            [metaprob.oopsla.interpreters :refer :all]))
 
 ;; sampling from a Gaussian with user-specified mean
 ;; and variance, by rescaling one output from the Box-Muller

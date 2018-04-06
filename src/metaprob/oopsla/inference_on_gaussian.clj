@@ -1,15 +1,15 @@
 ;; 5.
 
-(ns metaprob.mapl2018.inference-on-gaussian
+(ns metaprob.oopsla.inference-on-gaussian
   (:refer-clojure :only [ns declare])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
-            [metaprob.mapl2018.gaussian :refer [gaussian score-gaussian two-variable-gaussian-model]]
-            [metaprob.mapl2018.rejection :refer :all]
-            [metaprob.mapl2018.importance :refer [importance-resampling]]
-            [metaprob.mapl2018.metropolis-hastings-step :refer [lightweight-single-site-MH-sampling]]
-            [metaprob.mapl2018.interpreters :refer :all]))
+            [metaprob.oopsla.gaussian :refer [gaussian score-gaussian two-variable-gaussian-model]]
+            [metaprob.oopsla.rejection :refer [rejection-sampling]]
+            [metaprob.oopsla.importance :refer [importance-resampling]]
+            [metaprob.oopsla.metropolis-hastings-step :refer [lightweight-single-site-MH-sampling]]
+            [metaprob.oopsla.interpreters :refer :all]))
 
 (define number-of-runs 3)
 

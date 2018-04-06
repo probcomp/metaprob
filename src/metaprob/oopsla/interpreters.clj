@@ -1,4 +1,4 @@
-(ns metaprob.mapl2018.interpreters
+(ns metaprob.oopsla.interpreters
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin-impl :as impl]
             [metaprob.infer :refer [infer-apply]]))

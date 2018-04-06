@@ -1,8 +1,8 @@
 ;; The file from which this one was derived is ../main.clj
 
-(ns metaprob.mapl2018.main
+(ns metaprob.oopsla.main
   (:gen-class)
-  (:require [metaprob.mapl2018.inference-on-gaussian :as inf]
+  (:require [metaprob.oopsla.inference-on-gaussian :as inf]
             [criterium.core :as crit]
             ))
 
