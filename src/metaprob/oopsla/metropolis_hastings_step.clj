@@ -41,7 +41,7 @@
     
     (define restoring-trace (empty-trace))
     (trace-set restoring-trace target-address initial-value)
-    (for_each (set-difference choice-addresses new-choice-addresses)
+    (for-each (set-difference choice-addresses new-choice-addresses)
     	      (gen [initial-addr] ;; initial-addr in original but not proposed trace
 	      		(trace-set restoring-trace
                                    initial-addr
@@ -50,7 +50,7 @@
     ;; remove the new value
     (trace-delete new-trace target-address)
 
-    (define (__ reverse-score)
+    (define (_ reverse-score)
       (infer :procedure model-procedure
              :inputs   inputs
              :intervention-trace restoring-trace
@@ -62,9 +62,9 @@
     	    			       	    (add reverse-score (log initial-num-choices))))
     (if (lt (log (uniform 0 1)) log-acceptance-probability)
         (block
-	    (for_each (set-difference choice-addresses new-choice-addresses)
+	    (for-each (set-difference choice-addresses new-choice-addresses)
 	              (gen [initial-addr] (trace-delete trace initial-addr)))
-	    (for_each new-choice-addresses
+	    (for-each new-choice-addresses
 	    	      (gen [new-addr]
 		      		(trace-set trace
                                            new-addr

@@ -21,15 +21,46 @@
        :overhead 0
        }))))
 
-(defn -main []
-  (print "---- Prior ----\n")
-  (instrument inf/get-samples 100)
-  ;; Rejection sampling is very slow - 20 seconds per
-  (print "---- Rejection ----\n")
-  (instrument inf/rejection-assay 100)
-  ;; Rejection sampling is very fast
-  (print "---- Importance ----\n")
-  (inf/importance-assay 100)
-  ;; (print "---- MH ----\n")
-  (instrument inf/MH-assay 100))
+;; For a more serious test, try 100 (takes about an hour?)
+(def number-of-samples 5)
+
+(defn -main [& args]
+  (print (format "args=%s\n" args))
+  (letfn [(combine [arg dict]
+            (case arg
+              "rejection" (assoc dict :rejection true :any true)
+              "importance" (assoc dict :importance true :any true)
+              "mh" (assoc dict :mh true :any true)
+              (let [matches (re-seq #"^\d+$" arg)]
+                (if matches
+                  (assoc dict :count (Integer. (first matches)))
+                  (assert false ["bad arg" arg])))))
+          (reduc [args]    ; I'm sure there's a cool way to do this but it's too
+                                        ; hard to slog through the clojure docs
+            (if (empty? args)
+              {}
+              (combine (first args)
+                       (reduc (rest args)))))]
+    (let [dict (reduc args)
+          number-of-samples (or (get dict :count) 5)
+          all? (not (get dict :any))]
+      (print (format "dict=%s n=%s all=%s\n" dict number-of-samples all?))
+
+      (print "---- Prior ----\n")
+      (instrument inf/get-samples number-of-samples)
+
+      (when (or all? (get dict :rejection))
+        ;; Rejection sampling is very slow - 20 seconds per
+        (print "---- Rejection ----\n")
+        (instrument inf/rejection-assay number-of-samples))
+
+      (when (or all? (get dict :importance))
+        ;; Importance sampling is very fast
+        (print "---- Importance ----\n")
+        (inf/importance-assay number-of-samples))
+
+      (when (or all? (get dict :mh))
+        ;; MH is fast
+        (print "---- MH ----\n")
+        (instrument inf/MH-assay number-of-samples)))))
 

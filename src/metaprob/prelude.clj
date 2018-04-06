@@ -17,8 +17,8 @@
   _imap
   imap
   zipmap
-  for_each
-  for_each2
+  for-each
+  for-each2
   _i_for_each2
   i_for_each2
   filter

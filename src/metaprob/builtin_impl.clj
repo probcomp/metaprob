@@ -333,10 +333,11 @@
 
 (defn binned-histogram [& {:keys [name samples overlay-densities]}]
   (let [samples (metaprob-sequence-to-seq samples)
-        path (clojure.string/replace name " " "_")]
-    (print (format "Writing samples to %s for histogram generation\n" path))
+        fname (clojure.string/replace name " " "_")
+        path (str "results/" fname ".samples")]
+    (print (format "Writing samples to %s for histogram generation\n" fname))
     (print (format " overlay-densities = %s\n" (freeze overlay-densities)))
-    (with-open [writor (io/writer (str "results/" path ".samples"))]
+    (with-open [writor (io/writer path)]
       (doseq [sample samples]
         (.write writor (str sample))
         (.write writor "\n"))
@@ -437,6 +438,7 @@
 ;!!
 (defn metaprob-print [x]
   (princ x)
+  (newline)
   (flush))
 
 (defn same-trace-states? [trace1 trace2]

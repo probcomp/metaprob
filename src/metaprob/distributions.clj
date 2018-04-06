@@ -89,7 +89,7 @@
    "log-categorical"
    (gen [scores]
      ;; if scores is a tuple, coerce to list
-     (define weights (map exp scores))
+     (define weights (make-immutable (map exp scores)))
      ;; reduce probably won't work
      (define normalizer (clojure.core/reduce add 0 weights))
      (define probabilities (map (gen [w] (div w normalizer)) weights))

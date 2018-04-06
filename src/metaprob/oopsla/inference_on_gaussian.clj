@@ -11,8 +11,6 @@
             [metaprob.oopsla.metropolis-hastings-step :refer [lightweight-single-site-MH-sampling]]
             [metaprob.oopsla.interpreters :refer :all]))
 
-(define number-of-runs 3)
-
 (define prior-density
   (gen [x]
     (exp (score-gaussian x (tuple 0 1)))))
