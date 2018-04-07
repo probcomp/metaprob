@@ -1,7 +1,11 @@
+set -e
+
 data=$1
-echo Data file is $data
+dest=$data.png
 
 cp -p "$data" gnuplot-hist.tmp
-
 gnuplot bin/gnuplot-hist.gp
+mv gnuplot-hist-tmp.png $dest
+
+echo Plot written to $dest
 

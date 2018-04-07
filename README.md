@@ -1,12 +1,15 @@
 # metaprob-clojure
+
 Metaprob implemented in Clojure
 
-## Install Java
+## Installation
+
+### Install Java
 
 You will need Java to run Leiningen and Clojure.  I use OpenJDK
 version 8.  You need the full Java development environment, not just the JVM.
 
-## Installing Leiningen and Clojure
+### Install Leiningen and Clojure
 
 It is not necessary to separately install Clojure if Leiningen is
 installed.  Just install Leiningen, and let it take care of installing
@@ -18,12 +21,25 @@ This script assumes that `~/bin` is on your `PATH`, and it will put the `lein` c
 
 Leiningen keeps some state in the `~/.lein` directory.
 
-## Using Clojure under Emacs
+I interace with Clojure either using a REPL under emacs, or from the
+shell using the `lein` command.  Tests (meaning just about any kind
+computation that one situates inside a test file) can be run either
+from the REPL or from the shell.  To run particular Clojure code
+directly from the shell, you can put that code in the `-main` function
+in `main.clj`.  These options are described below.
 
-There are many ways to do development or other activities in Clojure.
-Here is what I do, which is not necessarily right or best:
+### Clone the metaprob-clojure repository
 
-### One-time setup
+There is no particular installation procedure for metaprob-clojure.
+Just set the working directory to the root of a clone of the
+metaprob-clojure repository.
+
+### Emacs setup
+
+It is possible to use metaprob-clojure exclusively from the shell, but
+running a REPL under emacs can be more pleasant.  (or less.)  So this
+setup is optional.  What I suggest here is not necessarily right or
+best; it's just stuff I got off the Internet.  I am not an expert.
 
 Put the following in your `.emacs` file:
 
@@ -49,6 +65,12 @@ but it seems to be harmless:
             :injections [(require '(clojure.tools.namespace repl find))]
             :plugins [[cider/cider-nrepl "0.15.1"]]}}
 
+## Using Clojure under Emacs
+
+There are many ways to do development or other activities in Clojure.
+This section describes using a REPL in emacs.  After this is
+information about the test system and using Clojure from the shell.
+
 ### Startup
 
 Clojure runs outside of emacs, and emacs connects to it over a TCP connection.
@@ -57,23 +79,24 @@ emacs), go to the directory that contains `project.clj`, and do:
 
     $ lein repl :headless
 
-This takes a few seconds, then prints the TCP port number that you
-need to enter in the next step.  In emacs, do:
+This takes a few seconds, then prints a TCP port number (it's different
+every time).  In emacs, do:
 
     M-x cider-connect
     localhost
-    <port> control-J
+    {port} C-j
 
-where `<port>` is the port you saw when you did `lein repl :headless`.
+where `{port}` is the port number you saw when you did `lein repl
+:headless`, M-x is meta-x, and C-j is control-J or linefeed.
 
-### Once it's going
+### Once it's going.  Dealing with namespaces
 
 You can load a clojure file by visiting it in a buffer and doing C-c
 C-k.  I think doing so will also load any needed dependencies as
 inferred from the `ns` form at the top of the file.
 
 Exploration from the REPL is a little bit annoying due to the Clojure
-namespace system.  Unlike in Common Lisp, you can't even access a
+namespace system.  Unlike in Common Lisp, which has the `::` syntax, you can't even access a
 namespace unless you've previously 'required' it.
 
 Namespace names are typically long, so I typically set up namespace
@@ -94,7 +117,9 @@ and so on.  Alternatively, and more concisely:
     (trace-get x "foo")
     (metaprob-pprint x)
 
-This seems better; I don't know why I don't it; maybe afraid of name collisions.
+This seems better; I don't know why I don't it; maybe afraid of name
+collisions or the possibility of stale values in the `user` namespace.
+(I still don't fully understand namespaces.)
 
 You'll need to `require` each module you want to use at the REPL.  See below for modules.
 
@@ -110,8 +135,8 @@ use all this stuff.
 
 ### Refreshing the state
 
-The `(refresh)` function reloads your project, giving an alternative
-to manually visiting each changed buffer and doing C-c C-k.  Make it
+The `refresh` function reloads your project, giving an alternative
+to manually visiting each changed buffer and doing C-c C-k.  Make `refresh`
 available at the REPL's `user` namespace with
 
     > (require '[clojure.tools.namespace.repl :refer [refresh]])
@@ -120,8 +145,9 @@ and invoke it with
 
     > (refresh)
 
-(I guess this command could be put in project.clj so that it happens
-every time you start Clojure?  Need to look into this.)
+(I guess this `require` could be put in project.clj or
+.lein/profiles.clj so that it happens every time you start Clojure?
+Need to look into this.)
 
 Often during development, if the namespaces or `deftype` types
 (`basic_trace.clj`) change in some incompatible way, I find it necessary
@@ -133,13 +159,55 @@ This is a pain in the butt because it can take a minute or so to kill
 any running clojure under emacs, restart the REPL, connect to the new
 REPL, and reload the project.
 
-Because of the constant need to restart, sometimes I lose patience
-with REPL-based debugging and work exclusively from the shell, by
-writing and debugging tests (in concert with writing and debugging the
-main code).  This is nice because all files are freshly loaded every
-time.  The downside is an overhead of a couple of seconds for every
-time you want to run a test, and slogging through long backtraces to
-figure out what went wrong.
+## Testing
+
+There is documentation on the test system and it should be consulted,
+as it doesn't make sense to repeat all that information here.
+
+You can run tests either from the shell or from inside Clojure.  From
+the Clojure REPL:
+
+    (require '[clojure.test :refer :all])
+
+    (run-tests 'metaprob.trace-test)    ;single module
+
+Because of the constant need to restart emacs to fix weird problems
+that are hard to figure out, sometimes I lose patience with REPL-based
+debugging and work exclusively from the shell, by writing and
+debugging tests (in concert with writing and debugging the main code).
+This is nice because all files are freshly loaded every time, so you
+assured of a clean environment.  The downside is an overhead of maybe
+3-5 seconds for every time you want to run a test, and slogging
+through long backtraces to figure out what went wrong.
+
+From the shell: tests for all modules in the project:
+
+    lein test
+
+Just one module at a time:
+
+    lein test metaprob.trace-test
+
+Don't forget the `-test` in the module names!  I have spent a long
+time being confused, first because I hadn't realized the `-test` was
+needed, and later because I just forgot it.
+
+Tests are all in the `test/metaprob/` directory.  The tests for
+`src/metaprob/x.clj` are in `test/metaprob/x_test.clj`.
+
+I like for tests that reside in the test system to run quickly.  It's
+good to run all the tests frequently, and if this were a slow
+operation I would be put off and would run them less often.
+
+## Running code directly from the shell using the `-main` feature
+
+Rather than use the REPL or the test system I sometimes just put code
+in the `-main` function in some file e.g. `main.clj` and invoke it
+directly from the shell:
+
+    lein run -m metaprob.oopsla.main
+
+Any command line arguments become arguments to the `-main` function.
 
 ## Reference manual, not
 
@@ -155,18 +223,18 @@ A typical metaprob program `require`s the following:
         via `infer-apply` (also 'user mode').  Also defines `inf`.
   * `distributions` - nondeterministic procedures like `flip` and `uniform` (also 'user mode')
 
-To get the namespace name, prefix the above with `metaprob.`
+The namespace name needs to be prefixed with `metaprob.`
 
-Note the `builtin` module has many name conflicts with Clojure so it's
+Note that the `builtin` module has many name conflicts with Clojure so it's
 not possible to do `(require '[metaprob.builtin :refer :all])` at the
-REPL when in the `user` namespace.  Procedure with conflicting names,
-e.g. `first`, are `metaprob-first` in the `builtin-impl` module and
+REPL when in the `user` namespace.  Procedures with conflicting names,
+e.g. `first`, are called `metaprob-first` in the `builtin-impl` module, but
 simply `first` in `builtin`.
 
-In a file, in order to use `builtin`, you need to suppress the usual
-clojure bindings, which you do with
+In a metaprob source file, in order to use `builtin`, you need to
+suppress the usual clojure bindings, which you do with
 
-    > (:refer-clojure :only [declare ns])
+    (ns (:refer-clojure :only [declare ns]) ...)
 
 `distributions.clj` shows a typical `ns` form for use in files:
 
@@ -177,41 +245,36 @@ clojure bindings, which you do with
       (:require [metaprob.prelude :refer :all])
       (:require [metaprob.infer :refer :all]))
 
+Usually you would also want to add `distributions` to this list.
+
 In lieu of a manual, you might look at
 [`src/metaprob/builtin.clj`](src/metaprob/builtin.clj) for a long list
 of exports from the `builtin` module, and the source code for the
 other modules.
 
-## Testing
+### Plotting histograms
 
-You can run tests either from the shell or from inside Clojure.  From Clojure:
+`bin/gnuplot-hist` is a script for displaying a histogram using
+gnuplot.  The histogram should be a file with one number per line, and
+stored in the `results` directory (as is done by the
+`binned-histogram` metaprob function).  E.g.
 
-    (require '[clojure.test :refer :all])
+    bin/gnuplot-hist results/samples_from_the_prior.samples 
+    open results/samples_from_the_prior.samples.png
 
-    (run-tests 'metaprob.trace-test)    ;single module
+(where `open` is the MacOS command for opening a file using the
+appropriate Mac application).
 
-From the shell: tests for all modules in the project:
-
-    lein test
-
-Just one module at a time:
-
-    lein test metaprob.trace-test
-
-Don't forget the `-test` at the end!  I spent a long time being
-confused because I hadn't realized it was needed.
-
-Tests are all in the `test/metaprob/` directory.  The tests for `src/metaprob/x.clj` are in 
-`test/metaprob/x_test.clj`.
+Gnuplot must be installed in order for this to work.
 
 -----
 
 ## Parsing metaprob [DEPRECATED]
 
-Currently if you want to use the native metaprob syntax, you will have
-to use the "curly-metaprob" parser written in Python to write a file that can
-be read by Clojure.  This requires installing metaprob, which in turn
-requires Venture.
+Currently if you want to use the native "curly" metaprob syntax, you
+will have to use the curly-metaprob parser written in Python to write
+a file that can be read by Clojure.  This requires installing python
+metaprob, which in turn requires Venture.
 
 ### Installing python-metaprob
 
@@ -273,7 +336,8 @@ Clojure program, something like:
     (in-ns 'metaprob.to_clojure)
     (convert "{inpath}.trace" "{outpath}.clj")
 
-To convert *all* of the metaprob files from the metaprob repository, following `make parse`:
+To convert *all* of the metaprob files from the metaprob repository,
+do the following, which is analogous to `make parse`:
 
     make convert
 

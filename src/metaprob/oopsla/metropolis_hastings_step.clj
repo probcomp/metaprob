@@ -7,8 +7,7 @@
             [metaprob.oopsla.interpreters :refer :all]))
 
 (define single-site-metropolis-hastings-step
-  (gen
-    [model-procedure inputs trace constraint-addresses]
+  (gen [model-procedure inputs trace constraint-addresses]
 
     ;; choose an address to modify, uniformly at random
     
@@ -43,9 +42,9 @@
     (trace-set restoring-trace target-address initial-value)
     (for-each (set-difference choice-addresses new-choice-addresses)
     	      (gen [initial-addr] ;; initial-addr in original but not proposed trace
-	      		(trace-set restoring-trace
-                                   initial-addr
-				   (trace-get trace initial-addr))))
+                (trace-set restoring-trace
+                           initial-addr
+                           (trace-get trace initial-addr))))
 
     ;; remove the new value
     (trace-delete new-trace target-address)
@@ -66,9 +65,9 @@
 	              (gen [initial-addr] (trace-delete trace initial-addr)))
 	    (for-each new-choice-addresses
 	    	      (gen [new-addr]
-		      		(trace-set trace
-                                           new-addr
-					   (trace-get new-trace new-addr)))))
+                        (trace-set trace
+                                   new-addr
+                                   (trace-get new-trace new-addr)))))
 	(trace-set trace target-address initial-value))))
 
 ;; Should return a single trace.  Which one?
@@ -82,8 +81,7 @@
            :target-trace target-trace
            :output-trace state)
     (repeat N
-            (gen
-              []
+            (gen []
               ;; VKM had keywords :procedure :inputs :trace :constraint-addresses
               (single-site-metropolis-hastings-step
                model-procedure

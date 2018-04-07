@@ -335,8 +335,8 @@
   (let [samples (metaprob-sequence-to-seq samples)
         fname (clojure.string/replace name " " "_")
         path (str "results/" fname ".samples")]
-    (print (format "Writing samples to %s for histogram generation\n" fname))
-    (print (format " overlay-densities = %s\n" (freeze overlay-densities)))
+    (print (format "Writing samples to %s for histogram generation\n" path))
+    ;;(print (format " overlay-densities = %s\n" (freeze overlay-densities)))
     (with-open [writor (io/writer path)]
       (doseq [sample samples]
         (.write writor (str sample))
