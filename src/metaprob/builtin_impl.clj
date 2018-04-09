@@ -181,6 +181,9 @@
    (seq (set/difference (set (metaprob-sequence-to-seq s1))
                         (set (metaprob-sequence-to-seq s2))))))
 
+(defn metaprob-sort [sq & more]
+  (apply sort (metaprob-sequence-to-seq sq) more))
+
 ;; -----------------------------------------------------------------------------
 ;; Control
 

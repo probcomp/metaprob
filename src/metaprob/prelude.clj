@@ -97,10 +97,8 @@
       (to-tuple (_imap f 0 (to-list l)))
       (block (_imap f 0 l)))))
 
-(define
-  zipmap
-  (gen
-    [f l1 l2]
+(define zipmap
+  (gen [f l1 l2]
     (if (and (pair? l1) (pair? l2))
       (pair (f (first l1) (first l2)) (zipmap f (rest l1) (rest l2)))
       (empty-trace))))

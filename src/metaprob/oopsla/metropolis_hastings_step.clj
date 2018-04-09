@@ -24,7 +24,7 @@
 
     (define (_ forward-score) (infer :procedure model-procedure
                                      :inputs inputs
-                                     :intervention-trace (empty-trace)
+                                     :intervention-trace nil
                                      :target-trace trace
                                      :output-trace new-trace))
     (define new-value (trace-get new-trace target-address))

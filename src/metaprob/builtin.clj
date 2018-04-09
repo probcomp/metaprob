@@ -5,7 +5,7 @@
   (:refer-clojure :exclude
                   [not and or case
                    assert pprint print apply
-                   list list? first rest last nth range])
+                   list list? first rest last nth range sort])
   (:require [metaprob.trace :as trace])
   (:require [metaprob.builtin-impl :as impl]))
 
@@ -103,6 +103,7 @@
 (define-foreign-procedure range impl/metaprob-range)
 (define-foreign-procedure append impl/append)
 (define-foreign-procedure set-difference impl/set-difference)
+(define-foreign-procedure sort impl/metaprob-sort)
 
 ;; Environments
 (define-foreign-procedure top-level-lookup impl/top-level-lookup)
