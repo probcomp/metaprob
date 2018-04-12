@@ -155,7 +155,7 @@
 ;
 ; (define fake-samples (fake-samples-for-enumerated-executions exact-probabilities 12240))
 ;
-; (bar-graph exact-probabilities "exact earthquake probabilities")
+; (bar-graph fake-samples "exact earthquake probabilities")
 
 ;; ----------------------------------------------------------------------------
 ;; Sample from the prior
@@ -176,3 +176,8 @@
                      output)
         output))
     (replicate n-samples prior-trace)))
+
+; (bar-graph (map (gen [tr] (numerize (eq/query tr)))
+;                 (metaprob-sequence-to-seq
+;                       (prior-samples 50))) 
+;            "earthquake prior probabilities")
