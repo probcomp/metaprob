@@ -1,10 +1,10 @@
-(ns metaprob.oopsla.metropolis-hastings-step
+(ns metaprob.examples.metropolis-hastings-step
   (:refer-clojure :only [ns declare])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
             [metaprob.distributions :refer :all]
-            [metaprob.oopsla.interpreters :refer :all]))
+            [metaprob.examples.interpreters :refer :all]))
 
 (define single-site-metropolis-hastings-step
   (gen [model-procedure inputs trace constraint-addresses]

@@ -1,6 +1,6 @@
 ;; This file was automatically generated
 
-(ns metaprob.oopsla.earthquake
+(ns metaprob.examples.earthquake
   (:refer-clojure :only [ns declare])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]

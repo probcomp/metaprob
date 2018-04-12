@@ -1,12 +1,12 @@
 ;; 2.
 
-(ns metaprob.oopsla.gaussian
+(ns metaprob.examples.gaussian
   (:refer-clojure :only [ns declare])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
             [metaprob.distributions :refer :all]
-            [metaprob.oopsla.interpreters :refer :all]))
+            [metaprob.examples.interpreters :refer :all]))
 
 ;; sampling from a Gaussian with user-specified mean
 ;; and variance, by rescaling one output from the Box-Muller

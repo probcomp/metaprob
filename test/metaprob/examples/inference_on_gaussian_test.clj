@@ -1,11 +1,11 @@
 
-(ns metaprob.oopsla.inference-on-gaussian-test
+(ns metaprob.examples.inference-on-gaussian-test
   (:require [clojure.test :refer :all]
             [metaprob.trace :as trace]
             [metaprob.builtin :as builtin]
             [metaprob.prelude :as prelude]
-            [metaprob.oopsla.gaussian :refer [two-variable-gaussian-model]]
-            [metaprob.oopsla.inference-on-gaussian :refer :all]))
+            [metaprob.examples.gaussian :refer [two-variable-gaussian-model]]
+            [metaprob.examples.inference-on-gaussian :refer :all]))
 
 (deftest smoke-1
   (testing "smoke test"

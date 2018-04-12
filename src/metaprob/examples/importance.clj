@@ -1,12 +1,12 @@
 ;; 3.
 
-(ns metaprob.oopsla.importance
+(ns metaprob.examples.importance
   (:refer-clojure :only [ns declare])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
             [metaprob.distributions :refer :all]
-            [metaprob.oopsla.interpreters :refer :all]))
+            [metaprob.examples.interpreters :refer :all]))
 
 (define importance-resampling
   (gen [model-procedure inputs target-trace N]

@@ -1,10 +1,10 @@
 
-(ns metaprob.oopsla.flip-n-coins-test
+(ns metaprob.examples.flip-n-coins-test
   (:require [clojure.test :refer :all]
             [metaprob.trace :as trace]
             [metaprob.builtin :as builtin]
-            [metaprob.oopsla.interpreters :refer :all]
-            [metaprob.oopsla.flip-n-coins :refer :all]))
+            [metaprob.examples.interpreters :refer :all]
+            [metaprob.examples.flip-n-coins :refer :all]))
 
 (deftest flip-n-coins-smoke-1
   (testing "testing flip-n-coins"

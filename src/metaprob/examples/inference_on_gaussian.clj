@@ -1,16 +1,16 @@
 ;; 5.
 
-(ns metaprob.oopsla.inference-on-gaussian
+(ns metaprob.examples.inference-on-gaussian
   (:refer-clojure :only [ns declare])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
             [metaprob.infer :refer :all]
-            [metaprob.oopsla.gaussian :refer [gaussian score-gaussian two-variable-gaussian-model]]
-            [metaprob.oopsla.rejection :refer [rejection-sampling]]
-            [metaprob.oopsla.importance :refer [importance-resampling]]
-            [metaprob.oopsla.metropolis-hastings-step :refer [lightweight-single-site-MH-sampling]]
-            [metaprob.oopsla.interpreters :refer :all]))
+            [metaprob.examples.gaussian :refer [gaussian score-gaussian two-variable-gaussian-model]]
+            [metaprob.examples.rejection :refer [rejection-sampling]]
+            [metaprob.examples.importance :refer [importance-resampling]]
+            [metaprob.examples.metropolis-hastings-step :refer [lightweight-single-site-MH-sampling]]
+            [metaprob.examples.interpreters :refer :all]))
 
 (define prior-density
   (gen [x]
