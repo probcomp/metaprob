@@ -117,9 +117,9 @@
 
 (defn addrify [adr]
   (let [adr (if (trace? adr)
-              (make-immutable adr)
+              (metaprob-sequence-to-seq adr)
               (list adr))]
-    (assert (every? ok-key? adr))
+    (assert (every? ok-key? adr) adr)
     adr))
 
 ;; OK.  Now the generic trace accessors.
@@ -177,7 +177,8 @@
       (if (trace-has? tr (first adr))
         (lookup (trace-direct-subtrace tr (first adr))
                 (rest adr))
-        (mut/make-locative tr adr)))))
+        (do (assert (mut/basic-trace? tr) ["lookup failed" tr adr])
+            (mut/make-locative tr adr))))))
 
 ;; better: trace-has-direct-subtrace? etc.
 
@@ -207,7 +208,7 @@
                       (if (= ks nil)
                         '()
                         ks))
-          true (assert false "non-trace"))))
+          true (assert false ["non-trace" tr]))))
 
 ;; Neither VKM nor JAR can remember to write (trace-get (lookup x key))
 ;; rather than just (trace-get x key).  So allow both
@@ -243,7 +244,7 @@
 (defn trace-set-subtrace [tr adr sub]
   (let [adr (addrify adr)
         tr (strip tr)]
-    (assert (not (empty? adr)))
+    (assert (not (empty? adr)) adr)
     (let [[head & tail] adr]
       (if (empty? tail)
         (trace-set-direct-subtrace! tr head sub)
@@ -513,21 +514,23 @@
 (defn make-immutable [x]
   (if (mutable-trace? x)
     (let [x (strip x)]
-      (cond (empty-trace? x)
-              '()                         ;or [] or {} - which?
-            (metaprob-pair? x)
-              (cons (metaprob-first x)
-                    ;; necessary, and only slightly recursive
-                    (make-immutable (metaprob-rest x)))
-            (metaprob-tuple? x)
-              (vec (metaprob-tuple-to-seq x))
-            true
-              (let [maap (into {}
-                               (for [key (mut/trace-keys x)]
-                                 [key (mut/subtrace x key)]))]
-                (if (mut/has-value? x)
-                  (assoc maap :value (mut/value x))
-                  maap))))
+      (if true
+        (mut/get-state x)               ;NEW FEATURE
+        (cond (empty-trace? x)
+                '()                         ;or [] or {} - which?
+              (metaprob-pair? x)
+                (cons (metaprob-first x)
+                      ;; necessary, and only slightly recursive
+                      (make-immutable (metaprob-rest x)))
+              (metaprob-tuple? x)
+                (vec (metaprob-tuple-to-seq x))
+              true
+                (let [maap (into {}
+                                 (for [key (mut/trace-keys x)]
+                                   [key (mut/subtrace x key)]))]
+                  (if (mut/has-value? x)
+                    (assoc maap :value (mut/value x))
+                    maap)))))
     x))
 
 ;; Convert an immutable trace to a mutable trace,
@@ -545,10 +548,38 @@
             (trace-set result (trace-get x)))
           result))))
 
+;; Recursive copy
+
+(defn trace-copy [x]
+  (if (trace? x)
+    (let [x (strip x)]
+      (let [keys (mut/trace-keys x)
+            result (into {} (for [key keys] [key (trace-copy (mut/subtrace x key))]))]
+        (trace-from-map
+         (if (mut/has-value? x)
+           (assoc result :value (mut/value x))
+           result))))
+    x))
+
+;; Alexey's version (in python-metaprob) has an broader optimization
+;; than the one that's here.  I don't know how important it is.
+
+(defn trace-update [self tr]
+  (if (trace-has? tr)
+    (trace-set self (trace-get tr)))
+  (if (> (trace-count self) 0)          ;Do I have any subtraces?
+    (doseq [key (trace-keys tr)]
+      (if (trace-has? self key)
+        (trace-update (trace-subtrace self key)
+                      (trace-subtrace tr key))
+        (trace-set-subtrace self key (trace-subtrace tr key))))))
+
+
 ;; DEPRECATED, DO NOT USE.
+;; Like make-immutable, but recursive.
 
 (defn freeze [x]
-  (if (mutable-trace? x)
+  (if (trace? x)
     (let [x (strip x)]
       (cond (empty-trace? x)
             '()
@@ -557,11 +588,11 @@
             (metaprob-tuple? x)
             (vec (map freeze (metaprob-tuple-to-seq x)))
             true
-            (let [keys (mut/trace-keys x)
-                  maap (into {} (for [key keys] [key (freeze (mut/subtrace x key))]))]
-              (if (mut/has-value? x)
-                (assoc maap :value (freeze (mut/value x)))
-                maap))))
+            (let [keys (trace-keys x)
+                  result (into {} (for [key keys] [key (freeze (trace-subtrace x key))]))]
+              (if (trace-has-value? x)
+                (assoc result :value (freeze (trace-get x)))
+                result))))
     x))
 
 ;; DEPRECATED, DO NOT USE.

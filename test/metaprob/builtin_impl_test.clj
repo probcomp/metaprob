@@ -179,3 +179,17 @@
     (is (not (same-trace-states? (trace "a" 29 "b" 31)
                                  (trace "a" 29 "b" 31 :value 12))))))
 
+
+(deftest compare-keys-1
+  (testing "compare-keys smoke tests"
+    (is (= (compare-keys 7 7) 0))
+    (is (< (compare-keys 7 "foo") 0))
+    (is (> (compare-keys "foo" 7) 0))
+    (is (< (compare-keys 7 {"foo" 7}) 0))
+    (is (< (compare-keys {"abc" {:value 7}} {"foo" {:value 9}}) 0))
+    (is (= (compare-keys {"abc" {:value 9}} {"abc" {:value 9}}) 0))
+    (is (< (compare-keys {"abc" {:value 9}} {"abc" {:value 9} :value 5}) 0))
+    (is (> (compare-keys {"abc" {:value 9}} {"abc" {:value 7}}) 0))
+    (is (> (compare-keys {"abc" {:value 9} "foo" {:value 17}} {"abc" {:value 9}}) 0))))
+
+

@@ -54,6 +54,7 @@
 (define-foreign-procedure sqrt impl/sqrt)
 (define-foreign-procedure normal impl/normal)
 (define-foreign-procedure floor impl/floor)
+(define-foreign-procedure round impl/round)
 
 ;; Sample from uniform distribution, with RNG as hidden state
 (define-foreign-procedure sample-uniform impl/sample-uniform)
@@ -73,11 +74,15 @@
 (define-foreign-procedure trace-subtrace trace/trace-subtrace)
 (define-foreign-procedure make-mutable trace/make-mutable)
 (define-foreign-procedure make-immutable trace/make-immutable)
+(define-foreign-procedure trace-copy trace/trace-copy)
 (define-foreign-procedure mutable-trace? trace/mutable-trace?)
 (define-foreign-procedure immutable-trace? trace/immutable-trace?)
 (define-foreign-procedure trace trace/trace)    ;constructor
 (define-foreign-procedure immutable-trace trace/immutable-trace)    ;constructor
 (define-foreign-procedure ** trace/**)          ;for (trace ... (** ...) ...)
+
+(define-foreign-procedure trace-copy trace/trace-copy)
+(define-foreign-procedure trace-update trace/trace-update)
 
 (define-foreign-procedure addresses-of impl/addresses-of)
 (define-foreign-procedure addr impl/addr)

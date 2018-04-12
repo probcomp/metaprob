@@ -1,8 +1,4 @@
 # https://gnuplot-surprising.blogspot.com/2011/09/statistic-analysis-and-histogram.html
-reset
-n=20 #number of intervals
-max=5. #max value
-min=-5. #min value
 width=(max-min)/n #interval width
 #function used to map a value to the intervals
 hist(x,width)=width*floor(x/width)+width/2.0

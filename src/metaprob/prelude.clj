@@ -24,26 +24,20 @@
   filter
   concat)
 
-(define
-  drop
-  (gen
-    [lst index]
+(define drop
+  (gen [lst index]
     (block (if (gt index 0) (drop (rest lst) (sub index 1)) lst))))
 
 (define reverse (gen [lst] (_reverse lst (empty-trace))))
 
-(define
-  _reverse
-  (gen
-    [lst res]
+(define _reverse
+  (gen [lst res]
     (if (pair? lst)
       (_reverse (rest lst) (pair (first lst) res))
       res)))
 
-(define
-  iterate
-  (gen
-    [n f a]
+(define iterate
+  (gen [n f a]
     (if (lte n 0) a (block (iterate (sub n 1) f (f a))))))
 
 (define replicate
@@ -51,10 +45,8 @@
     (define root this)
     (map (gen [i] (with-address (list root i) (f))) (range n))))
 
-(define
-  repeat
-  (gen
-    [times pp]
+(define repeat
+  (gen [times pp]
     (if (gt times 0)
       (block
         (pp)
@@ -81,18 +73,14 @@
           (pair val (_map f (rest l) (add i 1) root)))
         (empty-trace)))))
 
-(define
-  _imap
-  (gen
-    [f i l]
+(define _imap
+  (gen [f i l]
     (if (pair? l)
       (pair (f i (first l)) (_imap f (add i 1) (rest l)))
       (empty-trace))))
 
-(define
-  imap
-  (gen
-    [f l]
+(define imap
+  (gen [f l]
     (if (tuple? l)
       (to-tuple (_imap f 0 (to-list l)))
       (block (_imap f 0 l)))))
@@ -103,28 +91,22 @@
       (pair (f (first l1) (first l2)) (zipmap f (rest l1) (rest l2)))
       (empty-trace))))
 
-(define
-  for-each
-  (gen
-    [l f]
+(define for-each
+  (gen [l f]
     (if (pair? l)
       (block (f (first l)) (for-each (rest l) f))
       "done")))
 
-(define
-  for-each2
-  (gen
-    [f l1 l2]
+(define for-each2
+  (gen [f l1 l2]
     (if (and (pair? l1) (pair? l2))
       (block
         (f (first l1) (first l2))
         (for-each2 f (rest l1) (rest l2)))
       "done")))
 
-(define
-  _i_for_each2
-  (gen
-    [f i l1 l2]
+(define _i_for_each2
+  (gen [f i l1 l2]
     (if (and (pair? l1) (pair? l2))
       (block
         (f i (first l1) (first l2))
@@ -133,18 +115,14 @@
 
 (define i_for_each2 (gen [f l1 l2] (_i_for_each2 f 0 l1 l2)))
 
-(define
-  filter
-  (gen
-    [pred l]
+(define filter
+  (gen [pred l]
     (if (pair? l)
       (if (pred (first l))
         (pair (first l) (filter pred (rest l)))
         (block (filter pred (rest l))))
       (empty-trace))))
 
-(define
-  concat
-  (gen
-    [ll]
+(define concat
+  (gen [ll]
     (if (pair? ll) (append (first ll) (concat (rest ll))) (empty-trace))))

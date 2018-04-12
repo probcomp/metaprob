@@ -114,19 +114,11 @@
 
 ;; last - overrides original prelude (performance + generalization)
 
-(defn ^:private mp-list-last [mp-list]
-  (if (metaprob-pair? mp-list)
-    (let [more (metaprob-rest mp-list)]
-      (if (not (metaprob-pair? more))
-        (metaprob-first mp-list)
-        (mp-list-last more)))
-    mp-list))
-
-;!!
 (defn metaprob-last [mp-list]
-  (if (metaprob-pair? mp-list)
-    (mp-list-last mp-list)
-    (assert false (diagnose-nonpair mp-list))))
+  (let [more (metaprob-rest mp-list)]
+    (if (metaprob-pair? more)
+      (metaprob-last more)
+      (metaprob-first mp-list))))
 
 ;; nth - overrides original prelude (performance + generalization)
 
@@ -151,7 +143,8 @@
   (if (>= k n) (empty-trace) (pair k (_range n (+ k 1)))))
 
 (defn metaprob-range [n]
-  (_range n 0))
+  ;; (_range n 0)
+  (range n))                            ;clojure range should work
 
 ;; append - overrides original prelude (for performance, generality)
 ;;; Currently only handles lists; could extend to tuples.
@@ -160,14 +153,16 @@
 (defn append [x y]
   ;; Mutable or immutable?
   (if (or (mutable-trace? x) (mutable-trace? y))
-    (letfn [(re [x]
-              (if (empty-trace? x)
-                y
-                (if (metaprob-pair? x)
-                  (pair (metaprob-first x)
-                        (re (metaprob-rest x)))
-                  (assert false "bad appender"))))]
-      (re x))
+    (if (empty-trace? y)
+      x
+      (letfn [(re [x]
+                (if (empty-trace? x)
+                  y
+                  (if (metaprob-pair? x)
+                    (pair (metaprob-first x)
+                          (re (metaprob-rest x)))
+                    (assert false "bad appender"))))]
+        (re x)))
     ;; Neither is mutable; should be seqables.  concat always returns a seq.
     (concat x y)))
 
@@ -316,6 +311,7 @@
 (defn sin [x] (java.lang.Math/sin x))
 (defn log1p [x] (java.lang.Math/log1p x))
 (defn floor [x] (java.lang.Math/floor x))
+(defn round [x] (java.lang.Math/round x))
 
 (def pi*2 (* 2 (java.lang.Math/acos -1)))
 (defn normal [mu variance]              ;not needed any more?
@@ -334,12 +330,25 @@
 ;; -----------------------------------------------------------------------------
 ;; Graphical output (via gnuplot or whatever)
 
-(defn binned-histogram [& {:keys [name samples overlay-densities]}]
+(defn binned-histogram [& {:keys [name samples overlay-densities
+                                  sample-lower-bound sample-upper-bound
+                                  number-of-intervals]}]
   (let [samples (metaprob-sequence-to-seq samples)
+        sample-lower-bound (or sample-lower-bound -5)
+        sample-upper-bound (or sample-upper-bound 5)
+        number-of-intervals (or number-of-intervals 20)
         fname (clojure.string/replace name " " "_")
-        path (str "results/" fname ".samples")]
-    (print (format "Writing samples to %s for histogram generation\n" path))
+        path (str "results/" fname ".samples")
+        commands-path (str path ".commands")]
+    (print (format "Writing commands to %s for histogram generation\n" commands-path))
     ;;(print (format " overlay-densities = %s\n" (freeze overlay-densities)))
+    (with-open [writor (io/writer commands-path)]
+      (.write writor (format "reset\n"))
+      (.write writor (format "min=%s.\n" sample-lower-bound))
+      (.write writor (format "max=%s.\n" sample-upper-bound))
+      (.write writor (format "n=%s\n" number-of-intervals))
+      (.close writor))
+    (print (format "Writing samples to %s\n" path))
     (with-open [writor (io/writer path)]
       (doseq [sample samples]
         (.write writor (str sample))
@@ -385,6 +394,66 @@
       (lup x true)))
   (princ close))
 
+(declare compare-keys)
+
+(defn compare-key-lists [x-keys y-keys]
+  (if (empty? x-keys)
+    (if (empty? y-keys) 0 -1)
+    (if (empty? y-keys)
+      1
+      (let [q (compare-keys (first x-keys) (first y-keys))]
+        (if (= q 0)
+          (compare-key-lists (rest x-keys) (rest y-keys))
+          q)))))
+
+(defn compare-traces [x y]
+  (let [w (if (trace-has? x)
+            (if (trace-has? y)
+              (compare-keys (trace-get x) (trace-get y))
+              -1)
+            (if (trace-has? y)
+              -1
+              0))]
+    (if (= w 0)
+      (letfn [(lup [x-keys y-keys]
+                (if (empty? x-keys)
+                  (if (empty? y-keys)
+                    0
+                    -1)
+                  (if (empty? y-keys)
+                    1
+                    (let [j (compare-keys (first x-keys) (first y-keys))]
+                      (if (= j 0)
+                        (let [q (compare-keys (trace-get x (first x-keys))
+                                              (trace-get y (first y-keys)))]
+                          (if (= q 0)
+                            (lup (rest x-keys) (rest y-keys))
+                            q))
+                        j)))))]
+        (lup (sort compare-keys (trace-keys x))
+             (sort compare-keys (trace-keys y))))
+      w)))
+
+(defn compare-keys [x y]
+  (cond (number? x)
+        ;; Numbers come before everything else
+        (if (number? y) (compare x y) -1)
+        (number? y) 1
+
+        (string? x)
+        (if (string? y) (compare x y) -1)
+        (string? y) 1
+
+        (boolean? x)
+        (if (boolean? y) (compare x y) -1)
+        (boolean? y) 1
+
+        (trace? x)
+        (if (trace? y) (compare-traces x y) -1)
+        (trace? y) 1
+
+        true (compare x y)))
+
 (defn pprint-trace [tr indent]
   (letfn [(re [tr indent tag]
             (princ indent)
@@ -400,7 +469,7 @@
               (pprint-atom (trace-get tr)))
             (newline)
             (let [indent (str indent "  ")]
-              (doseq [key (sort (trace-keys tr))]
+              (doseq [key (sort compare-keys (trace-keys tr))]
                 (re (trace-subtrace tr key) indent key))))]
     (re tr indent "trace")))
 

@@ -1,10 +1,16 @@
 set -e
 
 data=$1
+commands=$1.commands
 dest=$data.png
 
 cp -p "$data" gnuplot-hist.tmp
-gnuplot bin/gnuplot-hist.gp
+if [ -e $commands ]; then
+    echo "commands"
+    cat $commands bin/gnuplot-hist.gp | gnuplot -
+else
+    gnuplot bin/gnuplot-hist.gp
+fi
 mv gnuplot-hist-tmp.png $dest
 
 echo Plot written to $dest

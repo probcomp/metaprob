@@ -1,7 +1,7 @@
 (ns metaprob.distributions-test
   (:require [clojure.test :refer :all]
             [metaprob.trace :as trace]
-            [metaprob.builtin-impl :as builtin]
+            [metaprob.builtin-impl :as impl]
             [metaprob.syntax :refer :all]
             [metaprob.infer :refer [infer-apply]]
             [metaprob.distributions :refer :all]))

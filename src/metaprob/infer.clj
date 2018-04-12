@@ -105,9 +105,9 @@
     ;; Cannot freeze, freezing is hereditary
     ;; Ergo, these things can't go into addresses (addr)
     (immutable-trace "intervention-trace" intervene
-           "target-trace" target
-           "output-trace" output
-           :value "captured tag address")))
+                     "target-trace" target
+                     "output-trace" output
+                     :value "captured tag address")))
 
 ;; resolve-tag-address
 ;; Convert a quasi-address, whose first element was returned by 
@@ -188,13 +188,13 @@
                 inputs
                 new_env)
     (infer-eval (lookup source "body")
-              new_env
-              ;; Do not let the interpreter affect any of the traces.
-              ;; Any changes to the traces needs to be made by the code
-              ;; itself.
-              intervene
-              target
-              output)))
+                new_env
+                ;; Do not let the interpreter affect any of the traces.
+                ;; Any changes to the traces needs to be made by the code
+                ;; itself.
+                intervene
+                target
+                output)))
 
 (define infer-eval
   (gen [exp env intervene target output]

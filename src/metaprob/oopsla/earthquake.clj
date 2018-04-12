@@ -8,25 +8,6 @@
             [metaprob.infer :refer :all]
             [metaprob.distributions :refer :all]))
 
-(declare
-  propose1
-  earthquake_bayesian_network
-  styles
-  query
-  prior_samples
-  particle_samples
-  cond_samples
-  inter_samples
-  prior_exact
-  cond_exact
-  inter_exact
-  prior_samples_hist
-  inter_samples_hist
-  cond_samples_hist
-  prior_exact_hist
-  inter_exact_hist
-  cond_exact_hist)
-
 (define earthquake_bayesian_network
   (gen []
     (define earthquake (flip 0.1))
@@ -44,301 +25,154 @@
 
 (define alarm_went_off (empty-trace))
 
-(trace-set (lookup alarm_went_off (list 3 "alarm" "flip")) true)
+(trace-set alarm_went_off (addr 3 "alarm" "flip") true)
 
-(define styles
-  (gen []
-    (infer-apply                        ;Prior
-      earthquake_bayesian_network
-      (tuple)
-      nil
-      nil
-      nil)
-    (infer-apply                        ;Set alarm
-      earthquake_bayesian_network
-      (tuple)
-      alarm_went_off
-      nil
-      nil)
-    (infer-apply                        ;Observe alarm
-      earthquake_bayesian_network
-      (tuple)
-      nil
-      alarm_went_off
-      nil)
-    "ok"))
+;; Selected nuggets from python-metaprob's src/inference.vnts file
+;; See also figure 29 of the 7/17 chapter mss
+
+(trace-set flip "support" (list true false))
+
+;; (show-histogram (map (gen [x] (numerize (query x))) ...) "name")
+
+(define bar-graph
+  (gen [samples name]
+    (binned-histogram
+      :name    name
+      :samples samples
+      :sample-lower-bound 0
+      :sample-upper-bound 32
+      :number-of-intervals 32
+      :overlay-densities (list))))
+
+;; Convert an output trace to a list of five booleans
 
 (define query
   (gen [state]
     (define earthquake
-      (trace-get (lookup state (list 0 "earthquake" "flip"))))
+      (trace-get state (addr 0 "earthquake" "flip")))
     (define burglary
-      (trace-get (lookup state (list 1 "burglary" "flip"))))
-    (define alarm (trace-get (lookup state (list 3 "alarm" "flip"))))
+      (trace-get state (addr 1 "burglary" "flip")))
+    (define alarm
+      (trace-get state (addr 3 "alarm" "flip")))
     (define john_call
-      (trace-get (lookup state (list 5 "john_call" "flip"))))
+      (trace-get state (addr 5 "john_call" "flip")))
     (define mary_call
-      (trace-get (lookup state (list 7 "mary_call" "flip"))))
-    (tuple earthquake burglary alarm john_call mary_call)))
+      (trace-get state (addr 7 "mary_call" "flip")))
+    [earthquake burglary alarm john_call mary_call]))
 
-;; See prelude.vnts
-(define trace-of
-  (gen [proc inputs]
-    (define output (empty-trace))
-    [(propose1 proc inputs nil nil output) output]))
+;; Convert a tuple of booleans to an integer.
+;; Tuple element 0 determines the highest order bit.
 
-;; See prelude.vnts
-(define propose1
-  (gen [prog inputs intervene target output]
-    (define [_ score] (infer-apply prog inputs intervene target output))
-    score))
+(define numerize
+  (gen [qu]
+    (define len (length qu))
+    (define luup
+      (gen [i n]
+        (if (gte i len)
+          n
+          (luup (add i 1) (add (mul 2 n)
+                               (if (nth qu i) 1 0))))))
+    (luup 0 0)))
 
-(define prior_samples
-  (gen [num_replicates]
-    (replicate
-      num_replicates
-      (gen []
-        (define [score t]
-          (trace-of earthquake_bayesian_network (tuple)))
-        (tuple score (query t))))))
+;; ----------------------------------------------------------------------------
+;; Calculate exact probabilities
 
-(define particle_samples
-  (gen [num_replicates num_p]
-    (replicate
-      num_replicates
-      (gen []
-        (query
-          (infer_resampling             ;importance (re)sampling
-            earthquake_bayesian_network
-            (tuple)
-            alarm_went_off
-            num_p))))))
+;; Kludge
 
-(define cond_samples
-  (gen [num_replicates]
-    (replicate
-      num_replicates
+(define top-level-env (trace-get (gen [x] x) "environment"))
+
+(define joint-enumerate
+  (gen [sites]
+    (if (pair? sites)
+      (block
+        (define others (joint-enumerate (rest sites)))
+        (define site (first sites))
+        (print ["site:" site])
+        (if (pair? site)
+          (block (define oper-name (last site))
+                 (define oper (top-level-lookup top-level-env oper-name))
+                 (define value-candidates
+                   (trace-get oper "support"))
+                 (define trace-lists
+                   (map (gen [value]
+                          (map (gen [t]
+                                 (define t1 (trace-copy t))
+                                 (trace-set t1 site value)
+                                 t1)
+                               others))
+                        value-candidates))
+                 (concat trace-lists))
+          others))
+      (block (pair (empty-trace) (empty-trace))))))
+
+(define enumerate-executions
+  (gen [proc inputs intervention-trace target-trace]
+    (print [(length (addresses-of intervention-trace)) "interventions"])
+    (define one-run (empty-trace))
+    (infer-apply proc                   ;was trace-choices
+                 inputs
+                 intervention-trace
+                 nil
+                 one-run)
+    (define all-sites (addresses-of one-run))
+    (print [(length all-sites) "sites"])
+    (define free-sites
+      (set-difference
+       (set-difference all-sites (addresses-of intervention-trace))
+       (addresses-of target-trace)))
+    (print [(length free-sites) "free-sites"])
+    (define candidates (joint-enumerate free-sites))
+    (map (gen [candidate]
+           (trace-update candidate target-trace)
+           (define t (empty-trace))
+           (define [_ score]
+             (infer-apply proc
+                          inputs
+                          intervention-trace
+                          candidate
+                          t))
+           [t score])
+         candidates)))
+
+;; A good multiplier is 12240
+
+(define fake-samples-for-enumerated-executions
+  (gen [trace-and-score-list multiplier]
+    ;; (binned-histogram ...)
+    (concat (map (gen [[trace score]]
+                   ;; sample should be a number from 0 to 31
+                   (define sample (numerize (query trace)))
+                   (define count (round (mul (exp score) multiplier)))
+                   (print [sample score (exp score) count])
+                   (map (gen [ignore] sample)
+                        (range count)))
+                 trace-and-score-list))))
+
+; What to do:
+
+; (define exact-probabilities 
+;   (enumerate-executions earthquake_bayesian_network [] (empty-trace) (empty-trace)))
+;
+; (define fake-samples (fake-samples-for-enumerated-executions exact-probabilities 12240))
+;
+; (bar-graph exact-probabilities "exact earthquake probabilities")
+
+;; ----------------------------------------------------------------------------
+;; Sample from the prior
+
+;; Each sample is an output trace.
+
+(define prior-samples
+  (gen [n-samples]
+    (define
+      prior-trace
       (gen []
         (define output (empty-trace))
-        (define score
-          (propose1
-            earthquake_bayesian_network
-            (tuple)
-            nil
-            alarm_went_off
-            output))
-        (tuple score (query output))))))
-
-(define inter_samples
-  (gen [num_replicates]
-    (replicate
-      num_replicates
-      (gen []
-        (define output (empty-trace))
-        (define
-          score
-          (propose1
-            earthquake_bayesian_network
-            (tuple)
-            alarm_went_off
-            nil                         ;no target
-            output))
-        (tuple score (query output))))))
-
-(define prior_exact
-  (gen []
-    (block
-      (map
-        (gen
-          [pair]
-          (define [output score] pair)
-          (tuple score (query output)))
-        (enumerate_executions
-          earthquake_bayesian_network
-          (tuple)
-          nil
-          nil)))))
-
-(define cond_exact
-  (gen []
-    (block
-      (map
-        (gen
-          [pair]
-          (define [output score] pair)
-          (tuple score (query output)))
-        (enumerate_executions
-          earthquake_bayesian_network
-          (tuple)
-          nil
-          (block
-            (define __trace_0__ (empty-trace))
-            (trace_set
-              (lookup __trace_0__ (list 3 "alarm" "flip"))
-              true)
-            __trace_0__))))))
-
-(define inter_exact
-  (gen []
-    (block
-      (map
-        (gen
-          [pair]
-          (define [output score] pair)
-          (tuple score (query output)))
-        (enumerate_executions
-          earthquake_bayesian_network
-          (tuple)
-          (block
-            (define __trace_1__ (empty-trace))
-            (trace_set
-              (lookup __trace_1__ (list 3 "alarm" "flip"))
-              true)
-            __trace_1__)
-          nil)))))
-
-(define prior_samples_hist
-  (gen [n_samples savfile filename save]
-    (block
-      (if save
-        (block
-          (define
-            prior_trace
-            (gen
-              []
-              (define output (empty-trace))
-              (trace_choices
-                earthquake_bayesian_network
-                (tuple)
-                nil
-                output)
-              output))
-          (define prior_traces (replicate n_samples prior_trace))
-          (dump_py_data (map query prior_traces) savfile))
-        (block
-          (define prior_traces (load_py_data savfile))
-          (discrete_histogram
-            prior_traces
-            query
-            filename
-            "Earthquake prior (samples)"))))))
-
-(define inter_samples_hist
-  (gen [n_samples savfile filename save]
-    (block
-      (if save
-        (block
-          (define
-            inter_trace
-            (gen
-              []
-              (define output (empty-trace))
-              (trace_choices
-                earthquake_bayesian_network
-                (tuple)
-                alarm_went_off
-                output)
-              output))
-          (define inter_traces (replicate n_samples inter_trace))
-          (dump_py_data (map query inter_traces) savfile))
-        (block
-          (define inter_traces (load_py_data savfile))
-          (discrete_histogram
-            inter_traces
-            query
-            filename
-            "Alarm intervened (samples)"))))))
-
-(define cond_samples_hist
-  (gen [n_samples savfile filename save]
-    (block
-      (if save
-        (block
-          (define
-            cond_trace
-            (gen
-              []
-              (block
-                (rejection_sampling
-                  earthquake_bayesian_network
-                  (tuple)
-                  alarm_went_off
-                  0))))
-          (define cond_traces (replicate n_samples cond_trace))
-          (dump_py_data (map query cond_traces) savfile))
-        (block
-          (define cond_traces (load_py_data savfile))
-          (discrete_histogram
-            cond_traces
-            query
-            filename
-            "Alarm observed true (samples)"))))))
-
-(define prior_exact_hist
-  (gen [filename]
-    (define
-      prior_traces
-      (enumerate_executions
-        earthquake_bayesian_network
-        (tuple)
-        nil
-        nil))
-    (define
-      prior_traces
-      (map
-        (gen
-          [pair]
-          (define [output score] pair)
-          (tuple (query output) score))
-        prior_traces))
-    (discrete_weighted_histogram
-      prior_traces
-      query
-      filename
-      "Earthquake prior (enumeration)")))
-
-(define inter_exact_hist
-  (gen [filename]
-    (define
-      inter_traces
-      (enumerate_executions
-        earthquake_bayesian_network
-        (tuple)
-        alarm_went_off
-        nil))
-    (define
-      inter_traces
-      (map
-        (gen
-          [pair]
-          (define [output score] pair)
-          (tuple (query output) score))
-        inter_traces))
-    (discrete_weighted_histogram
-      inter_traces
-      query
-      filename
-      "Alarm intervened (enumerated)")))
-
-(define cond_exact_hist
-  (gen [filename]
-    (define
-      cond_traces
-      (enumerate_executions
-        earthquake_bayesian_network
-        (tuple)
-        nil
-        alarm_went_off))
-    (define
-      cond_traces
-      (map
-        (gen [pair]
-          (define [output score] pair)
-          (tuple (query output) score))
-        cond_traces))
-    (discrete_weighted_histogram
-      cond_traces
-      query
-      filename
-      "Alarm observed true (enumerated)")))
-
+        ;; Was trace_choices
+        (infer-apply earthquake_bayesian_network
+                     []
+                     (empty-trace)
+                     nil                ;No target
+                     output)
+        output))
+    (replicate n-samples prior-trace)))

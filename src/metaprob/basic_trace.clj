@@ -1,11 +1,6 @@
 (ns metaprob.basic-trace
   (:require [clojure.string :as string]))
 
-;; I wish I understand clojure side effects.  Seems like a total hodgepodge
-
-(defn clobber [a x]
-  (compare-and-set! a (deref a) x))
-
 (defprotocol ITrace
   "A prefix tree"
   (has-value? [_])
@@ -26,58 +21,64 @@
 (defn basic-trace? [x]
   (satisfies? ITrace x))
 
-; Concrete implementation of the above interface
+;; Concrete implementation of the above interface
 
 (declare mutable-trace really-make-locative trie?)
 
+;; Atoms?  Refs + dosync?  Something else?
+;; I wish I understand clojure side effects.  Seems like a total hodgepodge
+
+(defn clobber [a x]
+  (compare-and-set! a (deref a) x))  ;; AWFUL AWFUL KLUDGE
+
 (deftype Trie
     ;; Should probably be one or two refs instead
-    [subtraces-ref]
+    [state-ref]
 
   ; Implements the ITrace interface
   ITrace
 
   (has-value? [_]
-    (contains? (deref subtraces-ref) :value))
+    (contains? (deref state-ref) :value))
   (value [_]
-    (let [probe (get (deref subtraces-ref) :value :not-present)]
+    (let [probe (get (deref state-ref) :value :not-present)]
       (assert (not (= probe :not-present)) ["no value" _ :value])
       probe))
   (set-value! [_ val]
-    (dosync (clobber subtraces-ref (assoc (deref subtraces-ref) :value val)))
+    (clobber state-ref (assoc (deref state-ref) :value val))
     nil)
   (clear-value! [_]
     ;; Something fishy about this; if doing this causes the trie to become empty
     ;; then shouldn't the trie go away entirely?  Well, we don't have parent 
     ;; pointers, so nothing we can do about this.
-    (dosync (clobber subtraces-ref (dissoc (deref subtraces-ref) :value)))
+    (clobber state-ref (dissoc (deref state-ref) :value))
     nil)
 
   ;; Direct children
   (has-subtrace? [_ key]
     ;; python has_key, trace_has_key
-    (contains? (deref subtraces-ref) key))
+    (contains? (deref state-ref) key))
   (subtrace [_ key]
-    (let [probe (get (deref subtraces-ref) key :not-present)]
+    (let [probe (get (deref state-ref) key :not-present)]
       (assert (not (= probe :not-present)) ["no such subtrace" _ key])
       probe))
   (set-subtrace! [_ key sub]
     ;; N.b. sub might an immutable trace.
-    (dosync (clobber subtraces-ref (assoc (deref subtraces-ref) key sub)))
+    (clobber state-ref (assoc (deref state-ref) key sub))
     nil)
 
   (trace-keys [_] 
-    (let [ks (keys (deref subtraces-ref))]
+    (let [ks (keys (deref state-ref))]
       (if (= ks nil)
         '()
         (remove #{:value} ks))))
   (trace-count [_]
-    (let [subs (deref subtraces-ref)]
+    (let [subs (deref state-ref)]
       (if (contains? subs :value)
         (- (count subs) 1)
         (count subs))))
 
-  (get-state [_] (deref subtraces-ref))
+  (get-state [_] (deref state-ref))
 
   (make-locative [_ adr]
     (really-make-locative _ adr)))
@@ -161,6 +162,8 @@
         (trace-keys sub))))
   (trace-count [_]
     (trace-count (subtrace-at trace adr)))
+
+  (get-state [_] {})                    ;WRONG, FIX
 
   (make-locative [_ more-adr]
     (really-make-locative trace (concat adr more-adr)))
