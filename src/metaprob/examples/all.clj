@@ -2,36 +2,50 @@
 ;; Intended for use with (in-ns 'metaprob.examples.all).
 
 (ns metaprob.examples.all
-  (:refer-clojure :only [ns declare in-ns])
-  (:require [metaprob.syntax :refer :all]
-            [metaprob.builtin :refer :all]
-            [metaprob.prelude :refer :all]
-            [metaprob.distributions :refer :all]
-            [metaprob.examples.flip-n-coins :refer :all]
-            [metaprob.examples.earthquake :refer :all]
-            [metaprob.examples.inference-on-gaussian :all]
-            [metaprob.examples.interpreters :refer :all]))
+  (:refer-clojure :only [ns declare])
+  (:require [metaprob.syntax :refer :all])
+  (:require [metaprob.builtin :refer :all])
+  (:require [metaprob.prelude :refer :all])
+  (:require [metaprob.distributions :refer :all])
 
-;; Coin flips
-;;   (coin-flips-demo-2-flips)
-;;   (coin-flips-demo-biased)  - with intervention
+  (:require [metaprob.examples.flip-n-coins :refer :all])
+  (:require [metaprob.examples.inference-on-gaussian :refer :all])
+  (:require [metaprob.examples.earthquake :refer :all])
+  (:require [metaprob.examples.interpreters :refer :all]))
 
-;; Bayes net (earthquake)
-;;   prior:
-;;     exact probabilities
-;;     random sample
-;;   with intervention:
-;;     exact probabilities
-;;     random sample
-;;   TBD: importance sampling
-;;   TBD: rejection resampling
-;;   earthquake_bayesian_network could return the query instead of
-;;     the trace (that would then be queried)
+;; You may prefer to invoke particular demos in the REPL, rather than
+;; run them all wholesale
 
-;; 2D gaussian
-;;   Harness is in main.clj.
-;;   4 calls / plots: prior, rejection, importance, MH
+(define demo []
 
-;;   The inference utilities all return output traces.
-;;   But the returned value is of interest - in the case of gaussian,
-;;    that's really a better way to access the sample.
+  ;; Coin flips
+  ;; (demo-coin-flips)
+  (coin-flips-demo-2-flips)
+  (coin-flips-demo-biased)    ;; with intervention
+
+  ;; Bayes net (earthquake)
+  ;;   prior:
+  ;;     exact probabilities
+  ;;     random sample
+  ;;   with intervention:
+  ;;     exact probabilities
+  ;;     random sample
+  ;;   TBD: importance sampling
+  ;;   TBD: rejection resampling
+  ;;   earthquake_bayesian_network could return the query instead of
+  ;;     the trace (that would then be queried)
+
+  (demo-earthquake)
+
+  ;; 2D gaussian
+  ;;   Harness is in main.clj.
+  ;;   4 calls / plots: prior, rejection, importance, MH
+  ;; (demo-gaussian)
+
+  (define number-of-runs 100)
+  (get-samples number-of-runs)
+  (rejection-assay number-of-runs)
+  (importance-assay number-of-runs)
+  (MH-assay number-of-runs)
+
+)

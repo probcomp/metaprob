@@ -1,4 +1,5 @@
-;; This file was automatically generated
+;; Selected nuggets from python-metaprob's src/inference.vnts file
+;; See also figure 29 of the 7/17 chapter mss
 
 (ns metaprob.examples.earthquake
   (:refer-clojure :only [ns declare])
@@ -7,6 +8,21 @@
             [metaprob.prelude :refer :all]
             [metaprob.infer :refer :all]
             [metaprob.distributions :refer :all]))
+
+;; Convert a tuple of booleans to an integer.
+;; Tuple element 0 determines the highest order bit.
+
+(define booleans-to-binary
+  (opaque                               ;Do not score
+   (gen [qu]
+     (define len (length qu))
+     (define luup
+       (gen [i n]
+         (if (gte i len)
+           n
+           (luup (add i 1) (add (mul 2 n)
+                                (if (nth qu i) 1 0))))))
+     (luup 0 0))))
 
 (define earthquake-bayesian-network
   (gen []
@@ -21,16 +37,10 @@
     (define john_call (flip p_john_call))
     (define p_mary_call (if alarm 0.9 0.4))
     (define mary_call (flip p_mary_call))
-    [earthquake burglary alarm john_call mary_call]))
+    (booleans-to-binary
+        [earthquake burglary alarm john_call mary_call])))
 
-;; Selected nuggets from python-metaprob's src/inference.vnts file
-;; See also figure 29 of the 7/17 chapter mss
-
-(trace-set flip "support" (list true false))
-
-;; (show-histogram (map (gen [x] (numerize (query x))) ...) "name")
-
-(define bar-graph
+(define earthquake-histogram
   (gen [samples name]
     (binned-histogram
       :name    name
@@ -40,42 +50,14 @@
       :number-of-intervals 32
       :overlay-densities (list))))
 
-;; Convert an output trace to a list of five booleans
-
-(define query
-  (gen [state]
-    (define earthquake
-      (trace-get state (addr 0 "earthquake" "flip")))
-    (define burglary
-      (trace-get state (addr 1 "burglary" "flip")))
-    (define alarm
-      (trace-get state (addr 3 "alarm" "flip")))
-    (define john_call
-      (trace-get state (addr 5 "john_call" "flip")))
-    (define mary_call
-      (trace-get state (addr 7 "mary_call" "flip")))
-    [earthquake burglary alarm john_call mary_call]))
-
-;; Convert a tuple of booleans to an integer.
-;; Tuple element 0 determines the highest order bit.
-
-(define numerize
-  (gen [qu]
-    (define len (length qu))
-    (define luup
-      (gen [i n]
-        (if (gte i len)
-          n
-          (luup (add i 1) (add (mul 2 n)
-                               (if (nth qu i) 1 0))))))
-    (luup 0 0)))
-
 ;; ----------------------------------------------------------------------------
 ;; Calculate exact probabilities
 
 ;; Kludge
 
 (define top-level-env (trace-get (gen [x] x) "environment"))
+
+(trace-set flip "support" (list true false))
 
 ;; Returns a list of output traces
 
@@ -135,27 +117,18 @@
 
 ;; Takes a list of [state score] and returns a list of samples.
 ;; A good multiplier is 12240.
+;; The purpose is just so that we can easily reuse the histogram
+;; plotting logic.
 
 (define fake-samples-for-enumerated-executions
   (gen [state-and-score-list multiplier]
-    ;; (binned-histogram ...)
-    (concat (map (gen [[state score]]
-                   ;; sample should be a number from 0 to 31
-                   (define sample (numerize state))
+    (concat (map (gen [[sample score]]
+                   ;; sample will be a number from 0 to 31
                    (define count (round (mul (exp score) multiplier)))
                    (print [sample score (exp score) count])
                    (map (gen [ignore] sample)
                         (range count)))
                  state-and-score-list))))
-
-; What to do:
-
-; (define exact-probabilities 
-;   (enumerate-executions earthquake-bayesian-network [] (empty-trace) (empty-trace)))
-;
-; (define fake-samples (fake-samples-for-enumerated-executions exact-probabilities 12240))
-;
-; (bar-graph fake-samples "exact earthquake probabilities")
 
 ;; ----------------------------------------------------------------------------
 ;; Sample from the prior
@@ -177,35 +150,22 @@
         output))
     (replicate n-samples prior-trace)))
 
-;; Does not seem to be used
-(define propose1
-  (gen [sp inputs intervention target output]
-    (define [_ score] (infer-apply sp inputs intervention target output))
-    score))
-
-;; what's going on here.
-
-(define intervened-samples
-  (gen [num_replicates]
-    (replicate num_replicates
-               (gen []
-                 (define t (empty-trace))
-                 (infer-apply earthquake-bayesian-network
-                              (tuple)
-                              alarm_went_off
-                              nil
-                              t)
-                 (query t)))))
-
-; (bar-graph (map (gen [tr] (numerize (eq/query tr)))
-;                 (metaprob-sequence-to-seq
-;                       (prior-samples 50))) 
-;            "earthquake prior probabilities")
-
 ;; Test intervention
 
 (define alarm_went_off (empty-trace))
 (trace-set alarm_went_off (addr 3 "alarm" "flip") true)
+
+(define modified-prior-samples
+  (gen [num_replicates]
+    (replicate num_replicates
+               (gen []
+                 (define output (empty-trace))
+                 (infer-apply earthquake-bayesian-network
+                              []
+                              alarm_went_off
+                              nil
+                              output)
+                 output))))
 
 ;; propose = no output trace
 
@@ -218,4 +178,19 @@
 
 ;; TBD: importance sampling
 ;; TBD: rejection sampling
+
+(define demo-earthquake
+  (gen []
+    (define exact-probabilities 
+      (enumerate-executions earthquake-bayesian-network [] (empty-trace) (empty-trace)))
+    (define fake-samples
+      (fake-samples-for-enumerated-executions exact-probabilities 12240))
+    (earthquake-histogram fake-samples
+                          "exact earthquake prior probabilities")
+    (print "Sampling from the prior")
+    (earthquake-histogram (prior-samples 100)
+                          "sampled earthquake prior probabilities")
+    (print "Sampling from the modified prior")
+    (earthquake-histogram (modified-prior-samples 100)
+                          "sampled earthquake prior probabilities")))
 
