@@ -7,11 +7,9 @@
   (:require [metaprob.builtin :refer :all])
   (:require [metaprob.prelude :refer :all])
   (:require [metaprob.infer :refer :all])
-  (:require [metaprob.examples.gaussian :refer [gaussian score-gaussian two-variable-gaussian-model]])
-  (:require [metaprob.examples.rejection :refer [rejection-sampling]])
-  (:require [metaprob.examples.importance :refer [importance-resampling]])
-  (:require [metaprob.examples.metropolis-hastings-step :refer [lightweight-single-site-MH-sampling]])
-  (:require [metaprob.examples.interpreters :refer :all]))
+  (:require [metaprob.inference :refer :all])
+  (:require [metaprob.interpreters :refer :all])
+  (:require [metaprob.examples.gaussian :refer [gaussian score-gaussian two-variable-gaussian-model]]))
 
 (define prior-density
   (gen [x]

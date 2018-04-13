@@ -1,4 +1,4 @@
-(ns metaprob.examples.interpreters
+(ns metaprob.interpreters
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin-impl :as impl]
             [metaprob.infer :refer [infer-apply]]))

@@ -1,10 +1,62 @@
-(ns metaprob.examples.metropolis-hastings-step
+;; 4.
+
+(ns metaprob.inference
   (:refer-clojure :only [ns declare])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
             [metaprob.distributions :refer :all]
-            [metaprob.examples.interpreters :refer :all]))
+            [metaprob.interpreters :refer :all]))
+
+;; Probabilistic inference methods
+
+;; ----------------------------------------------------------------------------
+
+(define rejection-sampling
+  (gen [model-procedure inputs target-trace log-bound]
+    (define candidate-trace (empty-trace))
+    (define
+      [value score]
+      (infer :procedure model-procedure
+             :inputs inputs
+             :intervention-trace (empty-trace)
+             :target-trace       target-trace
+             :output-trace       candidate-trace))
+    (if (lt (log (uniform 0 1)) (sub score log-bound))
+      candidate-trace
+      (rejection-sampling
+	model-procedure inputs target-trace log-bound)) ))
+
+;; ----------------------------------------------------------------------------
+
+(define importance-resampling
+  (gen [model-procedure inputs target-trace N]
+
+    ;; generate N candidate traces, called particles, each
+    ;; with a score
+    
+    (define particles
+    	    (replicate N
+	      (gen []
+                (define candidate-trace (empty-trace))
+                (define [value score]
+                  (infer    ;; returns [value score]
+                   :procedure model-procedure
+                   :inputs inputs
+                   :intervention-trace nil
+                   :target-trace       target-trace
+                   :output-trace       candidate-trace))
+                [candidate-trace score])))
+    (define scores
+      (map (gen [p] (nth p 1)) particles))
+    ;; return a trace with probability proportional to (exp score)
+    (define which (log-categorical scores))
+
+    (define particle (nth particles which)) ;; [candidate-trace score]
+    (nth particle 0)))
+
+;; ----------------------------------------------------------------------------
+;; Metropolis-Hastings
 
 ;; trace is both an input and (by side effect) an output.
 

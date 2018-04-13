@@ -1,17 +1,22 @@
 ;; Kitchen sink namespace.
 ;; Intended for use with (in-ns 'metaprob.examples.all).
 
+;; Import a gajillion things so that this namespace is fun to use at
+;; the REPL.
+
 (ns metaprob.examples.all
   (:refer-clojure :only [ns declare])
   (:require [metaprob.syntax :refer :all])
   (:require [metaprob.builtin :refer :all])
   (:require [metaprob.prelude :refer :all])
+  (:require [metaprob.infer :refer :all])
   (:require [metaprob.distributions :refer :all])
+  (:require [metaprob.interpreters :refer :all])
+  (:require [metaprob.inference :refer :all])
 
   (:require [metaprob.examples.flip-n-coins :refer :all])
-  (:require [metaprob.examples.inference-on-gaussian :refer :all])
   (:require [metaprob.examples.earthquake :refer :all])
-  (:require [metaprob.examples.interpreters :refer :all]))
+  (:require [metaprob.examples.inference-on-gaussian :refer :all]))
 
 ;; You may prefer to invoke particular demos in the REPL, rather than
 ;; run them all wholesale

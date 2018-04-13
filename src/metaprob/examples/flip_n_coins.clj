@@ -4,7 +4,7 @@
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
             [metaprob.distributions :refer :all]
-            [metaprob.examples.interpreters :refer :all]))
+            [metaprob.interpreters :refer :all]))
 
 ;; Define a probabilistic model for n flips of a coin
 ;; with a custom address name for each coin flip

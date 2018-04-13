@@ -3,7 +3,7 @@
   (:require [clojure.test :refer :all]
             [metaprob.trace :as trace]
             [metaprob.builtin :as builtin]
-            [metaprob.examples.interpreters :refer :all]
+            [metaprob.interpreters :refer :all]
             [metaprob.examples.flip-n-coins :refer :all]))
 
 (deftest flip-n-coins-smoke-1

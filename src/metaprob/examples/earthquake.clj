@@ -7,7 +7,8 @@
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
             [metaprob.infer :refer :all]
-            [metaprob.distributions :refer :all]))
+            [metaprob.distributions :refer :all]
+            [metaprob.inference :refer :all]))
 
 ;; Convert a tuple of booleans to an integer.
 ;; Tuple element 0 determines the highest order bit.

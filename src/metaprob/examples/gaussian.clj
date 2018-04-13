@@ -5,8 +5,7 @@
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
-            [metaprob.distributions :refer :all]
-            [metaprob.examples.interpreters :refer :all]))
+            [metaprob.distributions :refer :all]))
 
 ;; sampling from a Gaussian with user-specified mean
 ;; and variance, by rescaling one output from the Box-Muller
