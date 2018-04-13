@@ -5,7 +5,7 @@
 ;; the REPL.
 
 (ns metaprob.examples.all
-  (:refer-clojure :only [ns declare])
+  (:refer-clojure :only [ns declare in-ns])
   (:require [metaprob.syntax :refer :all])
   (:require [metaprob.builtin :refer :all])
   (:require [metaprob.prelude :refer :all])

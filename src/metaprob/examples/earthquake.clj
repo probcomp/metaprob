@@ -170,7 +170,7 @@
 
 ;; propose = no output trace
 
-(if false
+(define rejection 
      (infer-apply
       earthquake-bayesian-network
       (tuple)

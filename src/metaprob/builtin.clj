@@ -65,6 +65,7 @@
 (define-foreign-procedure trace-get trace/trace-get)
 (define-foreign-procedure trace-set trace/trace-set)
 (define-foreign-procedure lookup trace/lookup)
+(define-foreign-procedure trace-subtrace trace/trace-subtrace)
 (define-foreign-procedure trace-delete trace/trace-delete)
 (define-foreign-procedure trace-keys trace/trace-keys)
 (define-foreign-procedure trace-set-subtrace trace/trace-set-subtrace)
