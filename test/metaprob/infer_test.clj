@@ -188,5 +188,6 @@
 
 (deftest apply-1
   (testing "apply smoke test"
+    (is (= (apply builtin/sub [3 2]) 1))
     (is (= (apply builtin/sub (list 3 2)) 1))
     (is (= (apply apply (list builtin/sub (list 3 2))) 1))))

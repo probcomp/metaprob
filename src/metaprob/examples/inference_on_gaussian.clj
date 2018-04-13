@@ -1,5 +1,6 @@
 ;; 5.
 
+;; Try this: time lein run -m metaprob.examples.main 10
 
 (ns metaprob.examples.inference-on-gaussian
   (:refer-clojure :only [ns declare])
@@ -8,8 +9,10 @@
   (:require [metaprob.prelude :refer :all])
   (:require [metaprob.infer :refer :all])
   (:require [metaprob.inference :refer :all])
-  (:require [metaprob.interpreters :refer :all])
   (:require [metaprob.examples.gaussian :refer [gaussian score-gaussian two-variable-gaussian-model]]))
+
+;; Exact versions of prior and target density functions, for
+;; graphical comparison with sampled approximations.
 
 (define prior-density
   (gen [x]
@@ -21,7 +24,10 @@
 
 ;; Each sample is an output trace.
 
-(define peak
+;; Find the location of the (assumed unique) peak of the histogram.
+;; For debugging.
+
+(define peak-location
   (gen [samples]
     (define so (sort samples))
     (define window (add 1 (clojure.core/quot (length so) 10)))
@@ -32,13 +38,16 @@
                                         lead)))
          1)))
 
+;; For debugging.
+
 (define analyze
   (gen [samples]
+    (print (first samples))
     (print ["average:" (div (apply clojure.core/+ samples) (length samples))
-            "peak:" (peak samples)])
+            "peak:" (peak-location samples)])
     samples))
 
-(define get-samples
+(define gaussian-prior-samples
   (gen [number-of-runs]
     (binned-histogram
       :name    "samples from the prior"
@@ -63,7 +72,7 @@
                    (define tr
                      (rejection-sampling
                       two-variable-gaussian-model  ; :model-procedure 
-                      (tuple)  ; :inputs 
+                      []  ; :inputs 
                       target-trace  ; :target-trace 
                       0.5))   ; :log-bound 
                    (trace-get tr))))
@@ -81,7 +90,7 @@
                    (define tr
                      (importance-resampling
                       two-variable-gaussian-model  ; :model-procedure 
-                      (tuple)  ; :inputs 
+                      []  ; :inputs 
                       target-trace  ; :target-trace 
                       20))
                    (trace-get tr))))  ; :N 
@@ -97,9 +106,10 @@
                  number-of-runs
                  (gen []    ;added by JAR
                    (define tr
-                     (lightweight-single-site-MH-sampling 20
-                                                          two-variable-gaussian-model
-                                                          target-trace))
+                     (lightweight-single-site-MH-sampling two-variable-gaussian-model
+                                                          []
+                                                          target-trace
+                                                          20))
                    ;; was (trace-get tr (addr 0 "x" "gaussian"))
                    (trace-get tr))))
       :overlay-densities (list (tuple "prior" prior-density)

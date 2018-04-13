@@ -295,16 +295,21 @@
 (defn exp [x] (java.lang.Math/exp x))
 (defn sqrt [x] (java.lang.Math/sqrt x))
 
-(defn add [x y]
-  (if (number? x)
-    (+ x y)
-    (if (and (string? x) (string? y))
-      (str x y)
-      (let [x (if (string? x) (list x) x)
-            y (if (string? y) (list y) y)]
-        (if (and (trace? x) (trace? y))
-          (append x y)
-          (assert false ["not addable" x y]))))))
+(defn add
+  ([x y]
+   (if (number? x)
+     (+ x y)
+     (if (and (string? x) (string? y))
+       (str x y)
+       (let [x (if (string? x) (list x) x)
+             y (if (string? y) (list y) y)]
+         (if (and (trace? x) (trace? y))
+           (append x y)
+           (assert false ["not addable" x y]))))))
+  ([] 0)
+  ([x] x)
+  ;; this is rather foolish
+  ([x y z & w] (add (add x y) (apply add z w))))
 
 (defn log [x] (java.lang.Math/log x))
 (defn cos [x] (java.lang.Math/cos x))

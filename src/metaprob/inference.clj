@@ -127,10 +127,10 @@
 ;; Should return [output-trace value] ...
 
 (define lightweight-single-site-MH-sampling
-  (gen [N model-procedure target-trace]
+  (gen [model-procedure inputs target-trace N]
     (define state (empty-trace))
     (infer :procedure model-procedure
-           :inputs (tuple)
+           :inputs inputs
            :intervention-trace (empty-trace)
            :target-trace target-trace
            :output-trace state)

@@ -92,23 +92,24 @@
 (define-foreign-procedure pair? trace/metaprob-pair?)
 (define-foreign-procedure list impl/metaprob-list)
 (define-foreign-procedure list? impl/metaprob-list?)
-(define-foreign-procedure to-list impl/to-list)
-
-;; Tuple
-(define-foreign-procedure tuple trace/tuple)
-(define-foreign-procedure tuple? trace/metaprob-tuple?)
-(define-foreign-procedure to-tuple impl/to-tuple)
-
-;; Generic
 (define-foreign-procedure first trace/metaprob-first)
 (define-foreign-procedure rest trace/metaprob-rest)
-(define-foreign-procedure length trace/length)
 (define-foreign-procedure last impl/metaprob-last)
+
+;; Tuples
+(define-foreign-procedure tuple trace/tuple)
+(define-foreign-procedure tuple? trace/metaprob-tuple?)
+
+;; Sequences
+(define-foreign-procedure length trace/length)
 (define-foreign-procedure nth impl/metaprob-nth)
 (define-foreign-procedure range impl/metaprob-range)
 (define-foreign-procedure append impl/append)
 (define-foreign-procedure set-difference impl/set-difference)
 (define-foreign-procedure sort impl/metaprob-sort)
+(define-foreign-procedure to-list impl/to-list)
+(define-foreign-procedure to-tuple impl/to-tuple)
+(define-foreign-procedure to-immutable-list trace/metaprob-sequence-to-seq)
 
 ;; Environments
 (define-foreign-procedure top-level-lookup impl/top-level-lookup)

@@ -2,7 +2,7 @@
 
 (ns metaprob.examples.main
   (:gen-class)
-  (:require [metaprob.examples.inference-on-gaussian :as inf]
+  (:require [metaprob.examples.inference-on-gaussian :as ginf]
             [criterium.core :as crit]
             ))
 
@@ -47,20 +47,20 @@
       (print (format "dict=%s n=%s all=%s\n" dict number-of-samples all?))
 
       (print "---- Prior ----\n")
-      (instrument inf/get-samples number-of-samples)
+      (instrument ginf/gaussian-prior-samples number-of-samples)
 
       (when (or all? (get dict :rejection))
         ;; Rejection sampling is very slow - 20 seconds per
         (print "---- Rejection ----\n")
-        (instrument inf/rejection-assay number-of-samples))
+        (instrument ginf/rejection-assay number-of-samples))
 
       (when (or all? (get dict :importance))
         ;; Importance sampling is very fast
         (print "---- Importance ----\n")
-        (inf/importance-assay number-of-samples))
+        (ginf/importance-assay number-of-samples))
 
       (when (or all? (get dict :mh))
         ;; MH is fast
         (print "---- MH ----\n")
-        (instrument inf/MH-assay number-of-samples)))))
+        (instrument ginf/MH-assay number-of-samples)))))
 

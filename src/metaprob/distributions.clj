@@ -89,12 +89,12 @@
    "log-categorical"
    (gen [scores]
      ;; if scores is a tuple, coerce to list
-     (define weights (make-immutable (map exp scores)))
+     (define weights (to-immutable-list (map exp scores)))
      ;; reduce probably won't work
-     (define normalizer (clojure.core/reduce add 0 weights))
+     (define normalizer (apply add (to-immutable-list weights)))
      (define probabilities (map (gen [w] (div w normalizer)) weights))
      (define sample (sample-uniform 0 1))
-     ;; iterate over probabilities, accumulate running sum, stop when cum prob > sample.
+     ;; iterate over probabilities, accumulate running sum, stop when cumu prob > sample.
      (define scan (gen [i probs running]
                     (define running (add (first probs) running))
                     (if (gt running sample)

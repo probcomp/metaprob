@@ -343,5 +343,5 @@
         (gen [inputs intervene target output]
           (infer-apply (first inputs) (rest inputs) intervene target output)))
    ;; Kludge
-   (gen [proc inputs] (clojure.core/apply proc (make-immutable inputs)))))
+   (gen [proc inputs] (clojure.core/apply proc (to-immutable-list inputs)))))
 

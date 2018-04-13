@@ -188,10 +188,11 @@
       (fake-samples-for-enumerated-executions exact-probabilities 12240))
     (earthquake-histogram fake-samples
                           "exact earthquake prior probabilities")
+    (define number-of-samples 100)
     (print "Sampling from the prior")
-    (earthquake-histogram (prior-samples 100)
+    (earthquake-histogram (prior-samples number-of-samples)
                           "sampled earthquake prior probabilities")
     (print "Sampling from the modified prior")
-    (earthquake-histogram (modified-prior-samples 100)
+    (earthquake-histogram (modified-prior-samples number-of-samples)
                           "sampled earthquake prior probabilities")))
 
