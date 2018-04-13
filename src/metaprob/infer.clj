@@ -134,6 +134,9 @@
 
 (declare infer-apply-native infer-eval)
 
+;; Useful invariant: if output is non-nil, then on returning [value score],
+;; we have value = (trace-ref output).
+
 ;; infer
 (define infer-apply
   (gen [prog inputs intervene target output]

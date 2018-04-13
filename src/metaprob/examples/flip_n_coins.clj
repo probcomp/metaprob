@@ -18,16 +18,7 @@
                     (flip weight)))
          (range n))))
 
-;; make a partial  trace  that  intervenes  on flip -coins
-;; to  ensure  the  coin is  tricky  and  the  weight  is 0.99
-;; but  the  fourth  flip  comes  up  false
-
-(define ensure-tricky-and-biased (empty-trace))
-(trace-set ensure-tricky-and-biased (addr 1 "tricky" "flip") true)
-(trace-set ensure-tricky-and-biased (addr 2 "weight" "then" "uniform") 0.99)
-(trace-set ensure-tricky-and-biased (addr "datum" 3 "flip") false)
-
-(define run
+(define coin-flips-demo-2-flips
   (gen []
     (define trace-with-2-flips (empty-trace))
     (infer :procedure flip-n-coins :inputs (tuple 2)
@@ -38,6 +29,19 @@
     (pprint (infer :procedure flip-n-coins :inputs (tuple 2)
                    :target-trace  trace-with-2-flips))
     ;;  => value:score:
+    ))
+
+;; make a partial trace that intervenes on flip-coins
+;; to ensure the coin is tricky and the weight is 0.99
+;; but the fourth flip comes up false
+
+(define ensure-tricky-and-biased (empty-trace))
+(trace-set ensure-tricky-and-biased (addr 1 "tricky" "flip") true)
+(trace-set ensure-tricky-and-biased (addr 2 "weight" "then" "uniform") 0.99)
+(trace-set ensure-tricky-and-biased (addr "datum" 3 "flip") false)
+
+(define coin-flips-demo-biased
+  (gen []
 
     (print "--ensure-tricky-and-biased--")
     (pprint ensure-tricky-and-biased)

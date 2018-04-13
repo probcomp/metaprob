@@ -20,6 +20,8 @@
   (gen [x]
     (exp (score-gaussian x (tuple 1.5 (div 1.0 (sqrt 2.0)))))))
 
+;; Each sample is an output trace.
+
 (define peak
   (gen [samples]
     (define so (sort samples))
@@ -65,7 +67,7 @@
                       (tuple)  ; :inputs 
                       target-trace  ; :target-trace 
                       0.5))   ; :log-bound 
-                   (trace-get tr (addr 0 "x" "gaussian")))))
+                   (trace-get tr))))
       :overlay-densities (list (tuple "prior" prior-density)
                                (tuple "target" target-density)))))
 
@@ -83,7 +85,7 @@
                       (tuple)  ; :inputs 
                       target-trace  ; :target-trace 
                       20))
-                   (trace-get tr (addr 0 "x" "gaussian")))))  ; :N 
+                   (trace-get tr))))  ; :N 
       :overlay-densities (list (tuple "prior" prior-density)
                                (tuple "target" target-density)))))
 
@@ -99,6 +101,7 @@
                      (lightweight-single-site-MH-sampling 20
                                                           two-variable-gaussian-model
                                                           target-trace))
-                   (trace-get tr (addr 0 "x" "gaussian")))))
+                   ;; was (trace-get tr (addr 0 "x" "gaussian"))
+                   (trace-get tr))))
       :overlay-densities (list (tuple "prior" prior-density)
                                (tuple "target" target-density)))))

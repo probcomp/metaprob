@@ -6,6 +6,8 @@
             [metaprob.distributions :refer :all]
             [metaprob.examples.interpreters :refer :all]))
 
+;; trace is both an input and (by side effect) an output.
+
 (define single-site-metropolis-hastings-step
   (gen [model-procedure inputs trace constraint-addresses]
 
@@ -22,7 +24,7 @@
     (trace-delete trace target-address)
     (define new-trace (empty-trace))
 
-    (define (_ forward-score) (infer :procedure model-procedure
+    (define [_ forward-score] (infer :procedure model-procedure
                                      :inputs inputs
                                      :intervention-trace nil
                                      :target-trace trace
@@ -49,7 +51,7 @@
     ;; remove the new value
     (trace-delete new-trace target-address)
 
-    (define (_ reverse-score)
+    (define [_ reverse-score]
       (infer :procedure model-procedure
              :inputs   inputs
              :intervention-trace restoring-trace
@@ -70,7 +72,7 @@
                                    (trace-get new-trace new-addr)))))
 	(trace-set trace target-address initial-value))))
 
-;; Should return a single trace.  Which one?
+;; Should return [output-trace value] ...
 
 (define lightweight-single-site-MH-sampling
   (gen [N model-procedure target-trace]
@@ -80,6 +82,7 @@
            :intervention-trace (empty-trace)
            :target-trace target-trace
            :output-trace state)
+    ;; It looks as if
     (repeat N
             (gen []
               ;; VKM had keywords :procedure :inputs :trace :constraint-addresses

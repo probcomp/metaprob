@@ -8,7 +8,7 @@
             [metaprob.infer :refer :all]
             [metaprob.distributions :refer :all]))
 
-(define earthquake_bayesian_network
+(define earthquake-bayesian-network
   (gen []
     (define earthquake (flip 0.1))
     (define burglary (flip 0.1))
@@ -21,11 +21,7 @@
     (define john_call (flip p_john_call))
     (define p_mary_call (if alarm 0.9 0.4))
     (define mary_call (flip p_mary_call))
-    "ok"))
-
-(define alarm_went_off (empty-trace))
-
-(trace-set alarm_went_off (addr 3 "alarm" "flip") true)
+    [earthquake burglary alarm john_call mary_call]))
 
 ;; Selected nuggets from python-metaprob's src/inference.vnts file
 ;; See also figure 29 of the 7/17 chapter mss
@@ -81,6 +77,8 @@
 
 (define top-level-env (trace-get (gen [x] x) "environment"))
 
+;; Returns a list of output traces
+
 (define joint-enumerate
   (gen [sites]
     (if (pair? sites)
@@ -105,6 +103,9 @@
           others))
       (block (pair (empty-trace) (empty-trace))))))
 
+;; Returns list of [state score] where state is value returned by 
+;;  earthquake-bayesian-network
+
 (define enumerate-executions
   (gen [proc inputs intervention-trace target-trace]
     (print [(length (addresses-of intervention-trace)) "interventions"])
@@ -124,34 +125,33 @@
     (define candidates (joint-enumerate free-sites))
     (map (gen [candidate]
            (trace-update candidate target-trace)
-           (define t (empty-trace))
-           (define [_ score]
-             (infer-apply proc
-                          inputs
-                          intervention-trace
-                          candidate
-                          t))
-           [t score])
+           ;; Returns [state score]
+           (infer-apply proc
+                        inputs
+                        intervention-trace
+                        candidate
+                        nil))
          candidates)))
 
-;; A good multiplier is 12240
+;; Takes a list of [state score] and returns a list of samples.
+;; A good multiplier is 12240.
 
 (define fake-samples-for-enumerated-executions
-  (gen [trace-and-score-list multiplier]
+  (gen [state-and-score-list multiplier]
     ;; (binned-histogram ...)
-    (concat (map (gen [[trace score]]
+    (concat (map (gen [[state score]]
                    ;; sample should be a number from 0 to 31
-                   (define sample (numerize (query trace)))
+                   (define sample (numerize state))
                    (define count (round (mul (exp score) multiplier)))
                    (print [sample score (exp score) count])
                    (map (gen [ignore] sample)
                         (range count)))
-                 trace-and-score-list))))
+                 state-and-score-list))))
 
 ; What to do:
 
 ; (define exact-probabilities 
-;   (enumerate-executions earthquake_bayesian_network [] (empty-trace) (empty-trace)))
+;   (enumerate-executions earthquake-bayesian-network [] (empty-trace) (empty-trace)))
 ;
 ; (define fake-samples (fake-samples-for-enumerated-executions exact-probabilities 12240))
 ;
@@ -169,7 +169,7 @@
       (gen []
         (define output (empty-trace))
         ;; Was trace_choices
-        (infer-apply earthquake_bayesian_network
+        (infer-apply earthquake-bayesian-network
                      []
                      (empty-trace)
                      nil                ;No target
@@ -177,7 +177,45 @@
         output))
     (replicate n-samples prior-trace)))
 
+;; Does not seem to be used
+(define propose1
+  (gen [sp inputs intervention target output]
+    (define [_ score] (infer-apply sp inputs intervention target output))
+    score))
+
+;; what's going on here.
+
+(define intervened-samples
+  (gen [num_replicates]
+    (replicate num_replicates
+               (gen []
+                 (define t (empty-trace))
+                 (infer-apply earthquake-bayesian-network
+                              (tuple)
+                              alarm_went_off
+                              nil
+                              t)
+                 (query t)))))
+
 ; (bar-graph (map (gen [tr] (numerize (eq/query tr)))
 ;                 (metaprob-sequence-to-seq
 ;                       (prior-samples 50))) 
 ;            "earthquake prior probabilities")
+
+;; Test intervention
+
+(define alarm_went_off (empty-trace))
+(trace-set alarm_went_off (addr 3 "alarm" "flip") true)
+
+;; propose = no output trace
+
+(if false
+     (infer-apply
+      earthquake-bayesian-network
+      (tuple)
+      alarm_went_off
+      nil nil))
+
+;; TBD: importance sampling
+;; TBD: rejection sampling
+

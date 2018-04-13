@@ -18,19 +18,18 @@
     	    (replicate N
 	      (gen []
                 (define candidate-trace (empty-trace))
-                (define [_ score]
+                (define [value score]
                   (infer    ;; returns [value score]
                    :procedure model-procedure
                    :inputs inputs
-                   :intervention-trace (empty-trace)
+                   :intervention-trace nil
                    :target-trace       target-trace
                    :output-trace       candidate-trace))
-                (tuple candidate-trace score))))
-    (define traces 
-      (map (gen [p] (trace-get p 0)) particles))
+                [candidate-trace score])))
     (define scores
-      (map (gen [p] (trace-get p 1)) particles))
-
+      (map (gen [p] (nth p 1)) particles))
     ;; return a trace with probability proportional to (exp score)
     (define which (log-categorical scores))
-    (nth traces which)))
+
+    (define particle (nth particles which)) ;; [candidate-trace score]
+    (nth particle 0)))

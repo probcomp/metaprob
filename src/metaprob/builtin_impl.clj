@@ -224,11 +224,11 @@
     (foreign-procedure-name pp)))    ;E.g. "clojure.core$str@1593f8c5"
 
 ;; !! REVIEW
-;; This is a kludge, see syntax.clj, to use until there's a better solution.
+;; This is a kludge, to use until there's a better solution.
 ;; Its purpose is to strip off all properties from the procedure, especially 
-;; "generative_source".
+;; "generative_source", in order to prevent use of the interpreter.
 
-(defn make-opaque [ifn]
+(defn opaque [name ifn]
   (with-meta ifn nil))
 
 ;; prelude has: trace_of lookup_chain lookup_chain_with_exactly 

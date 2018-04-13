@@ -12,7 +12,7 @@
   (gen [model-procedure inputs target-trace log-bound]
     (define candidate-trace (empty-trace))
     (define
-      [_ score]
+      [value score]
       (infer :procedure model-procedure
              :inputs inputs
              :intervention-trace (empty-trace)

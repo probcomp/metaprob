@@ -112,7 +112,7 @@
   (testing "export a procedure"
     (let [x 5
           m1 (gen [] x)
-          m2 (impl/make-opaque m1)]
+          m2 (builtin/opaque "opaque-test" m1)]
       (is (= (m2) (m1))))))
 
 ;; Lift a generate method up to a infer method
@@ -126,15 +126,16 @@
       (is (= (l 17 "z") 18)))))
 
 
-;(deftest lift-and-call
-;  (testing "can we lift a procedure and then call it"
-;    (let [qq (impl/make-foreign-procedure "qq" (fn [inputs i t o]
-;                                             [(+ (metaprob-nth inputs 0) (metaprob-nth inputs 1))
-;                                              50]))
-;          lifted (inf "lifted" qq)]
-;      (let [[answer score] (infer-apply lifted [7 8] nil nil nil)]
-;        (is (= answer 15))
-;        (is (= score 50))))))
+(deftest lift-and-call
+  (testing "can we lift a procedure and then call it"
+    (let [qq (impl/make-foreign-procedure "qq" (fn [inputs i t o]
+                                             [(+ (metaprob-nth inputs 0) (metaprob-nth inputs 1))
+                                              50]))
+          lifted (inf "lifted" qq)]
+      (is (= (lifted 7 8) 15))
+      (let [[answer score] (infer-apply lifted [7 8] nil nil nil)]
+        (is (= answer 15))
+        (is (= score 50))))))
 
 (deftest and-1
   (testing "and smoke test"

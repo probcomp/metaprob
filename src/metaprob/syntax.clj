@@ -86,12 +86,6 @@
   [params & body]
   `(named-generator nil ~params ~@body))
 
-(defmacro opaque
-  "like fn, but for metaprob procedures"
-  {:style/indent 1}
-  [params & body]
-  `(make-opaque (named-generator nil ~params ~@body)))
-
 ;; Oddly, the source s-expressions don't seem to answer true to list?
 
 (defmacro block
