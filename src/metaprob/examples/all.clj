@@ -25,8 +25,8 @@
 
   ;; Coin flips
   ;; (demo-coin-flips)
-  (coin-flips-demo-2-flips)
-  (coin-flips-demo-biased)    ;; with intervention
+  (coin-flips-demo-n-flips 2)
+  (coin-flips-demo-biased 10)    ;; with intervention
 
   ;; Bayes net (earthquake)
   ;;   prior:
@@ -48,7 +48,7 @@
   ;; (demo-gaussian)
 
   (define number-of-runs 100)
-  (get-samples number-of-runs)
+  (gaussian-prior-samples number-of-runs)
   (rejection-assay number-of-runs)
   (importance-assay number-of-runs)
   (MH-assay number-of-runs)

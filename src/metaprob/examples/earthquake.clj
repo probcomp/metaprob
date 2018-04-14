@@ -42,7 +42,7 @@
         [earthquake burglary alarm john_call mary_call])))
 
 (define earthquake-histogram
-  (gen [samples name]
+  (gen [name samples]
     (binned-histogram
       :name    name
       :samples samples
@@ -123,11 +123,11 @@
 
 (define fake-samples-for-enumerated-executions
   (gen [state-and-score-list multiplier]
-    (concat (map (gen [[sample score]]
-                   ;; sample will be a number from 0 to 31
+    (concat (map (gen [[state score]]
+                   ;; state will be a number from 0 to 31
                    (define count (round (mul (exp score) multiplier)))
-                   (print [sample score (exp score) count])
-                   (map (gen [ignore] sample)
+                   (print [state score (exp score) count])
+                   (map (gen [ignore] state)
                         (range count)))
                  state-and-score-list))))
 
@@ -138,61 +138,78 @@
 
 (define prior-samples
   (gen [n-samples]
-    (define
-      prior-trace
-      (gen []
-        (define output (empty-trace))
-        ;; Was trace_choices
-        (infer-apply earthquake-bayesian-network
-                     []
-                     (empty-trace)
-                     nil                ;No target
-                     output)
-        output))
-    (replicate n-samples prior-trace)))
+    (replicate n-samples
+               (gen []
+                 (define output (empty-trace))
+                 ;; Was trace_choices
+                 (infer-apply earthquake-bayesian-network
+                              []
+                              (empty-trace)
+                              nil                ;No target
+                              output)
+                 output))))
 
 ;; Test intervention
 
 (define alarm_went_off (empty-trace))
 (trace-set alarm_went_off (addr 3 "alarm" "flip") true)
 
-(define modified-prior-samples
-  (gen [num_replicates]
-    (replicate num_replicates
-               (gen []
-                 (define output (empty-trace))
-                 (infer-apply earthquake-bayesian-network
-                              []
-                              alarm_went_off
-                              nil
-                              output)
-                 output))))
+(define eq-rejection-assay
+  (gen [number-of-runs]
+    (replicate
+     number-of-runs
+     (gen []
+       (print "rejection sample") ;Progress meter
+       (trace-get
+        (rejection-sampling earthquake-bayesian-network
+                            []        ; inputs 
+                            alarm_went_off
+                            0)))))) ; log-bound 
 
-;; propose = no output trace
+(define eq-importance-assay
+  (gen [n-particles number-of-runs]
+    (replicate
+     number-of-runs
+     (gen []
+       (trace-get (importance-resampling
+                   earthquake-bayesian-network
+                   []  ; inputs
+                   alarm_went_off
+                   n-particles))))))
 
-(define rejection 
-     (infer-apply
-      earthquake-bayesian-network
-      (tuple)
-      alarm_went_off
-      nil nil))
 
 ;; TBD: importance sampling
 ;; TBD: rejection sampling
 
 (define demo-earthquake
   (gen []
+
+    (print "Exact prior probabilities")
     (define exact-probabilities 
       (enumerate-executions earthquake-bayesian-network [] (empty-trace) (empty-trace)))
     (define fake-samples
       (fake-samples-for-enumerated-executions exact-probabilities 12240))
-    (earthquake-histogram fake-samples
-                          "exact earthquake prior probabilities")
-    (define number-of-samples 100)
-    (print "Sampling from the prior")
-    (earthquake-histogram (prior-samples number-of-samples)
-                          "sampled earthquake prior probabilities")
-    (print "Sampling from the modified prior")
-    (earthquake-histogram (modified-prior-samples number-of-samples)
-                          "sampled earthquake prior probabilities")))
+    (earthquake-histogram "exact earthquake prior probabilities"
+                          fake-samples)
 
+    (print "Exact alarm-went-off probabilities")
+    (define exact-probabilities 
+      (enumerate-executions earthquake-bayesian-network [] alarm_went_off (empty-trace)))
+    (define fake-samples
+      (fake-samples-for-enumerated-executions exact-probabilities 12240))
+    (earthquake-histogram "exact earthquake alarm-went-off probabilities"
+                          fake-samples)
+
+    (define number-of-samples 100)
+
+    (print "Sampling from the prior")
+    (earthquake-histogram "sampled earthquake prior probabilities"
+                          (prior-samples number-of-samples))
+
+    (print "Rejection sampling")
+    (earthquake-histogram "samples from the target"
+                          (eq-rejection-assay number-of-samples))
+
+    (print "Importance sampling")
+    (earthquake-histogram "samples from importance sampling with 20 particles"
+                          (eq-importance-assay 20 number-of-samples))))

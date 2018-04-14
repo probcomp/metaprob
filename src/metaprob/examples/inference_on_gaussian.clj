@@ -47,70 +47,53 @@
             "peak:" (peak-location samples)])
     samples))
 
+(define gaussian-histogram
+  (gen [name samples]
+    (binned-histogram
+      :name    name
+      :samples (analyze samples)
+      :overlay-densities (list ["prior" prior-density]
+                               ["target" target-density]))))
+
+;; Sample from prior & plot
+
 (define gaussian-prior-samples
   (gen [number-of-runs]
-    (binned-histogram
-      :name    "samples from the prior"
-      :samples (analyze
-               (replicate number-of-runs
-                          two-variable-gaussian-model))
-      :overlay-densities (list (tuple "prior" prior-density)
-                               (tuple "target" target-density)))))
+    (replicate number-of-runs two-variable-gaussian-model)))
 
 (define target-trace (empty-trace))
 (trace-set target-trace (addr 1 "y" "gaussian") 3.0)
 
 (define rejection-assay
   (gen [number-of-runs]
-    (binned-histogram
-      :name    "samples from the target"
-      :samples (analyze
-               (replicate
-                 number-of-runs
-                 (gen []
-                   (print "rejection sample")
-                   (define tr
-                     (rejection-sampling
-                      two-variable-gaussian-model  ; :model-procedure 
-                      []  ; :inputs 
-                      target-trace  ; :target-trace 
-                      0.5))   ; :log-bound 
-                   (trace-get tr))))
-      :overlay-densities (list (tuple "prior" prior-density)
-                               (tuple "target" target-density)))))
+    (replicate
+     number-of-runs
+     (gen []
+       (print "rejection sample") ;Progress meter
+       (trace-get 
+        (rejection-sampling two-variable-gaussian-model  ; :model-procedure 
+                            []  ; :inputs 
+                            target-trace  ; :target-trace 
+                            0.5))))))   ; :log-bound 
 
 (define importance-assay
-  (gen [number-of-runs]
-    (binned-histogram
-      :name    "samples from importance sampling with 20 particles"
-      :samples (analyze
-               (replicate
-                 number-of-runs
-                 (gen []
-                   (define tr
-                     (importance-resampling
-                      two-variable-gaussian-model  ; :model-procedure 
-                      []  ; :inputs 
-                      target-trace  ; :target-trace 
-                      20))
-                   (trace-get tr))))  ; :N 
-      :overlay-densities (list (tuple "prior" prior-density)
-                               (tuple "target" target-density)))))
+  (gen [n-particles number-of-runs]
+    (replicate
+     number-of-runs
+     (gen []
+       (trace-get
+        (importance-resampling two-variable-gaussian-model  ; :model-procedure 
+                               []  ; :inputs 
+                               target-trace  ; :target-trace 
+                               n-particles))))))
 
 (define MH-assay
-  (gen [number-of-runs]
-    (binned-histogram
-      :name    "samples from lightweight single-site MH with 20 iterations"
-      :samples (analyze
-               (replicate
-                 number-of-runs
-                 (gen []    ;added by JAR
-                   (define tr
-                     (lightweight-single-site-MH-sampling two-variable-gaussian-model
-                                                          []
-                                                          target-trace
-                                                          20))
-                   ;; was (trace-get tr (addr 0 "x" "gaussian"))
-                   (trace-get tr))))
-      :overlay-densities (list (tuple "prior" prior-density)
-                               (tuple "target" target-density)))))
+  (gen [count number-of-runs]
+    (replicate
+     number-of-runs
+     (gen []
+       (trace-get
+        (lightweight-single-site-MH-sampling two-variable-gaussian-model
+                                             []
+                                             target-trace
+                                             count))))))

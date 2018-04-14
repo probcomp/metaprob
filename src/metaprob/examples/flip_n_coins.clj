@@ -18,16 +18,18 @@
                     (flip weight)))
          (range n))))
 
-(define coin-flips-demo-2-flips
-  (gen []
-    (define trace-with-2-flips (empty-trace))
-    (infer :procedure flip-n-coins :inputs (tuple 2)
-           :output-trace trace-with-2-flips)
-    (pprint trace-with-2-flips)
+(define coin-flips-demo-n-flips
+  (gen [n]
+    (define trace-with-n-flips (empty-trace))
+    (infer :procedure flip-n-coins
+           :inputs [n]
+           :output-trace trace-with-n-flips)
+    (pprint trace-with-n-flips)
     ;; (*@\textit{=> ( ... )}@*)
 
-    (pprint (infer :procedure flip-n-coins :inputs (tuple 2)
-                   :target-trace  trace-with-2-flips))
+    (pprint (infer :procedure flip-n-coins
+                   :inputs [n]
+                   :target-trace trace-with-n-flips))
     ;;  => value:score:
     ))
 
@@ -41,17 +43,18 @@
 (trace-set ensure-tricky-and-biased (addr "datum" 3 "flip") false)
 
 (define coin-flips-demo-biased
-  (gen []
+  (gen [n]
 
-    (print "--ensure-tricky-and-biased--")
+    (print "--ensure-tricky-and-biased intervention trace--")
     (pprint ensure-tricky-and-biased)
 
     (define output (empty-trace))
     ;; run  the  program  subject  to  these  interventions
-    (pprint (infer :procedure flip-n-coins :inputs (tuple 10)
+    (pprint (infer :procedure flip-n-coins
+                   :inputs [n]
                    :intervention-trace ensure-tricky-and-biased
                    :output-trace output))
-    (print "--output--")
+    (print "--output trace--")
     (pprint output)
-    ;;  => (true  true  true  false  true  true  true  true  true  true)
+    ;;  => (true true true false true true true true true true)
     ))

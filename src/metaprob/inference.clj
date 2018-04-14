@@ -134,7 +134,6 @@
            :intervention-trace (empty-trace)
            :target-trace target-trace
            :output-trace state)
-    ;; It looks as if
     (repeat N
             (gen []
               ;; VKM had keywords :procedure :inputs :trace :constraint-addresses

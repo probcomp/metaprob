@@ -8,7 +8,7 @@ probabilistic inference.
 
 Documentation:
 
-    * [Installation instructions](INSTALL.md)
-    * [Interaction guide](doc/interaction.md)
-    * [Language reference](doc/language.md)
-    * [Probabilistic inference examples](doc/examples.md)
+  * [Installation instructions](INSTALL.md)
+  * [Interaction guide](doc/interaction.md)
+  * [Language reference](doc/language.md)
+  * [Probabilistic inference examples](doc/examples.md)
