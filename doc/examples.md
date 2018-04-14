@@ -1,6 +1,11 @@
 
 # Probabilistic inference examples
 
+First load the system into clojure:
+
+    (require '[clojure.tools.namespace.repl :refer [refresh]])
+    (refresh)
+
 A namespace has been prepared for you that imports everything you will
 need, so you won't have to worry about namespace issues.
 
@@ -8,14 +13,20 @@ need, so you won't have to worry about namespace issues.
 
 ## Biased coin example
 
-Source: [metaprob.examples.flip-n-coins](../src/metaprob/examples/flip_n_coins.clj)
+Source code: [metaprob.examples.flip-n-coins](../src/metaprob/examples/flip_n_coins.clj)
+
+First just flip two coins, and look at the resulting output trace:
 
     (coin-flips-demo-n-flips 2)
+
+Now the same thing but with a coin heavily biased to true (0.99), and
+an intervention for one of the flips forcing a false:
+
     (coin-flips-demo-biased 10)
 
 ## Bayes net example
 
-Source: [metaprob.examples.earthquake](../src/metaprob/examples/earthquake.clj))
+Source code: [metaprob.examples.earthquake](../src/metaprob/examples/earthquake.clj))
 
     (define exact-probabilities 
       (enumerate-executions earthquake-bayesian-network [] (empty-trace) (empty-trace)))
@@ -26,45 +37,52 @@ Source: [metaprob.examples.earthquake](../src/metaprob/examples/earthquake.clj))
 
 Finish doing the plot at the shell:
 
-    gnuplot-hist results/exact_earthquake_prior_probabilities.samples
+    bin/gnuplot-hist results/exact_earthquake_prior_probabilities.samples
     open results/exact_earthquake_prior_probabilities.samples.png
 
-Back to clojure:
-
-    ;; Exact alarm-went-off probabilities
-    (define exact-probabilities 
-      (enumerate-executions earthquake-bayesian-network [] alarm_went_off (empty-trace)))
-    (define fake-samples
-      (fake-samples-for-enumerated-executions exact-probabilities 12240))
-    (earthquake-histogram "exact earthquake alarm-went-off probabilities"
-                          fake-samples)
+Back to clojure: We can sample from the prior, which should yield
+results similar to the exact prior probabilities:
 
     (define number-of-samples 100)
 
-    ;; Sampling from the prior
     (earthquake-histogram "sampled earthquake prior probabilities"
                           (prior-samples number-of-samples))
 
-    ;; Rejection sampling
-    (earthquake-histogram "samples from the target"
+We can look at exact probabilities in the situation where the alarm went off:
+
+    (define exact-awo-probabilities 
+      (enumerate-executions earthquake-bayesian-network [] alarm-went-off (empty-trace)))
+    (define fake-awo-samples
+      (fake-samples-for-enumerated-executions exact-awo-probabilities 12240))
+    (earthquake-histogram "exact earthquake alarm-went-off probabilities"
+                          fake-awo-samples)
+
+Estimate the target distribution using two inference methods (should
+be about the same as the exact probabilities):
+
+    (earthquake-histogram "samples from earthquake target"
                           (eq-rejection-assay number-of-samples))
 
-    ;; Importance sampling
-    (earthquake-histogram "samples from importance sampling with 20 particles"
+    (earthquake-histogram "importance sampling earthquake with 20 particles"
                           (eq-importance-assay 20 number-of-samples))
-
 
 ## 2D gaussian example
 
-Source: [metaprob.examples.inference-on-gaussian](../src/metaprob/examples/inference_on_gaussian.clj))
+Source code: [metaprob.examples.inference-on-gaussian](../src/metaprob/examples/inference_on_gaussian.clj))
 
-    (define number-of-runs 100)
+For the model, see [metaprob.examples.gaussian](../src/metaprob/examples/gaussian.clj)).
 
-    (gaussian-histogram "samples from the prior"
+`number-of-runs` is chosen so that rejection sampling runs in a minute
+or two.  This means the histograms haven't converged very much.  For
+greater accuracy increase `number-of-runs`.
+
+    (define number-of-runs 20)
+
+    (gaussian-histogram "samples from the gaussian demo prior"
                         (gaussian-prior-samples number-of-runs))
-    (gaussian-histogram "samples from the target"   
+    (gaussian-histogram "samples from the gaussian demo target"   
                         (rejection-assay number-of-runs))
-    (gaussian-histogram "samples from importance sampling with 20 particles"
+    (gaussian-histogram "importance sampling gaussian demo with 20 particles"
                         (importance-assay 20 number-of-runs))
-    (gaussian-histogram "samples from lightweight single-site MH with 20 iterations"
+    (gaussian-histogram "samples from gaussian demo lightweight single-site MH with 20 iterations"
                         (MH-assay 20 number-of-runs))

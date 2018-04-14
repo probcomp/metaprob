@@ -14,7 +14,7 @@
 ;; Tuple element 0 determines the highest order bit.
 
 (define booleans-to-binary
-  (opaque                               ;Do not score
+  (opaque "booleans-to-binary"          ;Do not score
    (gen [qu]
      (define len (length qu))
      (define luup
@@ -72,17 +72,21 @@
         (if (pair? site)
           (block (define oper-name (last site))
                  (define oper (top-level-lookup top-level-env oper-name))
-                 (define value-candidates
-                   (trace-get oper "support"))
-                 (define trace-lists
-                   (map (gen [value]
-                          (map (gen [t]
-                                 (define t1 (trace-copy t))
-                                 (trace-set t1 site value)
-                                 t1)
-                               others))
-                        value-candidates))
-                 (concat trace-lists))
+                 (if (and (trace? oper)
+                          (trace-has? oper "support"))
+                   (block
+                    (define value-candidates
+                      (trace-get oper "support"))
+                    (define trace-lists
+                      (map (gen [value]
+                             (map (gen [t]
+                                    (define t1 (trace-copy t))
+                                    (trace-set t1 site value)
+                                    t1)
+                                  others))
+                           value-candidates))
+                    (concat trace-lists))
+                   others))
           others))
       (block (pair (empty-trace) (empty-trace))))))
 
@@ -144,15 +148,27 @@
                  ;; Was trace_choices
                  (infer-apply earthquake-bayesian-network
                               []
-                              (empty-trace)
-                              nil                ;No target
+                              nil       ;No intervention
+                              nil       ;No target
                               output)
                  output))))
 
 ;; Test intervention
 
-(define alarm_went_off (empty-trace))
-(trace-set alarm_went_off (addr 3 "alarm" "flip") true)
+(define alarm-went-off (empty-trace))
+(define alarm-address (addr 3 "alarm" "flip"))
+(trace-set alarm-went-off alarm-address true)
+
+(define check-alarm-intervention
+  (gen []
+    (define output (empty-trace))
+    (infer-apply earthquake-bayesian-network
+                 []
+                 (empty-trace)
+                 nil                ;No target
+                 output)
+    (assert (trace-has? output alarm-address)
+            "check validity of alarm intervention")))
 
 (define eq-rejection-assay
   (gen [number-of-runs]
@@ -163,7 +179,7 @@
        (trace-get
         (rejection-sampling earthquake-bayesian-network
                             []        ; inputs 
-                            alarm_went_off
+                            alarm-went-off ;intervention
                             0)))))) ; log-bound 
 
 (define eq-importance-assay
@@ -174,7 +190,7 @@
        (trace-get (importance-resampling
                    earthquake-bayesian-network
                    []  ; inputs
-                   alarm_went_off
+                   alarm-went-off
                    n-particles))))))
 
 
@@ -193,12 +209,12 @@
                           fake-samples)
 
     (print "Exact alarm-went-off probabilities")
-    (define exact-probabilities 
-      (enumerate-executions earthquake-bayesian-network [] alarm_went_off (empty-trace)))
-    (define fake-samples
-      (fake-samples-for-enumerated-executions exact-probabilities 12240))
+    (define exact-awo-probabilities 
+      (enumerate-executions earthquake-bayesian-network [] alarm-went-off (empty-trace)))
+    (define fake-awo-samples
+      (fake-samples-for-enumerated-executions exact-awo-probabilities 12240))
     (earthquake-histogram "exact earthquake alarm-went-off probabilities"
-                          fake-samples)
+                          fake-awo-samples)
 
     (define number-of-samples 100)
 

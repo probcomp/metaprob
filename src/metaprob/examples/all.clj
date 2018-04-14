@@ -21,36 +21,37 @@
 ;; You may prefer to invoke particular demos in the REPL, rather than
 ;; run them all wholesale
 
-(define demo []
+(define demo
+  (gen []
 
-  ;; Coin flips
-  ;; (demo-coin-flips)
-  (coin-flips-demo-n-flips 2)
-  (coin-flips-demo-biased 10)    ;; with intervention
+    ;; Coin flips
+    ;; (demo-coin-flips)
+    (coin-flips-demo-n-flips 2)
+    (coin-flips-demo-biased 10)    ;; with intervention
 
-  ;; Bayes net (earthquake)
-  ;;   prior:
-  ;;     exact probabilities
-  ;;     random sample
-  ;;   with intervention:
-  ;;     exact probabilities
-  ;;     random sample
-  ;;   TBD: importance sampling
-  ;;   TBD: rejection resampling
-  ;;   earthquake_bayesian_network could return the query instead of
-  ;;     the trace (that would then be queried)
+    ;; Bayes net (earthquake)
+    ;;   prior:
+    ;;     exact probabilities
+    ;;     random sample
+    ;;   with intervention:
+    ;;     exact probabilities
+    ;;     random sample
+    ;;   TBD: importance sampling
+    ;;   TBD: rejection resampling
+    ;;   earthquake_bayesian_network could return the query instead of
+    ;;     the trace (that would then be queried)
 
-  (demo-earthquake)
+    (demo-earthquake)
 
-  ;; 2D gaussian
-  ;;   Harness is in main.clj.
-  ;;   4 calls / plots: prior, rejection, importance, MH
-  ;; (demo-gaussian)
+    ;; 2D gaussian
+    ;;   Harness is in main.clj.
+    ;;   4 calls / plots: prior, rejection, importance, MH
+    ;; (demo-gaussian)
 
-  (define number-of-runs 100)
-  (gaussian-prior-samples number-of-runs)
-  (rejection-assay number-of-runs)
-  (importance-assay number-of-runs)
-  (MH-assay number-of-runs)
+    (define number-of-runs 100)
+    (gaussian-prior-samples number-of-runs)
+    (rejection-assay number-of-runs)
+    (importance-assay number-of-runs)
+    (MH-assay number-of-runs)
 
-)
+    ))

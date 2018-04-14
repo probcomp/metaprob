@@ -373,11 +373,11 @@
           keyseq (trace-keys x)]
       (if (trace-has? x)
         (if (empty? keyseq)
-          (princ (format "{{%s}}" (trace-get x)))    ;should pprint-atom
-          (princ (format "{{%s, %s: ...}}" (trace-get x) (first keyseq))))
+          (princ (format "{:value %s}" (trace-get x)))    ;should pprint-atom
+          (princ (format "{:value %s, %s: ...}}" (trace-get x) (first keyseq))))
         (if (empty? keyseq)
-          (princ "{{}}")
-          (princ (format "{{%s: ...}}" (first keyseq))))))
+          (princ "{}")
+          (princ (format "{%s: ...}" (first keyseq))))))
     (pr a)))
 
 ;; x is a seq
