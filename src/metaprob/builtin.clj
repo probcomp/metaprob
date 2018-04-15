@@ -69,15 +69,15 @@
 (define-foreign-procedure trace-keys trace/trace-keys)
 (define-foreign-procedure trace-set-subtrace trace/trace-set-subtrace)
 (define-foreign-procedure trace? trace/trace?)
-(define-foreign-procedure mutable-trace? trace/mutable-trace?)
 (define-foreign-procedure trace-has-subtrace? trace/trace-has-subtrace?)
 (define-foreign-procedure trace-subtrace trace/trace-subtrace)
+(define-foreign-procedure trace trace/trace)    ;constructor
+(define-foreign-procedure trace-copy trace/trace-copy)
 (define-foreign-procedure make-mutable trace/make-mutable)
 (define-foreign-procedure make-immutable trace/make-immutable)
-(define-foreign-procedure trace-copy trace/trace-copy)
 (define-foreign-procedure mutable-trace? trace/mutable-trace?)
 (define-foreign-procedure immutable-trace? trace/immutable-trace?)
-(define-foreign-procedure trace trace/trace)    ;constructor
+(define-foreign-procedure mutable-trace? trace/mutable-trace?)
 (define-foreign-procedure immutable-trace trace/immutable-trace)    ;constructor
 (define-foreign-procedure ** trace/**)          ;for (trace ... (** ...) ...)
 

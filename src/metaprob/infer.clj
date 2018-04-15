@@ -18,12 +18,12 @@
 (define frame?
   (gen [obj]
     (if (trace? obj)
-      (trace-has-subtrace? obj "parent")
+      (trace-has-subtrace? obj "*parent*")
       false)))
 
 (define frame-parent
   (gen [frame]
-    (trace-get frame "parent")))
+    (trace-get frame "*parent*")))
 
 (define env-lookup
   (gen [env name]
@@ -38,9 +38,7 @@
 
 (define make-env
   (gen [parent]
-    (define env (empty-trace))
-    (trace-set env "parent" parent)
-    env))
+    (trace "*parent*" parent)))
 
 (define env-bind!
   (gen [env name val]
@@ -331,13 +329,13 @@
                      env)
                     score])
 
-            ;; `this` is the current location in the traces
+            ;; `(&this)` is the current location in the traces
             "this"
             [(capture-tag-address intervene target output)
              0]
 
             ;; `with-address` makes use of a location previously
-            ;; captured by `this`
+            ;; captured by `&this`
             "with-address"
             (block (define [tag-addr tag-score]
                      (walk (lookup exp "tag") env
@@ -364,11 +362,11 @@
 
 (define inf
   (gen [name infer-method]
-    (define tr (empty-trace))
-    (trace-set tr "name" (add "inf-" (procedure-name infer-method)))
-    (trace-set tr "infer-method" infer-method)
+    (define tr
+      (trace "name" (add "inf-" (procedure-name infer-method))
+             "infer-method" infer-method))
     (trace-as-procedure tr
-                        ;; When callsed from Clojure:
+                        ;; When called from Clojure:
                         (gen [& inputs]
                           (nth (infer-method inputs nil nil nil)
                                0)))))
