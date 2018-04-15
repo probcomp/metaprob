@@ -209,7 +209,7 @@
       "tuple" (qons 'tuple (subexpressions-to-clojure tr nest))
       "unquote" (list 'ml-unquote
                       (subexpression-to-clojure tr "expression" nest))
-      "with_address" (with-address-to-clojure tr)
+      "with-address" (with-address-to-clojure tr)
       "with-addr" (with-address-to-clojure tr)
       "definition" (do (if (not (get nest :top))
                          (print (format "** definition not allowed here: %s\n"

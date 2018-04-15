@@ -186,9 +186,6 @@
 
 (defn neq [x y] (not (= x y)))
 
-(defn exactly [& body]
-  (assert false "what is exactly, exactly?"))
-
 ;; Procedure-related
 
 ;; Invoke a "foreign" procedure.  Called from interpreter.

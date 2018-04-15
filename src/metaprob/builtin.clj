@@ -26,7 +26,6 @@
 ;; General
 (define-foreign-procedure eq =)
 (define-foreign-procedure neq impl/neq)
-(define-foreign-procedure exactly impl/exactly)    ;?
 (define-foreign-procedure assert impl/metaprob-assert)
 (define-foreign-procedure error impl/error)
 (define-foreign-procedure generate-foreign impl/generate-foreign)

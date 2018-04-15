@@ -42,7 +42,7 @@
 
 (define replicate
   (gen [n f]
-    (define root this)
+    (define root (&this))
     (map (gen [i] (with-address (list root i) (f))) (range n))))
 
 (define repeat
@@ -55,7 +55,7 @@
 
 (define map
   (gen [f l]
-    (define root this)
+    (define root (&this))
     (define
       ans
       (if (tuple? l)
