@@ -166,9 +166,10 @@
 
 (deftest same-1
   (testing "object comparison smoke test"
-    (is (same-trace-states? 7 7))
-    (is (not (same-trace-states? 7 8)))
+    (is (same-states? 7 7))
+    (is (not (same-states? 7 8)))
     (is (same-trace-states? '(11 13) (list 11 13)))
+    (is (not (same-trace-states? '(17 19) '(17))))
     (is (not (same-trace-states? '(17 19) '(17 19 23))))
     (is (same-trace-states? (trace "a" 29 "b" 31)
                             (trace "a" 29 "b" 31)))
