@@ -1,13 +1,20 @@
 # Interacting with metaprob-clojure
 
-There are many ways to do development and other activities in Clojure.
+There are many ways to work with Metaprob; they are the same as the
+many ways one works with Clojure.
+
+ * From a read-eval-print loop (REPL)
+ * From the shell
+ * From tests
+ * Using files
+
 
 ## Using the Clojure REPL
 
 The REPL can be started from the shell, or from emacs.  With emacs you
-get many desirable tools such as automatic indentation, but the setup
-is more complex and the learning curve is steep if you haven't used
-emacs before.
+get many desirable tools such as automatic indentation and namespace
+system integration, but the setup is more complex and the learning
+curve is steep if you haven't used emacs before.
 
 ### Using Clojure under the shell
 
@@ -62,48 +69,65 @@ inferred from the `ns` form at the top of the file.
 C-h m will show you commands available in REPL mode.
 There's more documentation of Cider somewhere.
 
-### Working with namespaces
+### Simple scratch namespace for playing around
 
 Exploration from the REPL is a little bit annoying due to the Clojure
 namespace system.  Unlike in Common Lisp, which has its `::` syntax,
 you can't even access a namespace unless you've previously 'required'
 it.
 
+To get started quickly, you can just switch to the examples namespace,
+after which you won't have to think about namespaces until you want to
+create new Clojure/Metaprob modules.  Enter the following at the REPL:
+
+    (in-ns 'metaprob.examples.all)
+
+The `metaprob.examples.all` namespace imports all of the Metaprob namespaces,
+meaning all bindings are directly available and you don't have to
+worry about the Clojure namespace system.
+
+You can then evaluate metaprob expressions directly, run examples, and so on:
+
+    (define x (trace "foo" 17))
+    (trace-get x "foo")
+    (metaprob-pprint x)
+
+### Interaction in other namespaces
+
+The `user` namespace starts out knowing nothing about the metaprob
+namespaces.  For any kind of access you need to use `require`.
+
+    > (require '[metaprob.builtin])
+
+after which
+
+    > (metaprob.builtin/trace "foo" 17)
+
 Namespace names are typically long, so it's useful to define namespace
-prefixes to abbreviate them.  I do this manually, e.g.
+prefixes to abbreviate them.  This is what `:as` is for:
 
     > (require '[metaprob.builtin :as builtin])
 
-at the REPL, so that I can say
+After which:
 
-    (builtin/trace-get x "foo")
-    (builtin/pprint x)
+    > (builtin/trace-get x "foo")
+    > (builtin/pprint x)
 
-and so on.  Alternatively, you can access binding without using a
-prefix at all by using `:refer :all`:
+and so on.  Alternatively, you can access bindings without using a
+prefix at all by 'requiring' a namespace with `:refer :all`:
 
     > (require '[metaprob.trace :refer :all])
     > (require '[metaprob.builtin-impl :refer :all])
 
-    (trace-get x "foo")
-    (metaprob-pprint x)
+After which:
 
-This seems better; I don't know why I don't it; maybe afraid of name
-collisions or the possibility of stale values in the `user` namespace.
-(I still don't fully understand namespaces.)
+    > (trace-get x "foo")
+    > (metaprob-pprint x)
 
-You'll need to `require` each module you want to use at the REPL.  See
-below for modules.
-
-At the REPL you can switch to a different namespace using `in-ns`, e.g.
-
-    > (in-ns 'metaprob.distributions)
-
-By doing this you can see proper `builtin` bindings at the REPL, and
-the internals of whatever module you're working on, but personally I
-have not found this to be as useful as sticking to `user` and doing a
-bunch of `require`s from there.  Maybe I just don't understand how to
-use all this stuff.
+Note that with `:refer :all` it is `metaprob.builtin-impl` being
+accessed, not `metaprob.builtin`.  The latter has name conflicts with
+Clojure and if we tried to use it with `:refer :all` we would get
+collisions.
 
 ### Refreshing the state
 
@@ -130,6 +154,45 @@ remove the `target` directory, which caches `.class` files.
 This is a pain in the butt because it can take a minute or so to kill
 any running clojure under emacs, restart the REPL, connect to the new
 REPL, and reload the project.
+
+
+## The REPL and files
+
+Clojure talks about files and modules, but I'm not clear on the
+difference.  I think they are in 1-1 correspondence.
+
+The top of a typical metaprob file would look something like:
+
+    (ns myproject.myfile
+      (:refer-clojure :only [ns declare])
+      (:require [metaprob.syntax :refer :all]
+                [metaprob.builtin :refer :all]
+                [metaprob.prelude :refer :all]
+                [metaprob.distributions :refer :all]
+                [metaprob.infer :refer :all]))
+
+If one of these imported modules isn't needed it can be left out of
+the list.
+
+At the REPL you can switch into any file's namespace using `in-ns`, e.g.
+
+    > (in-ns 'myproject.myfile)
+
+This can be useful but I find I almost never do it.  Instead I usually
+evaluate expressions from inside files using emacs, or I use the test
+system, or the user environment or `metaprob.examples.all`.  Your
+mileage may vary.
+
+## Running code noninteractively from the shell using the `-main` feature
+
+Rather than use the REPL or the test system I sometimes just put code
+in the `-main` function in some file e.g. `main.clj` and invoke it
+directly from the shell:
+
+    $ lein run -m metaprob.examples.main
+
+Any command line arguments become arguments to the `-main` function.
+
 
 ## Testing
 
@@ -171,13 +234,7 @@ I like for tests that reside in the test system to run quickly.  It's
 good to run all the tests frequently, and if this were a slow
 operation I would be put off and would run them less often.
 
-## Running code directly from the shell using the `-main` feature
+-----
 
-Rather than use the REPL or the test system I sometimes just put code
-in the `-main` function in some file e.g. `main.clj` and invoke it
-directly from the shell:
-
-    lein run -m metaprob.oopsla.main
-
-Any command line arguments become arguments to the `-main` function.
-
+From here you might want to look at [the examples](examples.md) or
+[the language reference](language.md).

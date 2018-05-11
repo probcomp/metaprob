@@ -5,6 +5,10 @@ Well not really but here are some notes.
 You'll need some familiarity with Clojure in order to get going with
 Metaprob.  That's beyond the current scope.
 
+You may want to create a project (a set of files depending on metaprob
+and on one another).  This is done with `lein` which has its own
+documentation.
+
 ## Metaprob values
 
 A Metaprob value is either a scalar or a trace.  A scalar is one of:
