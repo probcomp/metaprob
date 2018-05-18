@@ -26,18 +26,19 @@
 (deftest tag-capture
   (testing "capture- and retrieve-tag-address smoke test"
     (let [root (trace/new-trace "root")
-          cap (capture-tag-address root root root)]
+          cap (capture-tag-address root root root)
+          adr (impl/addr "that" "those")]
       (is (= (trace/trace-count cap) 3))
-      (let [a (impl/addr "that" "those")
-            quasi (trace/pair cap a)      ; /*this/that/those/ ?
+      (trace/trace-set root adr "value-1")  ; Extend the root trace
+      (let [quasi (trace/pair cap adr)      ; /*this/that/those/ ?
             [i t o] (resolve-tag-address quasi)]
         (is (trace/trace? i))
-        (trace/trace-set i "value")
-        (is (= (trace/trace-get i) "value"))
+        (trace/trace-set i "value-2")
+        (is (= (trace/trace-get i) "value-2"))
 
-        (let [again (trace/trace-subtrace root a)]
-          (is (= (trace/trace-get again) "value"))
-          (is (= (trace/trace-get root a) "value")))))))
+        (let [again (trace/trace-subtrace root adr)]
+          (is (= (trace/trace-get again) "value-2"))
+          (is (= (trace/trace-get root adr) "value-2")))))))
 
 
 

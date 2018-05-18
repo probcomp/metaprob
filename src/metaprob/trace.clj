@@ -142,47 +142,9 @@
           (map? tr) (get tr :value)
           true (assert false ["expected a trace" tr]))))
 
-;; This is a special case of lookup for one step of a hereditarily immutable trace.
-;; Assumes key has already been purified.
+;; Does it have a subtrace for a particular key?
 
-(defn trace-direct-subtrace [tr key]
-  (assert (ok-key? key))
-  (assert (trace-has-subtrace? tr key) ["no such subtrace" tr key (keys tr)])
-  (let [tr (strip tr)]
-    (cond (mut/basic-trace? tr) (mut/subtrace tr key)
-          (seq? tr) (if (= key rest-marker)
-                      (rest tr)
-                      (assert false ["only subtrace of a seq is rest" tr key]))
-          (vector? tr) {:value (nth tr key)}
-          (map? tr) (let [probe (get tr key :not-present)]
-                      (assert (not (= probe :not-present)) ["no such subtrace" tr key])
-                      probe)
-          true (assert false ["expected a trace" tr key]))))
-
-(defn trace-subtrace [tr adr]           ; e[e]
-  (let [adr (addrify adr)               ;converts to seq
-        tr (strip tr)]
-    (if (empty? adr)
-      tr
-      (trace-subtrace (trace-direct-subtrace tr (first adr))
-                      (rest adr)))))
-
-;; Like trace-subtrace, but creates a locative if not found
-
-(defn lookup [tr adr]                  ; e[e]
-  (let [adr (addrify adr)             ;converts to seq
-        tr (strip tr)]
-    (if (empty? adr)
-      tr
-      (if (trace-has? tr (first adr))
-        (lookup (trace-direct-subtrace tr (first adr))
-                (rest adr))
-        (do (assert (mut/basic-trace? tr) ["lookup failed" tr adr])
-            (mut/make-locative tr adr))))))
-
-;; better: trace-has-direct-subtrace? etc.
-
-(defn trace-has-subtrace? [tr key]
+(defn trace-has-direct-subtrace? [tr key]
   (assert (ok-key? key))
   (let [tr (strip tr)]
     (cond (mut/basic-trace? tr) (mut/has-subtrace? tr key)
@@ -194,6 +156,40 @@
                             (< key (count tr)))
           (map? tr) (not (= (get tr key :not-present) :not-present))
           true (assert false ["expected a trace" tr key]))))
+
+;; Get the subtrace for a particular key
+
+(defn trace-direct-subtrace [tr key]
+  (assert (ok-key? key))
+  (assert (trace-has-direct-subtrace? tr key) ["no such subtrace" tr key (keys tr)])
+  (let [tr (strip tr)]
+    (cond (mut/basic-trace? tr) (mut/subtrace tr key)
+          (seq? tr) (if (= key rest-marker)
+                      (rest tr)
+                      (assert false ["only subtrace of a seq is rest" tr key]))
+          (vector? tr) {:value (nth tr key)}
+          (map? tr) (let [probe (get tr key :not-present)]
+                      (assert (not (= probe :not-present)) ["no such subtrace" tr key])
+                      probe)
+          true (assert false ["expected a trace" tr key]))))
+
+;; Generalize trace-has-direct-subtrace to addresses
+
+(defn trace-has-subtrace? [tr adr]
+  (let [adr (addrify adr)]
+    (if (empty? adr)
+      true
+      (and (trace-has-direct-subtrace? tr (first adr))
+           (trace-has-subtrace? (trace-direct-subtrace tr (first adr)) (rest adr))))))
+
+;; Generalize trace-direct-subtrace to addresses
+
+(defn trace-subtrace [tr adr]           ; e[e]
+  (let [adr (addrify adr)]              ;converts to seq
+    (if (empty? adr)
+      tr
+      (trace-subtrace (trace-direct-subtrace tr (first adr))
+                      (rest adr)))))
 
 ;; Returns a seq (n.b. clojure `keys` can return nil which is not a seq)
 
@@ -222,13 +218,26 @@
   (let [adr (addrify adr)]
     (if (empty? adr)
       (trace-has-value? tr)
-      (and (trace-has-subtrace? tr (first adr))
+      (and (trace-has-direct-subtrace? tr (first adr))
            (trace-has? (trace-direct-subtrace tr (first adr))
                        (rest adr))))))
 
 (defn trace-has?
   ([tr] (trace-has-value? tr))
   ([tr adr] (trace-has-value-at? tr adr)))
+
+;; Like trace-subtrace, but creates a locative if not found
+
+(defn lookup [tr adr]                  ; e[e]
+  (let [adr (addrify adr)             ;converts to seq
+        tr (strip tr)]
+    (if (empty? adr)
+      tr
+      (if (trace-has-direct-subtrace? tr (first adr))
+        (lookup (trace-direct-subtrace tr (first adr))
+                (rest adr))
+        (do (assert (mut/basic-trace? tr) ["lookup failed" tr adr])
+            (mut/make-locative tr adr))))))
 
 ;; ----------------------------------------------------------------------------
 ;; Side effects.
@@ -248,7 +257,7 @@
     (let [[head & tail] adr]
       (if (empty? tail)
         (trace-set-direct-subtrace! tr head sub)
-        (let [more (if (trace-has-subtrace? tr head)
+        (let [more (if (trace-has-direct-subtrace? tr head)
                      (trace-direct-subtrace tr head)
                      (let [novo (empty-trace)]
                        (trace-set-direct-subtrace! tr head novo)
@@ -265,7 +274,7 @@
   (if (empty? adr)
     (trace-set-value! tr val)
     (let [key (first adr)
-          sub (if (trace-has-subtrace? tr key)
+          sub (if (trace-has-direct-subtrace? tr key)
                 (trace-direct-subtrace tr key)
                 (let [novo (empty-trace)]
                   (trace-set-direct-subtrace! tr key novo)
@@ -331,7 +340,7 @@
 
 (defn diagnose-nonpair [x]
   (if (trace-has-value? x)
-    (if (trace-has-subtrace? x rest-marker)
+    (if (trace-has-direct-subtrace? x rest-marker)
       (if (= (count (trace-keys x)) 1)
         "ok"
         ["not a pair because extra keys" (mut/trace-keys x)])
@@ -472,7 +481,7 @@
 (defn ^:private subtrace-values-to-seq [tr]
   (let [r (range (trace-count tr))]
   (map (fn [i]
-         (assert (trace-has-subtrace? tr i)
+         (assert (trace-has-direct-subtrace? tr i)
                  ["missing index" 
                   (if (mutable-trace? tr)
                     (mut/get-state tr)

@@ -107,12 +107,20 @@
 
 (define capture-tag-address
   (gen [intervene target output]
-    ;; Cannot freeze, freezing is hereditary
+    ;; Cannot freeze, freezing is hereditary.
     ;; Ergo, these things can't go into addresses (addr)
     (immutable-trace "intervention-trace" intervene
                      "target-trace" target
                      "output-trace" output
                      :value "captured tag address")))
+
+;; Similar to `lookup` but does not create locatives
+
+(define maybe-subtrace
+  (gen [tr adr]
+    (if (trace-has-subtrace? tr adr)
+      (trace-subtrace tr adr)
+      nil)))
 
 ;; resolve-tag-address
 ;; Convert a quasi-address, whose first element was returned by 
@@ -125,8 +133,8 @@
     (define intervene (trace-get captured "intervention-trace"))
     (define target (trace-get captured "target-trace"))
     (define output (trace-get captured "output-trace"))
-    [(if intervene (lookup intervene more) nil)
-     (if target (lookup target more) nil)
+    [(if intervene (maybe-subtrace intervene more) nil)
+     (if target (maybe-subtrace target more) nil)
      (if output (lookup output more) nil)]))
 
 ;; Get the key to use for storing the result of a procedure call.
