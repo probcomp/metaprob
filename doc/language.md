@@ -100,7 +100,8 @@ other modules.
 
 ### Traces
 
-The following correspond to figure 7 in the July 2017 manuscript:
+The following are basic operations suggested for a summary figure
+(forthcoming, eventually):
 
 * `(empty-trace)` - create a new mutable trace, initially empty
 * `(trace-set t "a" x)` - store x as the value at t's "a" child
