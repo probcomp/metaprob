@@ -343,6 +343,17 @@
                (list 'define g subj)
                (expand clauses)))))))
 
+(defn from-clojure-cond [exp]
+  (let [[_ & forms] exp]
+    (letfn [(expand [forms]
+              (if (empty? forms)
+                'nil
+                (list 'if
+                      (first forms)
+                      (first (rest forms))
+                      (expand (rest (rest forms))))))]
+      (from-clojure (expand forms)))))
+
 ;; N.b. strings are seqable
 
 (defn literal-exp? [exp]
@@ -384,6 +395,7 @@
                          and (from-clojure-and exp)
                          or (from-clojure-or exp)
                          case (from-clojure-case exp)
+                         cond (from-clojure-cond exp)
                          ;; else
                          (from-clojure-application exp))
         ;; Literal

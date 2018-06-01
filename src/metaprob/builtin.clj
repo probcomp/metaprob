@@ -3,7 +3,7 @@
 
 (ns metaprob.builtin
   (:refer-clojure :exclude
-                  [not and or case
+                  [not and or case cond
                    assert pprint print apply
                    list list? first rest last nth range sort])
   (:require [metaprob.trace :as trace])
@@ -60,6 +60,7 @@
 
 ;; Traces
 (define-foreign-procedure empty-trace trace/empty-trace)
+(define-foreign-procedure empty-trace? trace/empty-trace?)
 (define-foreign-procedure trace-has? trace/trace-has?)
 (define-foreign-procedure trace-get trace/trace-get)
 (define-foreign-procedure trace-set trace/trace-set)
@@ -67,6 +68,7 @@
 (define-foreign-procedure trace-subtrace trace/trace-subtrace)
 (define-foreign-procedure trace-delete trace/trace-delete)
 (define-foreign-procedure trace-keys trace/trace-keys)
+(define-foreign-procedure trace-count trace/trace-count)
 (define-foreign-procedure trace-set-subtrace trace/trace-set-subtrace)
 (define-foreign-procedure trace? trace/trace?)
 (define-foreign-procedure trace-has-subtrace? trace/trace-has-subtrace?)
@@ -133,4 +135,5 @@
 
 (defmacro and [& forms] `(clojure.core/and ~@forms))
 (defmacro or [& forms] `(clojure.core/or ~@forms))
+(defmacro cond [& forms] `(clojure.core/cond ~@forms))
 (defmacro case [& forms] `(clojure.core/case ~@forms))

@@ -52,34 +52,53 @@
 
 (define match-bind
   ;; pattern is a parse-tree trace (variable or tuple expression) - not a tuple.
-  ;; inputs is a seq, I think
+  ;; input is anything.
   (gen [pattern input env]
-    (if (eq (trace-get pattern) "variable")
+    (case (trace-get pattern)
+      "variable"
       (env-bind! env (trace-get pattern "name") input)
-      (if (eq (trace-get pattern) "tuple")
-        (block (define inputs (to-list input))
-               (define subpatterns
-                 ;; Clojure map always returns a seq.
-                 (map (gen [i]
-                        (lookup pattern i))
-                      ;; Ugh.  Gotta be a better way to do this
-                      (range (length (trace-keys pattern)))))
-               (if (not (eq (length subpatterns) (length inputs)))
-                 (assert false
-                         ["number of subpatterns differs from number of input parts"
-                          (make-immutable pattern)
-                          (length (trace-keys pattern))
-                          (clojure.core/map make-immutable
-                               (make-immutable inputs))
-                          (length inputs)
-                          env]))
-               ;; TBD: handle [x & y] properly
-               (for-each2 (gen [p i]
-                            (assert (not (eq p "&")) "NYI")
-                            (match-bind p i env))
-                          subpatterns
-                          inputs))
-        (assert false ["bad pattern" pattern input])))
+      "tuple"
+      (block (define count (trace-count pattern))
+
+             (define loup
+               (gen [i inputs]
+                 (cond (eq i count)
+                       ;; We've reached the end of the patterns
+                       (assert (empty-trace? inputs)
+                               ["too many inputs"
+                                (length inputs)
+                                count
+                                (clojure.core/map make-immutable
+                                                  (make-immutable inputs))
+                                pattern
+                                env])
+
+                       ;; The pattern [& x] matches anything
+                       (and (eq i (sub count 2))
+                            (eq (trace-get pattern i) '&))
+                       (match-bind (trace-subtrace pattern (add i 1))
+                                   inputs
+                                   env)
+
+                       ;; Ensure that an input remains to match remaining pattern
+                       (empty-trace? inputs)
+                       (assert false
+                               ["too few inputs"
+                                (length inputs)
+                                count
+                                (clojure.core/map make-immutable
+                                                  (make-immutable inputs))
+                                pattern
+                                env])
+
+                       ;; Bind pattern to input, and continue
+                       true
+                       (block (match-bind (trace-subtrace pattern i) (first inputs) env)
+                              (loup (add i 1) (rest inputs))))))
+
+             (loup 0 (to-list input)))
+      true
+      (assert false ["bad pattern" pattern input]))
     "return value of match-bind"))
 
 ;; -----------------------------------------------------------------------------
