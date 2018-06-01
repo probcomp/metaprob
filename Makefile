@@ -39,11 +39,13 @@ convert: src/metaprob/main.clj src/metaprob/to_clojure.clj .lein_classpath
 
 # If you get errors with 'lein compile :all' try just 'lein
 # compile'. I don't understand the difference.
-# To change number of samples, edit number-of-runs in this file:
-#   src/metaprob/mapl2018/inference_on_gaussian.clj
-mapl:
+# To change number of samples, pass the number on the command line.
+# 2000 is a good number, but it takes hours to run.
+# 5 is good for testing.
+COUNT=5
+exa:
 	lein compile 
-	time lein run -m metaprob.mapl2018.main
+	time lein run -m metaprob.examples.main $(COUNT)
 	ls -tl results/*.samples
 
 histograms: h1.png h2.png h3.png h4.png

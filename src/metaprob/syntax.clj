@@ -52,11 +52,10 @@
 
 (declare from-clojure from-clojure-pattern)
 
-(defn make-generator [fun name params body top]
-  (let [exp `(~'gen ~params ~@body)
-        exp-trace (from-clojure exp)
-        env (impl/make-top-level-env top)
+(defn make-generator [fun name exp-trace top]
+  (let [env (impl/make-top-level-env top)
         proc-name (impl/trace-name exp-trace name)]               ;original metaprob
+    (assert (= (trace-get exp-trace) "gen"))
     (trace-as-procedure (set-value {"name" (new-trace proc-name)
                                     "generative-source" exp-trace
                                     ;; Environment is always the top level
@@ -68,17 +67,18 @@
 
 (defmacro named-generator [name params & body]
   {:style/indent 2}
-  `(make-generator (fn
-                    ~@(if name `(~name) `())
-                    ~params
-                    (block ~@body))
-                  '~name
-                  '~params
-                  '~body
-                  ;; *ns* will be ok at top level as a file is loaded,
-                  ;; but will be nonsense at other times.  Fix somehow.
-                  ;; (should be lexical, not dynamic.)
-                  *ns*))
+  (let [exp `(~'gen ~params ~@body)
+        exp-trace (from-clojure exp)]
+    `(make-generator (fn
+                       ~@(if name `(~name) `())
+                       ~params
+                       (block ~@body))
+                     '~name
+                     '~exp-trace
+                     ;; *ns* will be ok at top level as a file is loaded,
+                     ;; but will be nonsense at other times.  Fix somehow.
+                     ;; (should be lexical, not dynamic.)
+                     *ns*)))
 
 (defmacro gen
   "like fn, but for metaprob procedures"
@@ -246,14 +246,14 @@
 ;; safe abbreviation:
 ;; (x)->{a;b;} => (gen [x] a b) => (x)->{a;b;}
 
-(defn from-clojure-program [exp]
+(defn from-clojure-gen [exp]
   (let [[_ pattern & body] exp]
     (let [body-exp (if (= (count body) 1)
                      (first body)
                      (cons 'block body))]
       (set-value {"pattern" (from-clojure-pattern pattern)
-                       "body" (from-clojure body-exp)}
-                      "gen"))))
+                  "body" (from-clojure body-exp)}
+                 "gen"))))
 
 (defn from-clojure-pattern [pattern]
   (if (symbol? pattern)
@@ -265,9 +265,9 @@
 (defn from-clojure-if [exp]
   (let [[_ pred thn els] exp]
     (set-value {"predicate" (from-clojure pred)
-                     "then" (from-clojure thn)
-                     "else" (from-clojure els)}
-                    "if")))
+                "then" (from-clojure thn)
+                "else" (from-clojure els)}
+               "if")))
 
 (defn from-clojure-block [exp]
   (from-clojure-seq (rest exp) "block"))
@@ -275,8 +275,8 @@
 (defn from-clojure-with-address [exp]
   (let [[_ tag ex] exp]
     (set-value {"tag" (from-clojure tag)
-                     "expression" (from-clojure ex)}
-                    "with-address")))
+                "expression" (from-clojure ex)}
+               "with-address")))
 
 ; This doesn't handle _ properly.  Fix later.
 
@@ -284,8 +284,8 @@
   (let [[_ pattern rhs] exp
         key (if (symbol? pattern) (str pattern) "definiens")]
     (set-value {"pattern" (from-clojure pattern)
-                     key (from-clojure rhs)}
-                    "definition")))
+                key (from-clojure rhs)}
+               "definition")))
 
 (defn from-clojure-application [exp]
   (from-clojure-seq exp "application"))
@@ -370,9 +370,9 @@
         ;; I don't know why this is sometimes a non-list seq.
         ;; TBD: check that (first exp) is a non-namespaced symbol.
         (seqable? exp) (case (first exp)
-                         gen (from-clojure-program exp)
-                         probprog  (from-clojure-program exp)    ;DEPRECATED
-                         program  (from-clojure-program exp)     ;DEPRECATED
+                         gen (from-clojure-gen exp)
+                         probprog  (from-clojure-gen exp)    ;DEPRECATED
+                         program  (from-clojure-gen exp)     ;DEPRECATED
                          if (from-clojure-if exp)
                          block (from-clojure-block exp)
                          mp-splice (set-value {"expression" (from-clojure exp)} "splice")

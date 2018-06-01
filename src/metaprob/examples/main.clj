@@ -14,7 +14,7 @@
     (apply fun args)
     (crit/report-result
      (crit/benchmark*
-      fun
+      (fn [] (apply fun args))
       {:warmup-jit-period 0
        :samples 1
        :target-execution-time (* 10 s-to-ns)
@@ -23,6 +23,9 @@
 
 ;; For a more serious test, try 100 (takes about an hour?)
 (def number-of-samples 5)
+
+(def n-particles 20)
+(def mh-count 20)
 
 (defn -main [& args]
   (print (format "args=%s\n" args))
@@ -47,20 +50,31 @@
       (print (format "dict=%s n=%s all=%s\n" dict number-of-samples all?))
 
       (print "---- Prior ----\n")
-      (instrument ginf/gaussian-prior-samples number-of-samples)
+      (ginf/gaussian-histogram
+       "samples from the gaussian demo prior"
+       (instrument ginf/gaussian-prior-samples number-of-samples))
 
       (when (or all? (get dict :rejection))
         ;; Rejection sampling is very slow - 20 seconds per
         (print "---- Rejection ----\n")
-        (instrument ginf/rejection-assay number-of-samples))
+        (ginf/gaussian-histogram
+         "samples from the gaussian demo target"   
+         (instrument ginf/rejection-assay number-of-samples)))
 
       (when (or all? (get dict :importance))
         ;; Importance sampling is very fast
         (print "---- Importance ----\n")
-        (ginf/importance-assay number-of-samples))
+        (ginf/gaussian-histogram
+         (format "importance sampling gaussian demo with %s particles" n-particles)
+         (ginf/importance-assay n-particles number-of-samples)))
 
       (when (or all? (get dict :mh))
         ;; MH is fast
         (print "---- MH ----\n")
-        (instrument ginf/MH-assay number-of-samples)))))
+        (ginf/gaussian-histogram
+         (format "samples from gaussian demo lightweight single-site MH with %s iterations"
+                 mh-count)
+         (instrument ginf/MH-assay mh-count number-of-samples))))))
+
+;; TBD: Bayes net example?
 

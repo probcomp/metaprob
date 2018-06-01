@@ -1,8 +1,9 @@
-(ns metaprob.basic-trace
-  (:require [clojure.string :as string]))
+(ns metaprob.basic-trace)
 
 (defprotocol ITrace
-  "A prefix tree"
+  "A mutable trace"
+  (get-state [_])
+
   (has-value? [_])
   (value [_] "The value stored for this trie (python: get)")
   (set-value! [_ val] "Store a value at root of this trie (python: set)")
@@ -15,7 +16,6 @@
   (trace-keys [_])                      ;Return a seq
   (trace-count [_])                     ;Number of subtraces
 
-  (get-state [_])
   (make-locative [_ adr]))
 
 (defn basic-trace? [x]
@@ -25,11 +25,8 @@
 
 (declare mutable-trace really-make-locative trie?)
 
-;; Atoms?  Refs + dosync?  Something else?
-;; I wish I understand clojure side effects.  Seems like a total hodgepodge
-
-(defn clobber [a x]
-  (compare-and-set! a (deref a) x))  ;; AWFUL AWFUL KLUDGE
+;; This is useful (re mutation in clojure):
+;;  https://gist.github.com/beatngu13/44ac58d9b38125528352d3bf835208a5
 
 (deftype Trie
     ;; Should probably be one or two refs instead
@@ -38,6 +35,8 @@
   ; Implements the ITrace interface
   ITrace
 
+  (get-state [_] (deref state-ref))
+
   (has-value? [_]
     (contains? (deref state-ref) :value))
   (value [_]
@@ -45,13 +44,13 @@
       (assert (not (= probe :not-present)) ["no value" _ :value])
       probe))
   (set-value! [_ val]
-    (clobber state-ref (assoc (deref state-ref) :value val))
+    (swap! state-ref assoc :value val)
     nil)
   (clear-value! [_]
     ;; Something fishy about this; if doing this causes the trie to become empty
     ;; then shouldn't the trie go away entirely?  Well, we don't have parent 
     ;; pointers, so nothing we can do about this.
-    (clobber state-ref (dissoc (deref state-ref) :value))
+    (swap! state-ref dissoc :value val)
     nil)
 
   ;; Direct children
@@ -64,7 +63,7 @@
       probe))
   (set-subtrace! [_ key sub]
     ;; N.b. sub might an immutable trace.
-    (clobber state-ref (assoc (deref state-ref) key sub))
+    (swap! state-ref assoc key sub)
     nil)
 
   (trace-keys [_] 
@@ -77,8 +76,6 @@
       (if (contains? subs :value)
         (- (count subs) 1)
         (count subs))))
-
-  (get-state [_] (deref state-ref))
 
   (make-locative [_ adr]
     (really-make-locative _ adr)))
@@ -107,7 +104,9 @@
 ;; ----------------------------------------------------------------------------
 ;; Locatives!
 
-(defn ^:private subtrace-at [tr adr]
+(declare subtrace-at)
+
+(defn ^:private maybe-subtrace-at [tr adr]
   (if (empty? adr)
     tr
     (let [head (first adr)
@@ -116,6 +115,11 @@
         ;; Snap the link?
         (subtrace-at (subtrace tr head) tail)
         :none))))
+
+(defn ^:private subtrace-at [tr adr]
+  (let [result (maybe-subtrace-at tr adr)]
+    (assert (not (= result :none)))
+    result))
 
 (defn ^:private ensure-subtrace-at [tr adr]
   (if (empty? adr)
@@ -134,8 +138,14 @@
     [trace adr]
   ITrace
 
+  (get-state [_]
+    (let [result (maybe-subtrace-at trace adr)]
+      (if (= result :none)
+        {}
+        result)))
+
   (has-value? [_]
-    (let [sub (subtrace-at trace adr)]
+    (let [sub (maybe-subtrace-at trace adr)]
       (if (= sub :none)
         false
         (has-value? sub))))
@@ -147,24 +157,21 @@
     (clear-value! (ensure-subtrace-at trace adr)))
 
   (has-subtrace? [_ key]
-    (not (= (subtrace-at trace adr) :none)))
+    (not (= (maybe-subtrace-at trace adr) :none)))
   (subtrace [_ key]
-    (let [sub (subtrace-at trace adr)]
-      (assert (not (= sub :none)))
-      sub))
+    (subtrace-at trace adr))
   (set-subtrace! [_ key val]
     (set-subtrace! (ensure-subtrace-at trace adr) key val))
 
   (trace-keys [_]
-    (let [sub (subtrace-at trace adr)]
+    (let [sub (maybe-subtrace-at trace adr)]
       (if (= sub :none)
         '()
         (trace-keys sub))))
   (trace-count [_]
     (trace-count (subtrace-at trace adr)))
 
-  (get-state [_] {})                    ;WRONG, FIX
-
+  ;; This is really bad...
   (make-locative [_ more-adr]
     (really-make-locative trace (concat adr more-adr)))
   )
