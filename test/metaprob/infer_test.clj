@@ -106,6 +106,18 @@
     (is (= (ez-call (ez-eval '(gen [] (define x 17) x)))
            17))))
 
+(deftest n-ary-1
+  (testing "n-ary procedure, & in formal parameter list"
+    (is (= (first (ez-call (ev-eval '(gen [& y] y))
+                           8 9))
+           8))))
+
+(deftest n-ary-2
+  (testing "n-ary procedure, & in formal parameter list"
+    (is (= (first (ez-call (ev-eval '(gen [x & y] y))
+                           7 8 9))
+           8))))
+
 ;; Export a procedure i.e. use 'foreign' (clojure) version rather than
 ;; trying to compile the 'native' version (source code)
 
