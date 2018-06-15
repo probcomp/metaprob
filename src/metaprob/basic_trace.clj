@@ -3,6 +3,7 @@
 (defprotocol ITrace
   "A mutable trace"
   (get-state [_])
+  (ensure-state [_] "foo")
 
   (has-value? [_])
   (value [_] "The value stored for this trie (python: get)")
@@ -14,16 +15,14 @@
   (set-subtrace! [_ key subtrace] "Splice a subtree as a child of this trie")
 
   (trace-keys [_])                      ;Return a seq
-  (trace-count [_])                     ;Number of subtraces
-
-  (make-locative [_ adr]))
+  (trace-count [_]))                     ;Number of subtraces
 
 (defn basic-trace? [x]
   (satisfies? ITrace x))
 
 ;; Concrete implementation of the above interface
 
-(declare mutable-trace really-make-locative trie?)
+(declare mutable-trace trie?)
 
 ;; This is useful (re mutation in clojure):
 ;;  https://gist.github.com/beatngu13/44ac58d9b38125528352d3bf835208a5
@@ -36,6 +35,7 @@
   ITrace
 
   (get-state [_] (deref state-ref))
+  (ensure-state [_] (deref state-ref))
 
   (has-value? [_]
     (contains? (deref state-ref) :value))
@@ -75,10 +75,7 @@
     (let [subs (deref state-ref)]
       (if (contains? subs :value)
         (- (count subs) 1)
-        (count subs))))
-
-  (make-locative [_ adr]
-    (really-make-locative _ adr)))
+        (count subs)))))
 
 ;; Not clear whether this is the most idiomatic / best approach.
 (defn trie? [x]
@@ -106,84 +103,55 @@
 
 (declare subtrace-at)
 
-(defn ^:private maybe-subtrace-at [tr adr]
-  (if (empty? adr)
-    tr
-    (let [head (first adr)
-          tail (rest adr)]              ;don't use [head & tail]
-      (if (has-subtrace? tr head)
-        ;; Snap the link?
-        (subtrace-at (subtrace tr head) tail)
-        :none))))
-
-(defn ^:private subtrace-at [tr adr]
-  (let [result (maybe-subtrace-at tr adr)]
-    (assert (not (= result :none)))
-    result))
-
-(defn ^:private ensure-subtrace-at [tr adr]
-  (if (empty? adr)
-    tr
-    (let [head (first adr)
-          tail (rest adr)]              ;don't use [head & tail]
-      ;; Snap the link?
-      (ensure-subtrace-at (if (has-subtrace? tr head)
-                            (subtrace tr head)
-                            (let [novo (mutable-trace)]
-                              (set-subtrace! tr head novo)
-                              novo))
-                          tail))))
-
 (deftype Locative
-    [trace adr]
+    [state-ref trace key]
   ITrace
 
   (get-state [_]
-    (let [result (maybe-subtrace-at trace adr)]
-      (if (= result :none)
-        {}
-        result)))
+    (let [probe (deref state-ref)]
+      (if (= probe :none)
+        (if (has-subtrace? trace key)
+          (let [state (subtrace trace key)]
+            ;; Cache the subtrace
+            (swap! state-ref (fn [none state] state) state)
+            state)
+          {})
+        ;; Use cached value
+        probe)))
+
+  (ensure-state [_]
+    ;; Ensure that trace has subkey key
+    (if (not (has-subtrace? trace key))
+      (set-subtrace! trace key (mutable-trace)))
+    (get-state _))
 
   (has-value? [_]
-    (let [sub (maybe-subtrace-at trace adr)]
-      (if (= sub :none)
-        false
-        (has-value? sub))))
+    (let [state (get-state _)]
+      (and (basic-trace? state)
+           (has-value? state))))
   (value [_]
-    (value (subtrace-at trace adr)))
+    (value (get-state _)))
   (set-value! [_ val]
-    (set-value! (ensure-subtrace-at trace adr) val))
+    (set-value! (ensure-state _) val))
   (clear-value! [_]
-    (clear-value! (ensure-subtrace-at trace adr)))
+    (let [state (get-state _)]
+      (if (has-value? state)
+        (clear-value! state))))
 
   (has-subtrace? [_ key]
-    (not (= (maybe-subtrace-at trace adr) :none)))
+    (let [state (get-state _)]
+      (and (basic-trace? state)
+           (has-subtrace? (get-state _) key))))
   (subtrace [_ key]
-    (subtrace-at trace adr))
+    (subtrace (get-state _) key))
   (set-subtrace! [_ key val]
-    (set-subtrace! (ensure-subtrace-at trace adr) key val))
+    (set-subtrace! (ensure-state _) key val))
 
   (trace-keys [_]
-    (let [sub (maybe-subtrace-at trace adr)]
-      (if (= sub :none)
-        '()
-        (trace-keys sub))))
+    (trace-keys (get-state _)))
   (trace-count [_]
-    (trace-count (subtrace-at trace adr)))
+    (trace-count (get-state _))))
 
-  ;; This is really bad...
-  (make-locative [_ more-adr]
-    (really-make-locative trace (concat adr more-adr)))
-  )
-
-(defn really-make-locative [tr adr]
-  (assert (trie? tr) ["trace in make-locative must be mutable" tr adr])
-  (assert (seq? adr) ["address in make-locative must be a seq" tr adr])
-  (if (empty? adr)
-    tr
-    (let [head (first adr)
-          tail (rest adr)]              ;don't use [head & tail]
-      (if (has-subtrace? tr head)
-        (really-make-locative (subtrace tr head) tail)
-        (Locative. tr adr)))))
-
+(defn make-locative [tr key]
+  (assert (basic-trace? tr) ["expected a basic-trace here" tr key])
+  (Locative. (atom :none) tr key))

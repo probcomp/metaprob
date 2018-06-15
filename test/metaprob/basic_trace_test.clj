@@ -55,3 +55,16 @@
         (set-value! tr 2)
         (is (= (trace-count tr) 1))
         (is (= (trace-keys tr) '("a")))))))
+
+; locative
+
+(deftest locative-1
+  (testing "locative"
+    (let [tr (mutable-trace "value")
+          loc (make-locative tr "key")]
+      (is (not (has-subtrace? tr "key")))
+      (is (not (has-value? loc)))
+      (set-value! loc "foo")
+      (is (has-subtrace? tr "key"))
+      (is (has-value? loc))
+      (is (= (value loc) "foo")))))

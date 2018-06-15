@@ -236,8 +236,8 @@
       (if (trace-has-direct-subtrace? tr (first adr))
         (lookup (trace-direct-subtrace tr (first adr))
                 (rest adr))
-        (do (assert (mut/basic-trace? tr) ["lookup failed" tr adr])
-            (mut/make-locative tr adr))))))
+        (lookup (mut/make-locative tr (first adr))
+                (rest adr))))))
 
 ;; ----------------------------------------------------------------------------
 ;; Side effects.
