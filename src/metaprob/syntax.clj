@@ -257,7 +257,9 @@
 
 (defn from-clojure-pattern [pattern]
   (if (symbol? pattern)
-    (set-value {"name" (set-value {} (str pattern))} "variable")
+    (if (= pattern '&)
+      (set-value {} "&")
+      (set-value {"name" (set-value {} (str pattern))} "variable"))
     (do (assert (vector? pattern) pattern)
         (make-immutable
          (trace-from-subtrace-seq (map from-clojure-pattern pattern) "tuple")))))
@@ -374,9 +376,9 @@
 
         (symbol? exp)
         (let [s (str exp)]
-          (do (assert (not (contains? prohibited-names s)) exp)
-              (set-value {"name" (set-value {} s)}
-                         "variable")))
+          (assert (not (contains? prohibited-names s)) exp)
+          (set-value {"name" (set-value {} s)}
+                     "variable"))
 
         ;; I don't know why this is sometimes a non-list seq.
         ;; TBD: check that (first exp) is a non-namespaced symbol.

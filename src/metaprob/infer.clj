@@ -61,40 +61,40 @@
       (block (define count (trace-count pattern))
 
              (define loup
-               (gen [i inputs]
+               (gen [i cursor]
                  (cond (eq i count)
                        ;; We've reached the end of the patterns
-                       (assert (empty-trace? inputs)
+                       (assert (empty-trace? cursor)
                                ["too many inputs"
-                                (length inputs)
+                                (length input)
                                 count
                                 (clojure.core/map make-immutable
-                                                  (make-immutable inputs))
+                                                  (make-immutable input))
                                 pattern
                                 env])
 
                        ;; The pattern [& x] matches anything
                        (and (eq i (sub count 2))
-                            (eq (trace-get pattern i) '&))
+                            (eq (trace-get pattern i) "&"))
                        (match-bind (trace-subtrace pattern (add i 1))
-                                   inputs
+                                   cursor
                                    env)
 
                        ;; Ensure that an input remains to match remaining pattern
-                       (empty-trace? inputs)
+                       (empty-trace? cursor)
                        (assert false
                                ["too few inputs"
-                                (length inputs)
+                                (length input)
                                 count
                                 (clojure.core/map make-immutable
-                                                  (make-immutable inputs))
+                                                  (make-immutable input))
                                 pattern
                                 env])
 
                        ;; Bind pattern to input, and continue
                        true
-                       (block (match-bind (trace-subtrace pattern i) (first inputs) env)
-                              (loup (add i 1) (rest inputs))))))
+                       (block (match-bind (trace-subtrace pattern i) (first cursor) env)
+                              (loup (add i 1) (rest cursor))))))
 
              (loup 0 (to-list input)))
       true
