@@ -63,7 +63,7 @@
   (testing "length smoke test"
     (let [m (seq-to-mutable-list [1 2 3 4])]
       (is (= (trace/length m) 4))
-      (is (= (trace/length (trace/metaprob-sequence-to-seq m)) 4)))))
+      (is (= (trace/length (trace/sequence-to-seq m)) 4)))))
 
 (deftest range-1
   (testing "range smoke test"
@@ -141,7 +141,7 @@
     (let [tr (trace/trace-from-map {"a" (trace/new-trace 17)
                                     "b" (trace/new-trace 31)
                                     "c" (trace/trace-from-map {"d" (trace/new-trace 71)})})
-          sites (trace/metaprob-sequence-to-seq (addresses-of tr))
+          sites (trace/sequence-to-seq (addresses-of tr))
           vals  (map (fn [site] (trace/trace-get tr site)) sites)
           has? (fn [val] (some (fn [x] (= x val)) vals))]
       (has? 17)

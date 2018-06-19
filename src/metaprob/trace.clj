@@ -338,7 +338,9 @@
   ([tr adr] (trace-clear! (trace-subtrace tr adr))))
 
 ;; ----------------------------------------------------------------------------
-;; Metaprob pairs / lists
+;; Metaprob sequences (lists and tuples)
+
+;; 1. Metaprob pairs / lists
 
 (defn empty-list [] '())
 
@@ -378,8 +380,7 @@
     (assert (seq? state))
     state))
 
-;; ----------------------------------------------------------------------------
-;; Metaprob tuples (implemented as Clojure vectors)
+;; 2. Metaprob tuples (implemented as Clojure vectors)
 
 (defn tuple [& inputs]
   (vec (map (fn [val]
@@ -395,8 +396,15 @@
     (assert (vector? state))
     (seq state)))
 
-;; ----------------------------------------------------------------------------
-;; Metaprob sequences (lists or tuples)
+;; sequence-to-seq - convert metaprob sequence (list or tuple) to clojure seq.
+
+(defn sequence-to-seq [things]
+  (let [state (trace-state things)]
+    (cond (seq? state) state
+          (vector? state) (seq state)
+          (pair-as-map? state) (cons (get state :value)
+                                     (sequence-to-seq (get state state/rest-marker)))
+          true (assert false ["sequence-to-seq wta" things state]))))
 
 ;; Length of list or tuple
 
@@ -408,16 +416,6 @@
                          (+ 1 (length (get state state/rest-marker)))
                          (assert false ["not a sequence" state]))
           true (assert false ["length wta" tr state]))))
-
-;; metaprob-sequence-to-seq - convert metaprob sequence (list or tuple) to clojure seq.
-
-(defn metaprob-sequence-to-seq [things]
-  (let [state (trace-state things)]
-    (cond (seq? state) state
-          (vector? state) (seq state)
-          (pair-as-map? state) (cons (get state :value)
-                                     (metaprob-sequence-to-seq (get state state/rest-marker)))
-          true (assert false ["metaprob-sequence-to-seq wta" things state]))))
 
 ;; ----------------------------------------------------------------------------
 ;; Returns a clojure seq of the numbered subtraces of the trace tr.

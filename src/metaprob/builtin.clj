@@ -110,8 +110,8 @@
 (define-foreign-procedure sort impl/metaprob-sort)
 (define-foreign-procedure to-list impl/to-list)
 (define-foreign-procedure to-tuple impl/to-tuple)
-(define-foreign-procedure to-seq trace/metaprob-sequence-to-seq)
-(define-foreign-procedure to-immutable-list trace/metaprob-sequence-to-seq)
+(define-foreign-procedure to-seq trace/sequence-to-seq)
+(define-foreign-procedure to-immutable-list trace/sequence-to-seq)
 
 ;; Environments
 (define-foreign-procedure top-level-lookup impl/top-level-lookup)

@@ -48,7 +48,7 @@
 (defn ez-call [prob-prog & inputs]
   (let [inputs (if (= inputs nil) '() inputs)
         [value score]
-        (trace/metaprob-sequence-to-seq
+        (trace/sequence-to-seq
          (infer-apply prob-prog
                       inputs
                       (mk_nil) (mk_nil) (mk_nil)))]
@@ -66,7 +66,7 @@
 
 (defn ez-eval [x]
   (let [[value score]
-        (trace/metaprob-sequence-to-seq
+        (trace/sequence-to-seq
          (infer-eval (from-clojure x)
                      top
                      (mk_nil)

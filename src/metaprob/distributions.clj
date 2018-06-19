@@ -141,7 +141,7 @@
 ;     (dist/draw (dist/beta :alpha a :beta b)
 ;                {:seed (sample-long)}))
 ;   (fn [x params]
-;     (let [[a b] (metaprob-sequence-to-seq params)]
+;     (let [[a b] (sequence-to-seq params)]
 ;       ;; Venture does:
 ;       ;; def logDensityNumeric(self, x, params):
 ;       ;;   return scipy.stats.beta.logpdf(x,*params)

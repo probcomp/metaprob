@@ -44,7 +44,7 @@
   (if (metaprob-tuple? x)
     x
     (if (metaprob-list? x)
-      (vec (metaprob-sequence-to-seq x))
+      (vec (sequence-to-seq x))
       (assert false ["Expected a list or tuple" x]))))
 
 ;; list - builtin
@@ -134,11 +134,11 @@
 
 (defn set-difference [s1 s2]
   (seq-to-mutable-list
-   (seq (set/difference (set (metaprob-sequence-to-seq s1))
-                        (set (metaprob-sequence-to-seq s2))))))
+   (seq (set/difference (set (sequence-to-seq s1))
+                        (set (sequence-to-seq s2))))))
 
 (defn metaprob-sort [sq & more]
-  (apply sort (metaprob-sequence-to-seq sq) more))
+  (apply sort (sequence-to-seq sq) more))
 
 ;; -----------------------------------------------------------------------------
 ;; Addresses
@@ -189,7 +189,7 @@
 ;; Invoke a "foreign" procedure.  Called from interpreter.
 
 (defn generate-foreign [ifn inputs]
-  (apply ifn (metaprob-sequence-to-seq inputs)))
+  (apply ifn (sequence-to-seq inputs)))
 
 (defn make-foreign-procedure [name ifn]
   ifn)
@@ -356,7 +356,7 @@
 (defn binned-histogram [& {:keys [name samples overlay-densities
                                   sample-lower-bound sample-upper-bound
                                   number-of-intervals]}]
-  (let [samples (metaprob-sequence-to-seq samples)
+  (let [samples (sequence-to-seq samples)
         sample-lower-bound (or sample-lower-bound -5)
         sample-upper-bound (or sample-upper-bound 5)
         number-of-intervals (or number-of-intervals 20)

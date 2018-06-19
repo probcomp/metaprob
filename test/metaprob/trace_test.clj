@@ -127,7 +127,7 @@
       (is (= (trace-get (lookup tr '("rest" "rest"))) 97))
 
       (is (= (length tr) 3))
-      (is (= (length (metaprob-sequence-to-seq tr)) 3)))))
+      (is (= (length (sequence-to-seq tr)) 3)))))
 
 (deftest vector-as-trace
   (testing "see how well vectors serve as traces"
@@ -138,7 +138,7 @@
 
       (is (count-is? tr 3))
       (is (= (length tr) 3))
-      (is (= (length (metaprob-sequence-to-seq tr)) 3)))))
+      (is (= (length (sequence-to-seq tr)) 3)))))
 
 (deftest map-as-trace
   (testing "see how maps serve as traces"

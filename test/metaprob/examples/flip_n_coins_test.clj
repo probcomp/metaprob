@@ -49,7 +49,7 @@
             (is (not (builtin/trace-has? output (builtin/addr "datum" 10 "flip"))))
 
             ;; Answer is expected to be 99% heads other than the intervened-on entry.
-            (is (> (apply + (map (fn [x] (if x 1 0)) (trace/metaprob-sequence-to-seq answer)))
+            (is (> (apply + (map (fn [x] (if x 1 0)) (trace/sequence-to-seq answer)))
                    2))
 
             ))))))
