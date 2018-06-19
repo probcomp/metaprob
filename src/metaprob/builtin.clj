@@ -7,6 +7,7 @@
                    assert pprint print apply
                    list list? first rest last nth range sort])
   (:require [metaprob.trace :as trace])
+  (:require [metaprob.sequence :as sequence])
   (:require [metaprob.builtin-impl :as impl]))
 
 (defmacro define-foreign-procedure [mp-name generate-fn]
@@ -90,29 +91,29 @@
 (define-foreign-procedure addr impl/addr)
 
 ;; Lists
-(define-foreign-procedure pair trace/pair)
-(define-foreign-procedure pair? trace/metaprob-pair?)
-(define-foreign-procedure list impl/metaprob-list)
-(define-foreign-procedure list? impl/metaprob-list?)
-(define-foreign-procedure first trace/metaprob-first)
-(define-foreign-procedure rest trace/metaprob-rest)
-(define-foreign-procedure last impl/metaprob-last)
+(define-foreign-procedure pair sequence/pair)
+(define-foreign-procedure pair? sequence/metaprob-pair?)
+(define-foreign-procedure first sequence/metaprob-first)
+(define-foreign-procedure rest sequence/metaprob-rest)
+(define-foreign-procedure list sequence/metaprob-list)
+(define-foreign-procedure list? sequence/metaprob-list?)
+(define-foreign-procedure last sequence/metaprob-last)
 
 ;; Tuples
-(define-foreign-procedure tuple trace/tuple)
-(define-foreign-procedure tuple? trace/metaprob-tuple?)
+(define-foreign-procedure tuple sequence/tuple)
+(define-foreign-procedure tuple? sequence/metaprob-tuple?)
 
 ;; Sequences
-(define-foreign-procedure length trace/length)
-(define-foreign-procedure nth impl/metaprob-nth)
-(define-foreign-procedure range impl/metaprob-range)
-(define-foreign-procedure append impl/append)
-(define-foreign-procedure set-difference impl/set-difference)
-(define-foreign-procedure sort impl/metaprob-sort)
-(define-foreign-procedure to-list impl/to-list)
-(define-foreign-procedure to-tuple impl/to-tuple)
-(define-foreign-procedure to-seq trace/sequence-to-seq)
-(define-foreign-procedure to-immutable-list trace/sequence-to-seq)
+(define-foreign-procedure length sequence/length)
+(define-foreign-procedure sequence-to-seq sequence/sequence-to-seq)
+(define-foreign-procedure to-immutable-list sequence/sequence-to-seq)
+(define-foreign-procedure nth sequence/metaprob-nth)
+(define-foreign-procedure range sequence/metaprob-range)
+(define-foreign-procedure append sequence/append)
+(define-foreign-procedure set-difference sequence/set-difference)
+(define-foreign-procedure sort sequence/metaprob-sort)
+(define-foreign-procedure to-list sequence/to-list)
+(define-foreign-procedure to-tuple sequence/to-tuple)
 
 ;; Environments
 (define-foreign-procedure top-level-lookup impl/top-level-lookup)

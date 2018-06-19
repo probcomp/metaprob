@@ -91,43 +91,11 @@
     (is (= (trace-get (trace-state (make-mutable-trace {:value 17}))) 17))
     (is (= (trace-get (make-mutable-trace '(17))) 17))))
 
-(deftest pair-1
-  (testing "pairs and mutability"
-    (is (immutable-trace? (pair 1 '())))
-    (is (immutable-trace? (pair 1 (pair 2 '()))))
-    (is (mutable-trace? (pair 1 (empty-trace))))
-    (is (mutable-trace? (pair 1 (pair 2 (empty-trace)))))
-
-    (is (mutable-trace? (make-mutable (pair 1 '()))))
-    (is (immutable-trace? (make-immutable (pair 1 (empty-trace)))))))
-
-(deftest pair?-1
-  (testing "pair? predicate"
-    (is (metaprob-pair? '(17)))
-    (is (metaprob-pair? '(17 18)))
-    (is (metaprob-pair? (pair 17 '())))
-    (is (metaprob-pair? (make-mutable (pair 17 '()))))
-    (is (not (metaprob-pair? '())))
-    (is (not (metaprob-pair? nil)))
-    (is (not (metaprob-pair? [17 18])))
-    (is (not (metaprob-pair? (make-mutable [17 18]))))))
-
 (deftest seq-as-trace
   (testing "see how well seqs serve as traces"
     (let [tr (map (fn [x] x) (list 17 33 97))]
-
-      (is (metaprob-pair? tr))
-
       (is (= (trace-get tr) 17))
-      (is (= (metaprob-first tr) 17))
-      (is (count-is? tr 1))    ; rest
-
-      (is (= (trace-get (metaprob-rest tr)) 33))
-      (is (= (trace-get (lookup tr "rest")) 33))
-      (is (= (trace-get (lookup tr '("rest" "rest"))) 97))
-
-      (is (= (length tr) 3))
-      (is (= (length (sequence-to-seq tr)) 3)))))
+      (is (count-is? tr 1)))))    ; rest
 
 (deftest vector-as-trace
   (testing "see how well vectors serve as traces"
@@ -135,10 +103,7 @@
       (is (trace? tr))
       (is (= (trace-get tr 0) 17))
       (is (= (trace-get tr 2) 97))
-
-      (is (count-is? tr 3))
-      (is (= (length tr) 3))
-      (is (= (length (sequence-to-seq tr)) 3)))))
+      (is (count-is? tr 3)))))
 
 (deftest map-as-trace
   (testing "see how maps serve as traces"
@@ -168,11 +133,6 @@
 
       (is (= (trace-get (lookup tr '("c" "x"))) 13))
       (is (= (trace-get tr '("c" "x")) 13)))))
-
-(deftest length-1
-  (testing "length smoke test"
-    (is (= (length (empty-trace)) 0))
-    (is (= (length (pair 0 (empty-trace))) 1))))
 
 (deftest trace-1
   (testing "trace constructor, immutable"

@@ -30,7 +30,7 @@
           adr (impl/addr "that" "those")]
       (is (= (trace/trace-count cap) 3))
       (trace/trace-set! root adr "value-1")  ; Extend the root trace
-      (let [quasi (trace/pair cap adr)      ; /*this/that/those/ ?
+      (let [quasi (builtin/pair cap adr)      ; /*this/that/those/ ?
             [i t o] (resolve-tag-address quasi)]
         (is (trace/trace? i))
         (trace/trace-set! i "value-2")
@@ -48,7 +48,7 @@
 (defn ez-call [prob-prog & inputs]
   (let [inputs (if (= inputs nil) '() inputs)
         [value score]
-        (trace/sequence-to-seq
+        (builtin/sequence-to-seq
          (infer-apply prob-prog
                       inputs
                       (mk_nil) (mk_nil) (mk_nil)))]
@@ -66,7 +66,7 @@
 
 (defn ez-eval [x]
   (let [[value score]
-        (trace/sequence-to-seq
+        (builtin/sequence-to-seq
          (infer-eval (from-clojure x)
                      top
                      (mk_nil)
@@ -136,7 +136,7 @@
   (testing "lift a generate method up to a infer method"
     (let [m (gen [inputs i t o]
                       (define [x y] inputs)
-                      (trace/tuple (+ x 1) 19))
+                      (builtin/tuple (+ x 1) 19))
           l (inf "testing" m)]
       (is (= (l 17 "z") 18)))))
 
@@ -144,7 +144,7 @@
 (deftest lift-and-call
   (testing "can we lift a procedure and then call it"
     (let [qq (impl/make-foreign-procedure "qq" (fn [inputs i t o]
-                                             [(+ (impl/metaprob-nth inputs 0) (impl/metaprob-nth inputs 1))
+                                             [(+ (builtin/nth inputs 0) (builtin/nth inputs 1))
                                               50]))
           lifted (inf "lifted" qq)]
       (is (= (lifted 7 8) 15))
@@ -182,7 +182,7 @@
           [value1 _] (infer-eval form top nil nil nil)]
       (is (= value1 19))
       (let [intervene (builtin/empty-trace)]
-        (trace/trace-set! intervene 1 23)
+        (builtin/trace-set! intervene 1 23)
         (let [[value2 _] (infer-eval form top intervene nil nil)]
           (is (= value2 23)))))))
 
@@ -197,7 +197,7 @@
             addresses (builtin/addresses-of output)]
         ;; (builtin/pprint output)
         (doseq [a addresses]
-          (trace/trace-set! intervene a 23))
+          (builtin/trace-set! intervene a 23))
         (let [[value2 _] (infer-eval form top intervene nil nil)]
           (is (= value2 23)))))))
 

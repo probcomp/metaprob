@@ -1,7 +1,8 @@
 (ns metaprob.syntax
   (:require [clojure.string]
-            [metaprob.trace :refer :all]
             [metaprob.state :as state]
+            [metaprob.trace :refer :all]
+            [metaprob.sequence :refer :all]
             [metaprob.builtin-impl :as impl]))
 
 (def set-value state/set-value)
@@ -44,7 +45,7 @@
                                 (if (and (symbol? subpattern)
                                          (= (name subpattern) "_"))
                                   (list)
-                                  (explode-pattern subpattern `(impl/metaprob-nth ~var ~i))))
+                                  (explode-pattern subpattern `(metaprob-nth ~var ~i))))
                               pattern
                               (range (count pattern)))))))
           ]
@@ -133,7 +134,7 @@
                             (mapcat (fn [subpattern i]
                                       (if (= subpattern '_)
                                         (list)
-                                        (explode-pattern subpattern `(impl/metaprob-nth ~var ~i))))
+                                        (explode-pattern subpattern `(metaprob-nth ~var ~i))))
                                     pattern
                                     (range (count pattern))))))))
 

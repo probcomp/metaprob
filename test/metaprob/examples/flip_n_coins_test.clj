@@ -2,6 +2,7 @@
 (ns metaprob.examples.flip-n-coins-test
   (:require [clojure.test :refer :all]
             [metaprob.trace :as trace]
+            [metaprob.sequence :as sequence]
             [metaprob.builtin :as builtin]
             [metaprob.interpreters :refer :all]
             [metaprob.examples.flip-n-coins :refer :all]))
@@ -49,7 +50,7 @@
             (is (not (builtin/trace-has? output (builtin/addr "datum" 10 "flip"))))
 
             ;; Answer is expected to be 99% heads other than the intervened-on entry.
-            (is (> (apply + (map (fn [x] (if x 1 0)) (trace/sequence-to-seq answer)))
+            (is (> (apply + (map (fn [x] (if x 1 0)) (sequence/sequence-to-seq answer)))
                    2))
 
             ))))))

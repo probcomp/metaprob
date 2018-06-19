@@ -35,7 +35,7 @@
 
 (deftest reverse-2
   (testing "reverse mutability tests"
-    (let [tr (prelude/reverse (builtin/to-seq (list 1 2 3)))]
+    (let [tr (prelude/reverse (builtin/sequence-to-seq (list 1 2 3)))]
       (is (builtin/immutable-trace? tr))
       (is (= tr (list 3 2 1))))
     ;; This is a problem.

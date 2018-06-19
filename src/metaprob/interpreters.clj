@@ -1,6 +1,6 @@
 (ns metaprob.interpreters
   (:require [metaprob.syntax :refer :all]
-            [metaprob.builtin-impl :as impl]
+            [metaprob.builtin :as builtin]
             [metaprob.infer :refer [infer-apply]]))
 
 (defn infer [& {:keys [procedure inputs intervention-trace
@@ -12,6 +12,6 @@
                output-trace))
 
 (defn interpret [& {:keys [program inputs interventions]}]
-  (impl/metaprob-nth (infer-apply program inputs interventions nil  nil)
-                     0))
+  (builtin/nth (infer-apply program inputs interventions nil  nil)
+               0))
 
