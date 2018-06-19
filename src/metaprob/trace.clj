@@ -293,6 +293,7 @@
     (make-cell state)))
 
 (defn ^:private trace-set-direct-subtrace! [tr key sub]
+  (assert (ok-key? key))
   (trace-swap! tr
                (fn [state]
                  (state/set-subtrace state key sub))))
