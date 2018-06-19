@@ -28,7 +28,10 @@
   (gen [lst index]
     (block (if (gt index 0) (drop (rest lst) (sub index 1)) lst))))
 
-(define reverse (gen [lst] (_reverse lst (empty-trace))))
+(define reverse
+  (gen [lst] (_reverse lst (if (mutable-trace? lst)
+                             (empty-trace)
+                             (list)))))
 
 (define _reverse
   (gen [lst res]
@@ -43,6 +46,8 @@
 (define replicate
   (gen [n f]
     (define root (&this))
+    ;; Should be (map (gen [i] (f)) (range n))
+    ;; because map already sets the correct address.
     (map (gen [i] (with-address (list root i) (f))) (range n))))
 
 (define repeat
@@ -53,7 +58,15 @@
         (repeat (sub times 1) pp))
       "ok")))
 
-(define map
+;; Similar to `lookup` but does not create locatives
+
+(define maybe-subtrace
+  (gen [tr adr]
+    (if (trace-has-subtrace? tr adr)
+      (trace-subtrace tr adr)
+      nil)))
+
+(define map-original
   (gen [f l]
     (define root (&this))
     (define
@@ -63,6 +76,8 @@
         (block (_map f l 0 root))))
     ;; (dereify_tag root)
     ans))
+
+(define map map-original)
 
 (define _map
   (gen [f l i root]

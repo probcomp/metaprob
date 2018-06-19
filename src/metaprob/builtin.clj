@@ -74,13 +74,12 @@
 (define-foreign-procedure trace-has-subtrace? trace/trace-has-subtrace?)
 (define-foreign-procedure trace-subtrace trace/trace-subtrace)
 (define-foreign-procedure trace trace/trace)    ;constructor
+(define-foreign-procedure immutable-trace trace/immutable-trace)    ;constructor
 (define-foreign-procedure trace-copy trace/trace-copy)
 (define-foreign-procedure make-mutable trace/make-mutable)
 (define-foreign-procedure make-immutable trace/make-immutable)
 (define-foreign-procedure mutable-trace? trace/mutable-trace?)
 (define-foreign-procedure immutable-trace? trace/immutable-trace?)
-(define-foreign-procedure mutable-trace? trace/mutable-trace?)
-(define-foreign-procedure immutable-trace trace/immutable-trace)    ;constructor
 (define-foreign-procedure ** trace/**)          ;for (trace ... (** ...) ...)
 
 (define-foreign-procedure trace-copy trace/trace-copy)
@@ -111,6 +110,7 @@
 (define-foreign-procedure sort impl/metaprob-sort)
 (define-foreign-procedure to-list impl/to-list)
 (define-foreign-procedure to-tuple impl/to-tuple)
+(define-foreign-procedure to-seq trace/metaprob-sequence-to-seq)
 (define-foreign-procedure to-immutable-list trace/metaprob-sequence-to-seq)
 
 ;; Environments

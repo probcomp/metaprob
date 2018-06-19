@@ -47,6 +47,7 @@
         (is (= (trace/length tup) 4))
         (let [s (trace/metaprob-tuple-to-seq tup)]
           (is (seq? s))
+          (is (= (count s) 4))
           (is (= (trace/length s) 4))
           (let [v2 (vec s)]
             (is (= v2 tup))))))))

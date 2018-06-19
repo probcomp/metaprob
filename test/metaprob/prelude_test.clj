@@ -1,6 +1,8 @@
 (ns metaprob.prelude-test
   (:require [clojure.test :refer :all]
-            [metaprob.syntax :refer :all])
+            [metaprob.syntax :refer :all]
+            [metaprob.trace :refer :all]
+            [metaprob.builtin-impl :refer :all])
   (:require [metaprob.builtin :as builtin])
   (:require [metaprob.prelude :as prelude]))
 
@@ -17,6 +19,29 @@
         "namespacing sanity check 1")
     (is (not (contains? (ns-publics 'metaprob.prelude) 'v))
         "namespacing sanity check 2")))
+
+(deftest reverse-1
+  (testing "reverse tests"
+    (is (builtin/immutable-trace? (list)))
+    (let [tr (prelude/reverse (list))]
+      (is (builtin/immutable-trace? tr))
+      (is (= tr (list))))
+    (let [tr (prelude/reverse (list 1))]
+      (is (builtin/immutable-trace? tr))
+      (is (= tr (list 1))))
+    (let [tr (prelude/reverse (list 1 2 3))]
+      (is (builtin/immutable-trace? tr))
+      (is (= tr (list 3 2 1))))))
+
+(deftest reverse-2
+  (testing "reverse mutability tests"
+    (let [tr (prelude/reverse (builtin/to-seq (list 1 2 3)))]
+      (is (builtin/immutable-trace? tr))
+      (is (= tr (list 3 2 1))))
+    ;; This is a problem.
+    (let [tr (prelude/reverse (trace-copy (list 1 2 3)))]
+      (is (builtin/mutable-trace? tr))
+      (is (= (builtin/first tr) 1)))))
 
 (deftest map-1
   (testing "map smoke test"
@@ -37,7 +62,7 @@
 (deftest map-1a
   (testing "Map over a clojure list"
     (let [foo (prelude/map (fn [x] (+ x 1))
-                        (builtin/list 6 7 8))]
+                           (builtin/list 6 7 8))]
       (is (builtin/length foo) 3)
       (is (= (builtin/nth foo 0) 7))
       (is (= (builtin/nth foo 1) 8))
@@ -48,7 +73,7 @@
     (is (= (builtin/first
             (builtin/rest
              (prelude/map (fn [x] (+ x 1))
-                       (builtin/pair 6 (builtin/pair 7 (builtin/pair 8 (builtin/empty-trace)))))))
+                          (builtin/pair 6 (builtin/pair 7 (builtin/pair 8 (builtin/empty-trace)))))))
            8))))
 
 (deftest map-3
@@ -60,5 +85,5 @@
 
 (deftest name-1
   (testing "see if a procedure has the right name"
-    (is (.contains (builtin/procedure-name prelude/drop) "drop"))))
+    (is (.contains (procedure-name prelude/drop) "drop"))))
 

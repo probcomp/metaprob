@@ -6,9 +6,10 @@
   (:require [clojure.java.io :as io])
   (:require [clojure.set :as set]))
 
-(declare metaprob-nth metaprob-pprint)
+(declare metaprob-nth metaprob-pprint append)
 
-;; --------------------
+;; ----------------------------------------------------------------------
+;; Sequences
 
 ;; Convert clojure seq to metaprob tuple
 ;; Private except for tests
@@ -26,49 +27,11 @@
       (pair (first things)
             (seq-to-mutable-list (rest things))))))
 
-;; addr - create an address out of a key sequence
-
-(declare procedure-name)
-
-(defn addr [& keys]
-  (if (= keys nil)
-    '()
-    (map (fn [key]
-           (if (procedure? key)
-             (procedure-name key)
-             (do (assert (ok-key? key))
-                 key)))
-         keys)))
-
-;; ----------------------------------------------------------------------
-;; Builtins (defined in python in original-metaprob)
-
-(declare append)
-
-;; Translation of .sites method from trace.py.
-;; Returns a seq of addresses, I believe.  (and addresses are themselves seqs.)
-
-(defn addresses-of [tr]
-  (letfn [(get-sites [tr]
-            ;; returns a seq of traces
-            (let [site-list
-                  (mapcat (fn [key]
-                            (map (fn [site]
-                                   (cons key site))
-                                 (get-sites (trace-subtrace tr key))))
-                          (trace-keys tr))]
-              (if (trace-has? tr)
-                (cons '() site-list)
-                site-list)))]
-    (let [s (get-sites tr)]
-      (doseq [site s]
-        (assert (trace-has? tr site) ["missing value at" site]))
-      s)))
-
 ;; It is in principle possible to create traces that look like lists
 ;; but aren't (i.e. terminate in a nonempty, non-pair value).  
-;; The `pair` function rules this out, but with effort it's possible
-;; to create such a beast.  Let's ignore this possibility.
+;; The `pair` function rules this out on creation, but a list tail
+;; can be clobbered by side effect to be a non-list.
+;; Let's ignore this possibility.
 
 (defn metaprob-list? [x]
   (or (empty-trace? x)
@@ -86,11 +49,13 @@
 
 ;; list - builtin
 
-;!! used ?
 (defn metaprob-list [& things]
-  (seq-to-mutable-list things))
+  ;; (seq-to-mutable-list things)
+  (if (= things nil)
+    '()
+    things))
 
-;; to-list - builtin - convert metaprob tuple to metaprob list
+;; to-list - builtin - convert metaprob sequence to metaprob list
 
 (defn to-list [x]
   (cond (metaprob-list? x)
@@ -130,20 +95,16 @@
                   (if (= i 0)
                     (metaprob-first l)
                     (re (metaprob-rest l) (- i 1)))
-                  (assert false [(diagnose-nonpair l) i (length thing)])))]
+                  (assert false [l i (length thing)])))]
         (re thing (int i)))
       (trace-get thing i))
     (nth thing i)))
 
 ;; prelude has: reverse, propose1, iterate, replicate, repeat
 
-;; range - overrides original prelude (performance + generalization)
-
-(defn _range [n k]
-  (if (>= k n) (empty-trace) (pair k (_range n (+ k 1)))))
+;; range - now returns an immutable trace
 
 (defn metaprob-range [n]
-  ;; (_range n 0)
   (range n))                            ;clojure range should work
 
 ;; append - overrides original prelude (for performance, generality)
@@ -163,7 +124,7 @@
                           (re (metaprob-rest x)))
                     (assert false "bad appender"))))]
         (re x)))
-    ;; Neither is mutable; should be seqables.  concat always returns a seq.
+    ;; Neither is mutable; should be seqs.  concat always returns a seq.
     (concat x y)))
 
 ;; Random stuff
@@ -178,6 +139,43 @@
 
 (defn metaprob-sort [sq & more]
   (apply sort (metaprob-sequence-to-seq sq) more))
+
+;; -----------------------------------------------------------------------------
+;; Addresses
+
+;; addr - create an address out of a key sequence
+
+(declare procedure-name)
+
+(defn addr [& keys]
+  (if (= keys nil)
+    '()
+    (map (fn [key]
+           (if (procedure? key)
+             (procedure-name key)
+             (do (assert (ok-key? key))
+                 key)))
+         keys)))
+
+;; Translation of .sites method from trace.py.
+;; Returns a seq of addresses, I believe.  (and addresses are themselves seqs.)
+
+(defn addresses-of [tr]
+  (letfn [(get-sites [tr]
+            ;; returns a seq of traces
+            (let [site-list
+                  (mapcat (fn [key]
+                            (map (fn [site]
+                                   (cons key site))
+                                 (get-sites (trace-subtrace tr key))))
+                          (trace-keys tr))]
+              (if (trace-has? tr)
+                (cons '() site-list)
+                site-list)))]
+    (let [s (get-sites tr)]
+      (doseq [site s]
+        (assert (trace-has? tr site) ["missing value at" site]))
+      s)))
 
 ;; -----------------------------------------------------------------------------
 ;; Control
@@ -198,6 +196,29 @@
 
 (defn foreign-procedure-name [ifn]
   (str ifn))
+
+;; Like make-immutable, but recursive.
+;; DEPRECATED, DO NOT USE.
+
+(defn ^:private freeze [x]
+  (if (trace? x)
+    (let [x (trace-state x)]
+      (cond (empty-trace? x)
+            '()
+
+            (metaprob-pair? x)
+            (map freeze (metaprob-list-to-seq x)) ;cf. ok-value?
+
+            (metaprob-tuple? x)
+            (vec (map freeze (metaprob-tuple-to-seq x)))
+
+            true
+            (let [keys (trace-keys x)
+                  result (into {} (for [key keys] [key (freeze (trace-subtrace x key))]))]
+              (if (trace-has? x)
+                (assoc result :value (freeze (trace-get x)))
+                result))))
+    x))
 
 ;; This is for computing a name for a procedure at its point of creation.
 ;; Careful, this loses if there's a cycle.  Don't include a lexical

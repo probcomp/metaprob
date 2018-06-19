@@ -144,7 +144,7 @@
 (deftest lift-and-call
   (testing "can we lift a procedure and then call it"
     (let [qq (impl/make-foreign-procedure "qq" (fn [inputs i t o]
-                                             [(+ (metaprob-nth inputs 0) (metaprob-nth inputs 1))
+                                             [(+ (impl/metaprob-nth inputs 0) (impl/metaprob-nth inputs 1))
                                               50]))
           lifted (inf "lifted" qq)]
       (is (= (lifted 7 8) 15))

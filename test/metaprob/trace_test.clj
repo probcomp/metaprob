@@ -13,8 +13,7 @@
       (is (not (foreign-procedure? [1 2 3])))
       (is (not (foreign-procedure? (empty-trace))))
       (is (not (trace? ifn)))
-      (is (not (trace-as-procedure? ifn)))
-      (is (= (strip ifn) ifn)))))
+      (is (not (trace-as-procedure? ifn))))))
 
 (defn count-is? [tr n]
   (and (= (trace-count tr) n)
@@ -28,7 +27,6 @@
       (is (trace? p))
       (is (not (trace-as-procedure? 'foo)))
       (is (not (trace-as-procedure? nil)))
-      (is (= (strip p) tr))
       (is (count-is? p 0)))))
 
 (deftest tap-2
@@ -37,8 +35,18 @@
           p (trace-as-procedure '() (fn [x] x))]
       (is (trace-as-procedure? p))
       (is (trace? p))
-      (is (= (strip p) tr))
       (is (count-is? p 0)))))
+
+(deftest states-as-traces
+  (testing "trace-states as traces"
+    (is (immutable-trace? '()))
+    (is (not (mutable-trace? '())))
+    (is (immutable-trace? '(7 8)))
+    (is (not (mutable-trace? '(7 8))))
+    (is (immutable-trace? [7 8]))
+    (is (not (mutable-trace? [7 8])))
+    (is (not (immutable-trace? 'foo)))
+    (is (not (mutable-trace? 'foo)))))
 
 (deftest basic-traces
   (testing "battery of tests applied to basic traces"
@@ -77,6 +85,33 @@
     (is (count-is? {} 0))
     (is (not (trace-has? {} "a")))))
 
+(deftest mutable-1
+  (testing "make-mutable-trace test"
+    (is (= (trace-get (make-mutable-trace {:value 17})) 17))
+    (is (= (trace-get (trace-state (make-mutable-trace {:value 17}))) 17))
+    (is (= (trace-get (make-mutable-trace '(17))) 17))))
+
+(deftest pair-1
+  (testing "pairs and mutability"
+    (is (immutable-trace? (pair 1 '())))
+    (is (immutable-trace? (pair 1 (pair 2 '()))))
+    (is (mutable-trace? (pair 1 (empty-trace))))
+    (is (mutable-trace? (pair 1 (pair 2 (empty-trace)))))
+
+    (is (mutable-trace? (make-mutable (pair 1 '()))))
+    (is (immutable-trace? (make-immutable (pair 1 (empty-trace)))))))
+
+(deftest pair?-1
+  (testing "pair? predicate"
+    (is (metaprob-pair? '(17)))
+    (is (metaprob-pair? '(17 18)))
+    (is (metaprob-pair? (pair 17 '())))
+    (is (metaprob-pair? (make-mutable (pair 17 '()))))
+    (is (not (metaprob-pair? '())))
+    (is (not (metaprob-pair? nil)))
+    (is (not (metaprob-pair? [17 18])))
+    (is (not (metaprob-pair? (make-mutable [17 18]))))))
+
 (deftest seq-as-trace
   (testing "see how well seqs serve as traces"
     (let [tr (map (fn [x] x) (list 17 33 97))]
@@ -97,6 +132,7 @@
 (deftest vector-as-trace
   (testing "see how well vectors serve as traces"
     (let [tr [17 33 97]]
+      (is (trace? tr))
       (is (= (trace-get tr 0) 17))
       (is (= (trace-get tr 2) 97))
 

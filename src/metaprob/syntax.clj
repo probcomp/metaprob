@@ -1,11 +1,12 @@
 (ns metaprob.syntax
   (:require [clojure.string]
             [metaprob.trace :refer :all]
+            [metaprob.state :as state]
             [metaprob.builtin-impl :as impl]))
 
-(declare set-value)
+(def set-value state/set-value)
+(def set-subtrace state/set-subtrace)
 
-(def metaprob-nth impl/metaprob-nth)
 
 ;; This module is intended for import by metaprob code, and defines
 ;; the syntactic constructs to be used in metaprob programs.
@@ -43,7 +44,7 @@
                                 (if (and (symbol? subpattern)
                                          (= (name subpattern) "_"))
                                   (list)
-                                  (explode-pattern subpattern `(metaprob-nth ~var ~i))))
+                                  (explode-pattern subpattern `(impl/metaprob-nth ~var ~i))))
                               pattern
                               (range (count pattern)))))))
           ]
@@ -132,7 +133,7 @@
                             (mapcat (fn [subpattern i]
                                       (if (= subpattern '_)
                                         (list)
-                                        (explode-pattern subpattern `(metaprob-nth ~var ~i))))
+                                        (explode-pattern subpattern `(impl/metaprob-nth ~var ~i))))
                                     pattern
                                     (range (count pattern))))))))
 
@@ -186,7 +187,7 @@
 
 ;(defmacro tuple [& members]
 ;  `(set-value ~(zipmap (range (count members))
-;                           (map (fn [x] `(new-trace ~x)) members))))
+;              (map (fn [x] `(new-trace ~x)) members))))
 
 (defmacro with-address [addr & body]
   `(do ~addr ~@body))                   ;fake
@@ -211,24 +212,6 @@
 
 ;; TBD: This file assumes it knows what the represenation of an
 ;; immutable trace is.  That's not very good data abstraction.  Fix.
-
-;; This belongs elsewhere, but need to decide on a name first
-(defn denature [tr]
-  (assert (immutable-trace? tr))
-  (cond (seq? tr) {rest-marker (rest tr) :value (first tr)}
-        (vector? tr) (zipmap (range (count tr))
-                             tr)
-        true tr))
-
-(defn set-value [tr val]
-  ;; Maybe check that the values of tr are really traces?
-  (assert ok-value? val)
-  (assoc (denature tr) :value val))
-
-(defn set-subtrace [tr key sub]
-  (assert ok-key? key)
-  (assert trace? sub)
-  (assoc (denature tr) key sub))
 
 
 ; These could all be marked ^:private

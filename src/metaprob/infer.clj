@@ -133,14 +133,6 @@
                      "output-trace" output
                      :value "captured tag address")))
 
-;; Similar to `lookup` but does not create locatives
-
-(define maybe-subtrace
-  (gen [tr adr]
-    (if (trace-has-subtrace? tr adr)
-      (trace-subtrace tr adr)
-      nil)))
-
 ;; resolve-tag-address
 ;; Convert a quasi-address, whose first element was returned by 
 ;; capture-tag-address, into the appropriate trace
@@ -406,3 +398,27 @@
    ;; Kludge
    (gen [proc inputs] (clojure.core/apply proc (to-immutable-list inputs)))))
 
+
+;; map defined using inf (instead of with-address)
+
+(define map-issue-20
+  (inf "map"
+       (gen [[f l] intervene target output]
+         (do (define luup
+               (gen [l i score result]
+                 (if (pair? l)
+                   (do (define [value subscore]
+                         (infer-apply f
+                                      [(first l)]
+                                      ;; advance traces by address i
+                                      ;; these aren't defined
+                                      (maybe-subtrace intervene i)
+                                      (maybe-subtrace target i)
+                                      (lookup output i)))
+                       ;; What to do with the score?  Just add up?
+                       (luup (rest l)
+                             (add i 1)
+                             (add subscore score)
+                             (pair value result)))
+                   [(reverse result) score])))
+             (luup l 0 {})))))
