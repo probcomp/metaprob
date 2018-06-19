@@ -38,7 +38,7 @@
 
 (define make-env
   (gen [parent]
-    (trace "*parent*" parent)))
+    (mutable-trace "*parent*" parent)))
 
 (define env-bind!
   (gen [env name val]
@@ -280,10 +280,10 @@
             ;; Gen-expression yields a generative procedure
             "gen"
             (block (define proc
-                     (trace :value "prob prog"
-                            "name" (trace-name exp)
-                            "generative-source" (** exp)
-                            "environment" env))
+                     (mutable-trace :value "prob prog"
+                                    "name" (trace-name exp)
+                                    "generative-source" (** exp)
+                                    "environment" env))
                    [(trace-as-procedure proc
                                         ;; What to do when called directly
                                         ;; as a clojure function (this
@@ -382,8 +382,8 @@
 (define inf
   (gen [name infer-method]
     (define tr
-      (trace "name" (add "inf-" (procedure-name infer-method))
-             "infer-method" infer-method))
+      (mutable-trace "name" (add "inf-" (procedure-name infer-method))
+                     "infer-method" infer-method))
     (trace-as-procedure tr
                         ;; When called from Clojure:
                         (gen [& inputs]

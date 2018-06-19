@@ -541,19 +541,21 @@
 ;; Compare states of two traces.
 
 (defn same-trace-states? [trace1 trace2]
-  (or (identical? trace1 trace2)
-      (and (let [h1 (trace-has? trace1)
-                 h2 (trace-has? trace2)]
-             (and (= h1 h2)
-                  (or (not h1)
-                      (same-states? (trace-get trace1) (trace-get trace2)))))
-           (let [keys1 (set (trace-keys trace1))
-                 keys2 (set (trace-keys trace2))]
-             (and (= keys1 keys2)
-                  (every? (fn [key]
-                            (same-trace-states? (trace-subtrace trace1 key)
-                                                (trace-subtrace trace2 key)))
-                          keys1))))))
+  (let [trace1 (trace-state trace1)
+        trace2 (trace-state trace2)]
+    (or (identical? trace1 trace2)
+        (and (let [h1 (trace-has? trace1)
+                   h2 (trace-has? trace2)]
+               (and (= h1 h2)
+                    (or (not h1)
+                        (same-states? (trace-get trace1) (trace-get trace2)))))
+             (let [keys1 (set (trace-keys trace1))
+                   keys2 (set (trace-keys trace2))]
+               (and (= keys1 keys2)
+                    (every? (fn [key]
+                              (same-trace-states? (trace-subtrace trace1 key)
+                                                  (trace-subtrace trace2 key)))
+                            keys1)))))))
 
 ;; Compare states of two values that might or might not be traces.
 

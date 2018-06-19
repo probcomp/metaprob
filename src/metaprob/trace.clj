@@ -248,6 +248,12 @@
       (trace-direct-subtrace tr adr)
       (make-locative tr adr))))
 
+;; Returns a clojure seq of the numbered subtraces of the trace tr.
+;; Used in: to-clojure and related
+
+(defn subtraces-to-seq [tr]
+  (for [i (range (trace-count tr))] (trace-subtrace tr i)))
+
 ;; ----------------------------------------------------------------------------
 ;; Side effects.
 
@@ -337,8 +343,87 @@
   ([tr] (trace-clear! tr))
   ([tr adr] (trace-clear! (trace-subtrace tr adr))))
 
+;; Convert a mutable trace to an immutable trace, nonrecursively.
+
+(defn make-immutable [x]
+  (trace-state x))
+
+;; Convert an immutable trace to a mutable trace, nonrecursively.
+;; Not sure about this.
+
+(defn make-mutable [x]
+  (if (mutable-trace? x)
+    x
+    (make-mutable-trace (trace-state x))))
+
+;; Recursive copy, mutable result... hmm... maybe should copy mutability as well?
+;; see earthquake example...
+
+(defn trace-copy [x]
+  (if (trace? x)
+    (let [keys (trace-keys x)
+          result (into {} (for [key keys] [key (trace-copy (trace-get x key))]))]
+      (if (trace-has-value? x)
+        (make-mutable-trace (state/set-value result (trace-get x)))
+        (make-mutable-trace result)))
+    x))
+
+;; Alexey's version (in python-metaprob) has a broader optimization
+;; than the one that's here.  I don't know how important it is.
+;; See earthquake...
+
+(defn trace-update! [mutable tr]
+  (if (trace-has? tr)
+    (trace-set-value! mutable (trace-get tr)))
+  (if (> (trace-count mutable) 0)          ;Do I have any subtraces?
+    (doseq [key (trace-keys tr)]
+      (if (trace-has? mutable key)
+        (trace-update! (trace-subtrace mutable key)
+                       (trace-subtrace tr key))
+        (trace-set-subtrace! mutable key (trace-subtrace tr key))))))
+
+;; -----------------------------------------------------------------------------
+;; User-friendly trace construction feature
+;; Cf. book chapter mss figure 7
+
+;; (trace :value 1, "z" 2, "a" (** subtrace), "c" (** (trace "d" 8)))
+
+(defn ^:private splice? [x]
+  (and (map? x) (contains? x :splice)))
+
+(defn kv-pairs-to-map [kvps]
+  (if (empty? kvps)
+    {}
+    (do (assert (not (empty? (rest kvps))) "odd number of args to trace")
+        (let [key (first kvps)
+              val (first (rest kvps))
+              more (kv-pairs-to-map (rest (rest kvps)))]
+          (if (= key :value)
+            (do (assert (ok-value? val))
+                (assoc more key val))
+            (do (assert (ok-key? key))
+                (if (splice? val)
+                  (assoc more key (get val :splice))
+                  (do (assert (ok-value? val))
+                      (assoc more key {:value val})))))))))
+
+(defn ** [tr]
+  (assert (trace? tr) "**: expected a trace")
+  {:splice tr})
+
+(defn trace [& key-value-pairs]
+  (state/map-to-state
+   (kv-pairs-to-map key-value-pairs)))
+
+(def immutable-trace trace)
+
+(defn mutable-trace [& key-value-pairs]
+  (make-mutable (state/map-to-state
+                 (kv-pairs-to-map key-value-pairs))))
+
 ;; ----------------------------------------------------------------------------
-;; Metaprob sequences (lists and tuples)
+;; Metaprob sequences (lists and tuples) (not same as Clojure seq)
+;;  (split off into its own file?)
 
 ;; 1. Metaprob pairs / lists
 
@@ -416,100 +501,4 @@
                          (+ 1 (length (get state state/rest-marker)))
                          (assert false ["not a sequence" state]))
           true (assert false ["length wta" tr state]))))
-
-;; ----------------------------------------------------------------------------
-;; Returns a clojure seq of the numbered subtraces of the trace tr.
-;; Used in: to-clojure and related
-
-(defn subtraces-to-seq [tr]
-  (for [i (range (trace-count tr))] (trace-subtrace tr i)))
-
-;; -----------------------------------------------------------------------------
-;; Convert a mutable trace to an immutable trace, nonrecursively.
-
-(defn make-immutable [x]
-  (trace-state x))
-
-;; Convert an immutable trace to a mutable trace, nonrecursively.
-
-(defn make-mutable [x]
-  (if (mutable-trace? x)
-    x
-    (make-mutable-trace (trace-state x))))
-
-;; Recursive copy, mutable result... hmm...
-;; see earthquake example...
-
-(defn trace-copy [x]
-  (if (trace? x)
-    (let [keys (trace-keys x)
-          result (into {} (for [key keys] [key (trace-copy (trace-get x key))]))]
-      (if (trace-has-value? x)
-        (make-mutable-trace (state/set-value result (trace-get x)))
-        (make-mutable-trace result)))
-    x))
-
-;; Alexey's version (in python-metaprob) has a broader optimization
-;; than the one that's here.  I don't know how important it is.
-
-(defn trace-update [self tr]
-  (if (trace-has? tr)
-    (trace-set-value! self (trace-get tr)))
-  (if (> (trace-count self) 0)          ;Do I have any subtraces?
-    (doseq [key (trace-keys tr)]
-      (if (trace-has? self key)
-        (trace-update (trace-subtrace self key)
-                      (trace-subtrace tr key))
-        (trace-set-subtrace! self key (trace-subtrace tr key))))))
-
-;; -----------------------------------------------------------------------------
-;; Immutable trace construction feature
-;; Cf. book chapter mss figure 7
-
-;; (trace :value 1, "z" 2, "a" (** subtrace), "c" (** (trace "d" 8)))
-
-(defn ^:private splice? [x]
-  (and (map? x) (contains? x :splice)))
-
-(defn kv-pairs-to-map [kvps]
-  (if (empty? kvps)
-    {}
-    (do (assert (not (empty? (rest kvps))) "odd number of args to trace")
-        (let [key (first kvps)
-              val (first (rest kvps))
-              more (kv-pairs-to-map (rest (rest kvps)))]
-          (if (= key :value)
-            (do (assert (ok-value? val))
-                (assoc more key val))
-            (do (assert (ok-key? key))
-                (if (splice? val)
-                  (assoc more key (get val :splice))
-                  (do (assert (ok-value? val))
-                      (assoc more key {:value val})))))))))
-
-(defn ** [tr]
-  (assert (trace? tr) "**: expected a trace")
-  {:splice tr})
-
-(defn immutable-trace [& key-value-pairs]
-  (state/map-to-state
-   (kv-pairs-to-map key-value-pairs)))
-
-(defn trace [& key-value-pairs]
-  (make-mutable (state/map-to-state
-                 (kv-pairs-to-map key-value-pairs))))
-
-;;
-;;   (assert (ok-value? val)
-;;           ["initial value is non-metaprob" val (top-level-environment? val) (type val)])
-
-;;   (assert (ok-value? val) ["starting value is a non-metaprob value" val])
-
-;;    (assert (acceptable? key sub)
-;;            ["unacceptable assignment" _ (reason-unacceptable key sub)])
-
-;; trace-from-map
-;;  (doseq [[key sub] (seq maap)]
-;;    (assert (acceptable? key sub)
-;;            ["bad subtrace assignment" (reason-unacceptable key sub)]))
 

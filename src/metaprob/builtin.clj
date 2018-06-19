@@ -74,6 +74,7 @@
 (define-foreign-procedure trace-has-subtrace? trace/trace-has-subtrace?)
 (define-foreign-procedure trace-subtrace trace/trace-subtrace)
 (define-foreign-procedure trace trace/trace)    ;constructor
+(define-foreign-procedure mutable-trace trace/mutable-trace)    ;constructor
 (define-foreign-procedure immutable-trace trace/immutable-trace)    ;constructor
 (define-foreign-procedure trace-copy trace/trace-copy)
 (define-foreign-procedure make-mutable trace/make-mutable)
@@ -83,7 +84,7 @@
 (define-foreign-procedure ** trace/**)          ;for (trace ... (** ...) ...)
 
 (define-foreign-procedure trace-copy trace/trace-copy)
-(define-foreign-procedure trace-update trace/trace-update)
+(define-foreign-procedure trace-update! trace/trace-update!)
 
 (define-foreign-procedure addresses-of impl/addresses-of)
 (define-foreign-procedure addr impl/addr)

@@ -111,7 +111,7 @@
     (print [(length free-sites) "free-sites"])
     (define candidates (joint-enumerate free-sites))
     (map (gen [candidate]
-           (trace-update candidate target-trace)
+           (trace-update! candidate target-trace)
            ;; Returns [state score]
            (infer-apply proc
                         inputs

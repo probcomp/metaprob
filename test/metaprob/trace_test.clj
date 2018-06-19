@@ -220,7 +220,7 @@
 
 (deftest trace-set-1
   (testing "trace-set"
-    (let [tr (empty-trace)]
+    (let [tr (empty-trace)]             ;mutable
       (trace-set! tr "foo" 17)
       (is (= (trace-get tr "foo") 17))
       (let [adr (list "bar" "baz")]
