@@ -62,7 +62,7 @@
     (replicate number-of-runs two-variable-gaussian-model)))
 
 (define target-trace (empty-trace))
-(trace-set target-trace (addr 1 "y" "gaussian") 3.0)
+(trace-set! target-trace (addr 1 "y" "gaussian") 3.0)
 
 (define rejection-assay
   (gen [number-of-runs]

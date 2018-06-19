@@ -58,7 +58,7 @@
 
 (define top-level-env (trace-get (gen [x] x) "environment"))
 
-(trace-set flip "support" (list true false))
+(trace-set! flip "support" (list true false))
 
 ;; Returns a list of output traces
 
@@ -81,7 +81,7 @@
                       (map (gen [value]
                              (map (gen [t]
                                     (define t1 (trace-copy t))
-                                    (trace-set t1 site value)
+                                    (trace-set! t1 site value)
                                     t1)
                                   others))
                            value-candidates))
@@ -157,7 +157,7 @@
 
 (define alarm-went-off (empty-trace))
 (define alarm-address (addr 3 "alarm" "flip"))
-(trace-set alarm-went-off alarm-address true)
+(trace-set! alarm-went-off alarm-address true)
 
 (define check-alarm-intervention
   (gen []

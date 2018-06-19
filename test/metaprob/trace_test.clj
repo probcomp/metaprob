@@ -190,12 +190,12 @@
   (testing "make-mutable smoke test"
     (let [m (empty-trace)]
       (is (trace? m))
-      (trace-set m "x" 13)
+      (trace-set! m "x" 13)
       (let [tr (make-immutable m)]
         (is (count-is? tr 1))
         (is (trace-has? tr "x"))
         (is (= (trace-get tr "x") 13)))
-      (trace-set m 17)
+      (trace-set! m 17)
       (let [tr (make-immutable m)]
         (is (count-is? tr 1))
         (is (trace-has? tr "x"))
@@ -221,8 +221,8 @@
 (deftest trace-set-1
   (testing "trace-set"
     (let [tr (empty-trace)]
-      (trace-set tr "foo" 17)
+      (trace-set! tr "foo" 17)
       (is (= (trace-get tr "foo") 17))
       (let [adr (list "bar" "baz")]
-        (trace-set tr adr 19)
+        (trace-set! tr adr 19)
         (is (= (trace-get tr adr) 19))))))

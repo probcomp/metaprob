@@ -43,7 +43,7 @@
 (define env-bind!
   (gen [env name val]
     (if (frame? env)
-      (trace-set env name val)
+      (trace-set! env name val)
       (assert false "bad env-bind!"))))
 
 ;; match-bind - overrides original prelude.
@@ -210,7 +210,7 @@
            [intervention-value score]))
        ;; Store value in output trace
        (if output
-         (trace-set output value2))
+         (trace-set! output value2))
        [value2 score2]))))
 
 ;; Invoke a 'native' generative procedure, i.e. one written in
@@ -249,7 +249,7 @@
             "application"
             (block (define n (length (trace-keys exp)))
                    (define subscore (empty-trace))
-                   (trace-set subscore 0)
+                   (trace-set! subscore 0)
                    ;; Evaluate all subexpressions, including the procedure
                    ;; position
                    (define values
@@ -258,7 +258,7 @@
                               (walk (trace-subtrace exp i)
                                     env
                                     (add address (addr i))))
-                            (trace-set subscore (add (trace-get subscore) s))
+                            (trace-set! subscore (add (trace-get subscore) s))
                             v)
                           (range n)))
                    (define new-addr
@@ -318,14 +318,14 @@
             (block (define n (length (trace-keys exp)))
                    (define new-env (make-env env))
                    (define subscore (empty-trace))
-                   (trace-set subscore 0)
+                   (trace-set! subscore 0)
                    (define values
                      (map          ;; How do we know map is left to right?
                       (gen [i]
                         (define [v s]
                           (walk (lookup exp i) new-env
                                 (add address (addr i))))
-                        (trace-set
+                        (trace-set!
                          subscore
                          (add (trace-get subscore) s))
                         v)

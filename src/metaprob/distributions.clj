@@ -29,7 +29,7 @@
                   (log1p (sub 0 weight)))]
                [(lt (sample-uniform) weight) 0])))
          (if output
-           (trace-set output value))
+           (trace-set! output value))
          [value score])))
 
 (define hard-to-name
@@ -45,7 +45,7 @@
                   (scorer (trace-get target) inputs)]
                  [(apply sampler inputs) 0])))
            (if output
-             (trace-set output value))
+             (trace-set! output value))
            [value score]))))
 
 (define flip3

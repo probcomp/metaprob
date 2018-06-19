@@ -38,9 +38,9 @@
 ;; but the fourth flip comes up false
 
 (define ensure-tricky-and-biased (empty-trace))
-(trace-set ensure-tricky-and-biased (addr 1 "tricky" "flip") true)
-(trace-set ensure-tricky-and-biased (addr 2 "weight" "then" "uniform") 0.99)
-(trace-set ensure-tricky-and-biased (addr "datum" 3 "flip") false)
+(trace-set! ensure-tricky-and-biased (addr 1 "tricky" "flip") true)
+(trace-set! ensure-tricky-and-biased (addr 2 "weight" "then" "uniform") 0.99)
+(trace-set! ensure-tricky-and-biased (addr "datum" 3 "flip") false)
 
 (define coin-flips-demo-biased
   (gen [n]

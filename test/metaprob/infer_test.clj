@@ -29,11 +29,11 @@
           cap (capture-tag-address root root root)
           adr (impl/addr "that" "those")]
       (is (= (trace/trace-count cap) 3))
-      (trace/trace-set root adr "value-1")  ; Extend the root trace
+      (trace/trace-set! root adr "value-1")  ; Extend the root trace
       (let [quasi (trace/pair cap adr)      ; /*this/that/those/ ?
             [i t o] (resolve-tag-address quasi)]
         (is (trace/trace? i))
-        (trace/trace-set i "value-2")
+        (trace/trace-set! i "value-2")
         (is (= (trace/trace-get i) "value-2"))
 
         (let [again (trace/trace-subtrace root adr)]
@@ -182,7 +182,7 @@
           [value1 _] (infer-eval form top nil nil nil)]
       (is (= value1 19))
       (let [intervene (builtin/empty-trace)]
-        (trace/trace-set intervene 1 23)
+        (trace/trace-set! intervene 1 23)
         (let [[value2 _] (infer-eval form top intervene nil nil)]
           (is (= value2 23)))))))
 
@@ -197,7 +197,7 @@
             addresses (builtin/addresses-of output)]
         ;; (builtin/pprint output)
         (doseq [a addresses]
-          (trace/trace-set intervene a 23))
+          (trace/trace-set! intervene a 23))
         (let [[value2 _] (infer-eval form top intervene nil nil)]
           (is (= value2 23)))))))
 

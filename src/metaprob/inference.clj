@@ -73,7 +73,7 @@
 
     (define initial-value (trace-get trace target-address))
     (define initial-num-choices (length candidates))
-    (trace-delete trace target-address)
+    (trace-delete! trace target-address)
     (define new-trace (empty-trace))
 
     (define [_ forward-score] (infer :procedure model-procedure
@@ -93,15 +93,15 @@
     ;; make a trace that can be used to restore the original trace
     
     (define restoring-trace (empty-trace))
-    (trace-set restoring-trace target-address initial-value)
+    (trace-set! restoring-trace target-address initial-value)
     (for-each (set-difference choice-addresses new-choice-addresses)
     	      (gen [initial-addr] ;; initial-addr in original but not proposed trace
-                (trace-set restoring-trace
+                (trace-set! restoring-trace
                            initial-addr
                            (trace-get trace initial-addr))))
 
     ;; remove the new value
-    (trace-delete new-trace target-address)
+    (trace-delete! new-trace target-address)
 
     (define [_ reverse-score]
       (infer :procedure model-procedure
@@ -110,19 +110,19 @@
              :target-trace new-trace
              :output-trace (empty-trace)))
     
-    (trace-set new-trace target-address new-value)
+    (trace-set! new-trace target-address new-value)
     (define log-acceptance-probability (sub (add forward-score (log new-num-choices))
     	    			       	    (add reverse-score (log initial-num-choices))))
     (if (lt (log (uniform 0 1)) log-acceptance-probability)
         (block
 	    (for-each (set-difference choice-addresses new-choice-addresses)
-	              (gen [initial-addr] (trace-delete trace initial-addr)))
+	              (gen [initial-addr] (trace-delete! trace initial-addr)))
 	    (for-each new-choice-addresses
 	    	      (gen [new-addr]
-                        (trace-set trace
+                        (trace-set! trace
                                    new-addr
                                    (trace-get new-trace new-addr)))))
-	(trace-set trace target-address initial-value))))
+	(trace-set! trace target-address initial-value))))
 
 ;; Should return [output-trace value] ...
 
