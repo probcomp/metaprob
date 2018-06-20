@@ -39,12 +39,13 @@
 
 (defn has-subtrace? [state key]
   (if steady?
-    (not (= (get (state-to-map state) key :no-value) :no-value))
-    (cond (seq? state) (= key rest-marker)
+    (contains? (state-to-map state) key)
+    (cond (seq? state) (and (not (empty? state))
+                            (= key rest-marker))
           (vector? state) (and (integer? key)
                                (>= key 0)
                                (< key (count state)))
-          (map? state) (not (= (get state key :no-value) :no-value))
+          (map? state) (contains? state key)
           true (assert false ["not a state" state]))))
 
 (defn subtrace [state key]

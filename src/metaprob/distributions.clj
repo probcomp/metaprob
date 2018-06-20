@@ -8,30 +8,6 @@
 ;; -----------------------------------------------------------------------------
 ;; Distributions (nondeterministic procedures)
 
-;; Code translated from class BernoulliOutputPSP(DiscretePSP):
-;;
-;; The larger the weight, the more likely it is that the sample is
-;; true rather than false.
-
-(define flip
-  (inf "flip"
-       (gen [inputs intervene target output]
-         (define weight (nth inputs 0))
-         (define [value score]
-           (if (and intervene (trace-has? intervene))
-             ;; Deterministic, so score is 0
-             [(trace-get intervene) 0]
-             (if (and target (trace-has? target))
-               [(trace-get target)
-                (if (trace-get target)
-                  ;; E.g. if weight is 0.5, (log weight) is -0.69
-                  (log weight)
-                  (log1p (sub 0 weight)))]
-               [(lt (sample-uniform) weight) 0])))
-         (if output
-           (trace-set! output value))
-         [value score])))
-
 (define hard-to-name
   (gen [name sampler scorer]
     (inf name
@@ -48,7 +24,12 @@
              (trace-set! output value))
            [value score]))))
 
-(define flip3
+;; Code translated from class BernoulliOutputPSP(DiscretePSP):
+;;
+;; The larger the weight, the more likely it is that the sample is
+;; true rather than false.
+
+(define flip
   (hard-to-name "flip"
                 (gen [weight] (lt (sample-uniform) weight))
                 (gen [value inputs]

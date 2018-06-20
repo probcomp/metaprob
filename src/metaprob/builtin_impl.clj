@@ -7,8 +7,6 @@
   (:require [clojure.java.io :as io])
   (:require [clojure.set :as set]))
 
-(declare metaprob-pprint)
-
 ;; -----------------------------------------------------------------------------
 ;; Addresses
 
@@ -114,6 +112,9 @@
 ;; This is a kludge, to use until there's a better solution.
 ;; Its purpose is to strip off all properties from the procedure, especially 
 ;; "generative_source", in order to prevent use of the interpreter.
+;; !! TBD:  If ifn is not, in fact, a function, then it is an
+;; interpreted procedure, and it needs to be wrapped so that
+;; the traces and score are ignored.
 
 (defn opaque [name ifn]
   (with-meta ifn nil))
@@ -160,6 +161,7 @@
 ;; TBD: extend this to allow namespace-prefixed variable references foo/bar
 
 (defn top-level-lookup [the-ns name]
+  (assert (string? name) ["wanted a string" name])
   (let [v (ns-resolve the-ns (symbol name))]
     (assert (var? v) ["unbound variable" name the-ns])
     (assert (not (get (meta v) :macro)) ["reference to macro" name the-ns])
@@ -247,194 +249,10 @@
         (.write writor "\n"))
       (.close writor))))
 
-;; -----------------------------------------------------------------------------
-;; Prettyprint
-
-(declare pprint-indented)
-
-(defn  ^:private princ [x] (print x))
-
-(defn pprint-atom [a]
-  (if (mutable-trace? a)
-    (let [x a
-          keyseq (trace-keys x)]
-      (if (trace-has? x)
-        (if (empty? keyseq)
-          (princ (format "{:value %s}" (trace-get x)))    ;should pprint-atom
-          (princ (format "{:value %s, %s: ...}}" (trace-get x) (first keyseq))))
-        (if (empty? keyseq)
-          (princ "{}")
-          (princ (format "{%s: ...}" (first keyseq))))))
-    (pr a)))
-
-;; x is a seq
-
-(defn pprint-seq [x indent open close]
-  (assert (seq? x))
-  (princ open)
-  (let [vertical? (some mutable-trace? x)
-        indent (str indent " ")]
-    (letfn [(lup [x first?]
-              (if (not (empty? x))
-                (do (if (not first?)
-                      (if vertical?
-                        (do (newline)
-                            (princ indent))
-                        (princ " ")))
-                    (pprint-indented (first x) indent)
-                    (lup (rest x) false))))]
-      (lup x true)))
-  (princ close))
-
-(declare compare-keys)
-
-(defn compare-key-lists [x-keys y-keys]
-  (if (empty? x-keys)
-    (if (empty? y-keys) 0 -1)
-    (if (empty? y-keys)
-      1
-      (let [q (compare-keys (first x-keys) (first y-keys))]
-        (if (= q 0)
-          (compare-key-lists (rest x-keys) (rest y-keys))
-          q)))))
-
-(defn compare-traces [x y]
-  (let [w (if (trace-has? x)
-            (if (trace-has? y)
-              (compare-keys (trace-get x) (trace-get y))
-              -1)
-            (if (trace-has? y)
-              -1
-              0))]
-    (if (= w 0)
-      (letfn [(lup [x-keys y-keys]
-                (if (empty? x-keys)
-                  (if (empty? y-keys)
-                    0
-                    -1)
-                  (if (empty? y-keys)
-                    1
-                    (let [j (compare-keys (first x-keys) (first y-keys))]
-                      (if (= j 0)
-                        (let [q (compare-keys (trace-get x (first x-keys))
-                                              (trace-get y (first y-keys)))]
-                          (if (= q 0)
-                            (lup (rest x-keys) (rest y-keys))
-                            q))
-                        j)))))]
-        (lup (sort compare-keys (trace-keys x))
-             (sort compare-keys (trace-keys y))))
-      w)))
-
-(defn compare-keys [x y]
-  (cond (number? x)
-        ;; Numbers come before everything else
-        (if (number? y) (compare x y) -1)
-        (number? y) 1
-
-        (string? x)
-        (if (string? y) (compare x y) -1)
-        (string? y) 1
-
-        (boolean? x)
-        (if (boolean? y) (compare x y) -1)
-        (boolean? y) 1
-
-        (trace? x)
-        (if (trace? y) (compare-traces x y) -1)
-        (trace? y) 1
-
-        true (compare x y)))
-
-(defn pprint-trace [tr indent]
-  (letfn [(re [tr indent tag]
-            (princ indent)
-            (if (mutable-trace? tr) (princ "!"))
-            (if (string? tag)
-              (princ tag)
-              (pprint-atom tag))
-            (if (or (trace-has? tr)
-                    (not (empty? (trace-keys tr))))
-              (princ ": "))
-            ;; If it has a value, clojure-print the value
-            (if (trace-has? tr)
-              (pprint-atom (trace-get tr)))
-            (newline)
-            (let [indent (str indent "  ")]
-              (doseq [key (sort compare-keys (trace-keys tr))]
-                (re (trace-subtrace tr key) indent key))))]
-    (re tr indent "trace")))
-
-(defn pprint-indented [x indent]
-  (cond (empty-trace? x)
-        (pprint-atom x)
-        
-        (seq? x)
-        (pprint-seq x indent "(" ")")
-
-        (vector? x)
-        (pprint-seq (seq x) indent "[" "]")
-
-        (map? x)
-        (pprint-trace x indent)
-
-        (metaprob-pair? x)
-        (pprint-seq (sequence-to-seq x) indent "!(" ")")
-
-        (metaprob-tuple? x)
-        (pprint-seq (sequence-to-seq x) indent "![" "]")
-
-        (mutable-trace? x)
-        (pprint-trace x indent)
-
-        true
-        (pprint-atom x))
-  (flush))
-
-;!!
-(defn metaprob-pprint [x]
-  (pprint-indented x "")
-  (newline)
-  (flush))
-
 ;; Maybe this should print (i.e. princ) instead of pr (i.e. prin1)?
 
 ;!!
 (defn metaprob-print [x]
-  (princ x)
+  (print x)
   (newline)
   (flush))
-
-(declare same-states?)
-
-;; Compare states of two traces.
-
-(defn same-trace-states? [trace1 trace2]
-  (let [trace1 (trace-state trace1)
-        trace2 (trace-state trace2)]
-    (or (identical? trace1 trace2)
-        (and (let [h1 (trace-has? trace1)
-                   h2 (trace-has? trace2)]
-               (and (= h1 h2)
-                    (or (not h1)
-                        (same-states? (trace-get trace1) (trace-get trace2)))))
-             (let [keys1 (set (trace-keys trace1))
-                   keys2 (set (trace-keys trace2))]
-               (and (= keys1 keys2)
-                    (every? (fn [key]
-                              (same-trace-states? (trace-subtrace trace1 key)
-                                                  (trace-subtrace trace2 key)))
-                            keys1)))))))
-
-;; Compare states of two values that might or might not be traces.
-
-(defn same-states? [value1 value2]
-  (or (identical? value1 value2)
-      (if (trace? value1)
-        (if (trace? value2)
-          (same-trace-states? value1 value2)
-          false)
-        (if (trace? value2)
-          false
-          (= value1 value2)))))
-

@@ -32,8 +32,8 @@
       (is (= (trace-get (metaprob-rest tr)) 33))
       (is (= (length tr) 3))
       (is (= (length (sequence-to-seq tr)) 3))
-      (is (= (trace-get (lookup tr "rest")) 33))
-      (is (= (trace-get (lookup tr '("rest" "rest"))) 97)))
+      (is (= (trace-get tr "rest") 33))
+      (is (= (trace-get tr '("rest" "rest")) 97)))
     (let [tr [17 33 97]]
       (is (= (length tr) 3))
       (is (= (length (sequence-to-seq tr)) 3)))))

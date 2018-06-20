@@ -4,6 +4,10 @@
 
 ; 
 
+(deftest nil-not-a-trace
+  (testing "nil is not a trace"
+    (is (not (trace? nil)))))
+
 (deftest foreign-1
   (testing "tests for foreign-procedures"
     (let [ifn cons]
@@ -62,18 +66,18 @@
       (is (= (trace-get tr) 5))
       (is (count-is? tr 3))
 
-      (is (= (trace-get (lookup tr "a")) 17))
+      (is (= (trace-get (trace-subtrace tr "a")) 17))
       (is (= (trace-get tr "b") 33))
 
       (is (= (trace-get tr2) 31))
       (is (= (trace-get tr2 "y") 19))
 
-      (let [c (lookup tr "c")]
+      (let [c (trace-subtrace tr "c")]
         (is (= (trace-get c) 31))
         (is (= (trace-get c "x") 13))
         (is (count-is? c 2)))
 
-      (is (= (trace-get (lookup tr '("c" "x"))) 13))
+      (is (= (trace-get (trace-subtrace tr '("c" "x"))) 13))
       (is (= (trace-get tr '("c" "x")) 13)))))
 
 (deftest empty-as-trace
@@ -89,7 +93,20 @@
   (testing "make-mutable-trace test"
     (is (= (trace-get (make-mutable-trace {:value 17})) 17))
     (is (= (trace-get (trace-state (make-mutable-trace {:value 17}))) 17))
-    (is (= (trace-get (make-mutable-trace '(17))) 17))))
+    (is (= (trace-keys (make-mutable-trace [17])) '(0)))
+    (is (= (count (trace-keys (make-mutable-trace '(17)))) 1))
+    (is (= (trace-keys (make-mutable-trace {"foo" 17})) '("foo")))))
+
+(deftest subtrace-1
+  (testing "trace-has-subtrace?"
+    (is (not (trace-has-subtrace? '() "foo")))
+    (is (not (trace-has-subtrace? '() '("foo"))))
+    (is (not (trace-has-subtrace? '() '("foo" "bar"))))
+    (is (trace-has-subtrace? [13 17] 0))
+    (is (trace-has-subtrace? [13 17] '(0)))
+    (is (not (trace-has-subtrace? [13 17] 2)))
+    (is (trace-has-subtrace? '(13 17) "rest"))
+    (is (not (trace-has-subtrace? '(13 17) 0)))))
 
 (deftest seq-as-trace
   (testing "see how well seqs serve as traces"
@@ -120,18 +137,18 @@
       (is (= (trace-get tr) 5))
       (is (count-is? tr 3))
 
-      (is (= (trace-get (lookup tr "a")) 17))
+      (is (= (trace-get (trace-subtrace tr "a")) 17))
       (is (= (trace-get tr "b") 33))
 
       (is (= (trace-get tr2) 31))
       (is (= (trace-get tr2 "y") 19))
 
-      (let [c (lookup tr "c")]
+      (let [c (trace-subtrace tr "c")]
         (is (= (trace-get c) 31))
         (is (= (trace-get c "x") 13))
         (is (count-is? c 2)))
 
-      (is (= (trace-get (lookup tr '("c" "x"))) 13))
+      (is (= (trace-get (trace-subtrace tr '("c" "x"))) 13))
       (is (= (trace-get tr '("c" "x")) 13)))))
 
 (deftest trace-1
@@ -186,3 +203,65 @@
       (let [adr (list "bar" "baz")]
         (trace-set! tr adr 19)
         (is (= (trace-get tr adr) 19))))))
+
+;; ---- locative tests
+
+(deftest lookup-1
+  (testing "locative smoke test")
+  (let [tr1 (empty-trace)
+        tr2 (lookup tr1 "foo")]
+    (trace-set! tr2 17)
+    (is (trace-get tr2) 17)
+    (is (trace-get tr1 "foo") 17)))
+
+(deftest lookup-2
+  (testing "harder locative smoke test")
+  (let [tr1 (empty-trace)
+        tr2 (lookup tr1 "foo")
+        tr3 (lookup tr2 "bar")]
+    (trace-set! tr3 17)
+    (is (trace-get tr3) 17)
+    (is (trace-get tr2 "bar") 17)
+    (is (trace-get tr1 '("foo" "bar")) 17)))
+
+(deftest lookup-2a
+  (testing "harder locative smoke test, different order")
+  (let [tr1 (empty-trace)
+        tr2 (lookup tr1 "foo")
+        tr3 (lookup tr2 "bar")]
+    (trace-set! tr2 13)
+    (trace-set! tr3 17)
+    (is (trace-get tr3) 17)
+    (is (trace-get tr2 "bar") 17)
+    (is (trace-get tr1 '("foo" "bar")) 17)
+    (is (trace-get tr2) 13)
+    (is (trace-get tr1 "foo") 13)))
+
+(deftest same-1
+  (testing "object comparison smoke test"
+    (is (same-states? 7 7))
+    (is (not (same-states? 7 8)))
+    (is (same-trace-states? '(11 13) (list 11 13)))
+    (is (not (same-trace-states? '(17 19) '(17))))
+    (is (not (same-trace-states? '(17 19) '(17 19 23))))
+    (is (same-trace-states? (trace "a" 29 "b" 31)
+                            (trace "a" 29 "b" 31)))
+    (is (not (same-trace-states? (trace "a" 29 "b" 31)
+                                 (trace "a" 29 "b" 31 "c" 37))))
+    (is (not (same-trace-states? (trace "a" 29 "b" 31 "c" 37)
+                                 (trace "a" 29 "b" 31))))
+    (is (not (same-trace-states? (trace "a" 29 "b" 31)
+                                 (trace "a" 29 "b" 31 :value 12))))))
+
+(deftest compare-keys-1
+  (testing "compare-keys smoke tests"
+    (is (= (compare-keys 7 7) 0))
+    (is (< (compare-keys 7 "foo") 0))
+    (is (> (compare-keys "foo" 7) 0))
+    (is (< (compare-keys 7 {"foo" 7}) 0))
+    (is (< (compare-keys {"abc" {:value 7}} {"foo" {:value 9}}) 0))
+    (is (= (compare-keys {"abc" {:value 9}} {"abc" {:value 9}}) 0))
+    (is (< (compare-keys {"abc" {:value 9}} {"abc" {:value 9} :value 5}) 0))
+    (is (> (compare-keys {"abc" {:value 9}} {"abc" {:value 7}}) 0))
+    (is (> (compare-keys {"abc" {:value 9} "foo" {:value 17}} {"abc" {:value 9}}) 0))))
+

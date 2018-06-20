@@ -2,6 +2,14 @@
   (:require [clojure.test :refer :all]
             [metaprob.state :refer :all]))
 
+(deftest keys-1
+  (testing "state-keys smoke tests"
+    (is (= (state-keys '()) '()))
+    (is (= (state-keys '(a)) (list rest-marker)))
+    (is (= (state-keys '[17]) (list 0)))
+    (is (= (state-keys '{"a" 17}) (list "a")))
+    (is (= (state-keys '{"a" 17 :value 19}) (list "a")))))
+
 (deftest state-to-from-map-1
   (testing "tests for state-to-map"
     (let [a [7 8]
@@ -29,11 +37,16 @@
   (testing "tests for has-subtrace?"
     (is (not (has-subtrace? '{} "foo")))
     (is      (has-subtrace? '{"foo" 7} "foo"))
+    (is (not (has-subtrace? '{"foo" 7} "bar")))
     (is      (has-subtrace? '{"foo" nil} "foo"))
     (is (not (has-subtrace? '() "foo")))
+    (is (not (has-subtrace? '() rest-marker)))
     (is      (has-subtrace? '(7 8) rest-marker))
+    (is (not (has-subtrace? '(7 8) 7)))
+    (is (not (has-subtrace? '[] 0)))
     (is (not (has-subtrace? '[] 1)))
-    (is      (has-subtrace? '[7 8] 1))))
+    (is      (has-subtrace? '[7 8] 1))
+    (is (not (has-subtrace? '[7 8] 3)))))
 
 (deftest subtrace-1
   (testing "tests for subtrace"

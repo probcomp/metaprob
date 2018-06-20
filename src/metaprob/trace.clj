@@ -7,13 +7,14 @@
 ;;   3. clojure object with (meta ...) having :trace property
 ;;        (usually a procedure)
 
+(declare metaprob-pprint)
 
 ;; ----------------------------------------------------------------------------
 ;; Metaprob type predicates
 
 ;; Clojure function ~= Metaprob procedure
 
-(defn procedure? [x]
+(defn ^:private function? [x]
   (and (instance? clojure.lang.IFn x)
        (not (seq? x))
        (not (vector? x))
@@ -35,10 +36,10 @@
 
 ;; Generic trace types
 
+(defn make-cell [x] (atom x))
+
 (defn cell? [x]
   (instance? clojure.lang.Atom x))
-
-(defn make-cell [x] (atom x))
 
 (defn trace? [tr]
   (or (get (meta tr) :trace)
@@ -60,86 +61,92 @@
       (trace? val)
       (keyword? val)
       (top-level-environment? val)
-      (procedure? val)))
+      (function? val)))
 
 ;; ----------------------------------------------------------------------------
 ;; Basic utilities implementing generic traces
 
-(declare trace-deref)
+(declare trace-set-direct-subtrace!
+         trace-has-direct-subtrace?
+         trace-direct-subtrace
+         snap-link-if-any!)
 
-;; Coerce trace to something we can access (its state)
+;; Coerce trace to something we can use (its state)
 
 (defn trace-state [tr]
   (let [met (get (meta tr) :trace)]
     (if met
       (trace-state met)
       (if (cell? tr)
-        (trace-state (trace-deref tr))
+        (let [contents (snap-link-if-any! tr)]
+          (if (and (map? contents)
+                   (contains? contents :parent-trace))
+            (do (print ["failing locative" (get contents :key)])
+                (state/empty-state))
+            (trace-state contents)))
         (if (state/state? tr)
           tr
-          (assert (state/state? tr) ["trace-state wta" tr]))))))
+          (assert false ["trace-state wta" tr]))))))
+
+;; Returns new contents of cell
+
+(defn snap-link-if-any! [cell]
+  (swap! cell
+         (fn [d]
+           (if (and (map? d)
+                    (contains? d :parent-trace))
+             (let [parent (get d :parent-trace) key (get d :key)]
+               (if (trace-has-direct-subtrace? parent key)
+                 (do (print ["forwarding" key])
+                     ;; I think maybe this case does not occur:
+                     (trace-direct-subtrace parent key))
+                 (do (trace-set-direct-subtrace! parent key cell)
+                     (state/empty-state))))
+             ;; A proper trace (cell, meta or state) - leave unchanged
+             d))))
 
 ;; Coerce trace to something we can update (an cell whose contents is
-;; a state)
+;; a state).
+;; Cells are used for two purposes: mutable traces; and locatives.
+;; An assumption is that if we are trying to get the cell, it's because
+;; we're planning to update it.
 
 (defn trace-cell [tr]
   (let [met (get (meta tr) :trace)]
     (if met
       (trace-cell met)
       (if (cell? tr)
-        (let [d (trace-deref tr)]
+        (let [d (snap-link-if-any! tr)]
           (if (state/state? d)
-            tr
+            tr                          ;Success - cell containing a state
             (trace-cell d)))
-        (assert (state/state? tr)
+        (assert false
                 ["expected a mutable trace" tr])))))
+
+;; Create a cell referring to future subtrace of a trace
+
+(defn ^:private make-locative [parent key]
+  (assert (ok-key? key) key)
+  (if (trace-has-direct-subtrace? parent key)
+    (let [sub (trace-direct-subtrace parent key)]
+      (assert (mutable-trace? sub) [sub key])
+      sub)
+    (make-cell {:parent-trace parent :key key})))
 
 ;; Fetch and store the state of an cell.
 ;; Need to deal with locatives; a bit of a kludge.
 ;; Hoping that locatives will just go away pretty soon.
 
-(declare trace-set-direct-subtrace!
-         trace-has-direct-subtrace?
-         trace-direct-subtrace)
+;; Utility for setting the state of a mutable trace.
+;; It's not documented, but swap! returns the value stored.
 
-(defn trace-deref [tr]    ; tr is an cell
-  ;; It's not documented, but swap! returns the value stored.
-  (swap! tr (fn [contents]
-              (if (map? contents)
-                (let [parent (get contents :parent-trace)]
-                  ;; We were supposed to be the key subnode of parent,
-                  ;; but somebody else got there first.
-                  (if parent
-                    (let [key (get contents :key)]
-                      (if (trace-has-direct-subtrace? parent key)
-                        ;; It's ready now - forward this cell
-                        ;; to the already-created cell.
-                        ;; N.b. we might replace cell contents with an atom,
-                        ;;  ergo atom->atom->state.
-                        (trace-direct-subtrace parent key)
-                        contents))
-                    contents))
-                contents))))
-
-;; Utility for setting the state of a mutable trace, snapping locative
-;; links as needed.
+;; Swapper maps states to states (not traces to traces).
+;; If locative, then until now, the parent has not pointed to the child.
+;; But now that the child is legitimate, it's OK to link it in.
 
 (defn ^:private trace-swap! [tr swapper] ;tr is an cell
-  (let [tr (trace-cell tr)]
-    (swap! tr
-           (fn [state]
-             (if (map? state)
-               (let [parent (get state :parent-trace)]
-                 (if parent
-                   (let [key (get state :key)]
-                     ;; Might be better if this were transactional...
-                     (trace-set-direct-subtrace! parent key tr)
-                     (swapper {}))
-                   (swapper state)))
-               (swapper state))))))
-
-(defn make-locative [parent key]
-  (make-cell {:parent-trace parent :key key}))
+  (swap! (trace-cell tr) swapper)
+  "value of trace-swap!")
 
 ;; Procedures are of four kinds:
 ;;    compiled / interpreted
@@ -151,19 +158,31 @@
 ;; The other three kinds have only representation #2.
 
 (defn trace-as-procedure? [x]
-  (get (meta x) :trace))
+  (if (get (meta x) :trace) true false))
 
 (defn trace-as-procedure-trace [x]
   (get (meta x) :trace))
 
+;; Formerly (and (not (trace-as-procedure? x))) ...
+;;  see infer-apply
+
 (defn foreign-procedure? [x]
-  (and (procedure? x)
-       (not (trace-as-procedure? x))))
+  (function? x))
 
 (defn trace-as-procedure [tr ifn]
   (do (assert (instance? clojure.lang.IFn ifn) ifn)
       (assert (trace? tr) tr)
       (with-meta ifn {:trace tr})))
+
+;; I don't think this is used, but it's documentational
+
+(declare trace-get)
+
+(defn procedure? [val]
+  (or (function? val)
+      (and (trace? val)
+           (or (trace-get val "infer-method")
+               (trace-get val "generative-source")))))
 
 ;; ----------------------------------------------------------------------------
 ;; Generic trace operations
@@ -208,7 +227,7 @@
                (rest adr))))
     (trace-direct-subtrace tr adr)))
     
-(defn trace-has?
+(defn trace-has?                        ;Does it have a value?
   ([tr] (trace-has-value? tr))
   ([tr adr]
    (if (seq? adr)
@@ -221,8 +240,7 @@
      (and (trace-has-direct-subtrace? tr adr)
           (trace-has? (trace-direct-subtrace tr adr))))))
 
-;; Neither VKM nor JAR can remember to write (trace-get (lookup x key))
-;; rather than just (trace-get x key).  So allow both
+;; Formerly called 'lookup'
 
 (defn trace-get
   ([tr] (trace-value tr))
@@ -232,21 +250,25 @@
 (defn empty-trace? [x]
   (empty? (trace-state x)))
 
-;; Special hack for output trace management - phase out
+;; Special hack for output trace management - phase out.
+;; The result is always going to be mutated, so should be a cell.
 
 (defn lookup [tr adr]                  ; e[e]
-  (if (seq? adr)
-    (loop [tr tr adr adr]
-      (if (empty? adr)
-        tr
-        (if (trace-has-direct-subtrace? tr (first adr))
-          (recur (trace-direct-subtrace tr (first adr))
-                 (rest adr))
-          (recur (make-locative tr (first adr))
-                 (rest adr)))))
-    (if (trace-has-direct-subtrace? tr adr)
-      (trace-direct-subtrace tr adr)
-      (make-locative tr adr))))
+  (if (= tr nil)
+    nil
+    (let [adr0 adr                                               ;REMOVE
+          sub
+          (if (seq? adr)
+            ;; adr is a seq of keys
+            (loop [tr tr adr adr]
+              (if (empty? adr)
+                tr
+                (recur (make-locative tr (first adr))
+                       (rest adr))))
+            ;; adr is a key
+            (make-locative tr adr))]
+      (assert (mutable-trace? sub) ["lookup result" adr sub])
+      sub)))
 
 ;; Returns a clojure seq of the numbered subtraces of the trace tr.
 ;; Used in: to-clojure and related
@@ -314,12 +336,14 @@
     (trace-set-direct-subtrace! tr adr sub)))
 
 (defn ^:private trace-set-value! [tr val]
-  (assert (ok-value? val))
+  (assert (ok-value? val) val)
+  (assert (mutable-trace? tr) tr)            ;REMOVE
   (trace-swap! tr
                (fn [state]
                  (state/set-value state val))))
 
 (defn ^:private trace-set-value-at! [tr adr val] ;cf. trace-get
+  (assert (mutable-trace? tr) tr)
   (let [adr (if (seq? adr) adr (list adr))]
     (loop [tr tr adr adr]
       (if (empty? adr)
@@ -421,3 +445,178 @@
 (defn mutable-trace [& key-value-pairs]
   (make-mutable (state/map-to-state
                  (kv-pairs-to-map key-value-pairs))))
+
+;; -----------------------------------------------------------------------------
+;; Prettyprint
+
+(declare pprint-indented)
+
+(defn  ^:private princ [x]
+  (print x))
+
+(defn pprint-atom [a]
+  (if (mutable-trace? a)
+    (let [x a
+          keyseq (trace-keys x)]
+      (if (trace-has? x)
+        (if (empty? keyseq)
+          (princ (format "{:value %s}" (trace-get x)))    ;should pprint-atom
+          (princ (format "{:value %s, %s: ...}}" (trace-get x) (first keyseq))))
+        (if (empty? keyseq)
+          (princ "{}")
+          (princ (format "{%s: ...}" (first keyseq))))))
+    (pr a)))
+
+;; x is a seq
+
+(defn pprint-seq [x indent open close]
+  (assert (seq? x))
+  (princ open)
+  (let [vertical? (some mutable-trace? x)
+        indent (str indent " ")]
+    (letfn [(lup [x first?]
+              (if (not (empty? x))
+                (do (if (not first?)
+                      (if vertical?
+                        (do (newline)
+                            (princ indent))
+                        (princ " ")))
+                    (pprint-indented (first x) indent)
+                    (lup (rest x) false))))]
+      (lup x true)))
+  (princ close))
+
+(declare compare-keys)
+
+(defn compare-key-lists [x-keys y-keys]
+  (if (empty? x-keys)
+    (if (empty? y-keys) 0 -1)
+    (if (empty? y-keys)
+      1
+      (let [q (compare-keys (first x-keys) (first y-keys))]
+        (if (= q 0)
+          (compare-key-lists (rest x-keys) (rest y-keys))
+          q)))))
+
+(defn compare-traces [x y]
+  (let [w (if (trace-has? x)
+            (if (trace-has? y)
+              (compare-keys (trace-get x) (trace-get y))
+              -1)
+            (if (trace-has? y)
+              -1
+              0))]
+    (if (= w 0)
+      (letfn [(lup [x-keys y-keys]
+                (if (empty? x-keys)
+                  (if (empty? y-keys)
+                    0
+                    -1)
+                  (if (empty? y-keys)
+                    1
+                    (let [j (compare-keys (first x-keys) (first y-keys))]
+                      (if (= j 0)
+                        (let [q (compare-keys (trace-get x (first x-keys))
+                                              (trace-get y (first y-keys)))]
+                          (if (= q 0)
+                            (lup (rest x-keys) (rest y-keys))
+                            q))
+                        j)))))]
+        (lup (sort compare-keys (trace-keys x))
+             (sort compare-keys (trace-keys y))))
+      w)))
+
+(defn compare-keys [x y]
+  (cond (number? x)
+        ;; Numbers come before everything else
+        (if (number? y) (compare x y) -1)
+        (number? y) 1
+
+        (string? x)
+        (if (string? y) (compare x y) -1)
+        (string? y) 1
+
+        (boolean? x)
+        (if (boolean? y) (compare x y) -1)
+        (boolean? y) 1
+
+        (trace? x)
+        (if (trace? y) (compare-traces x y) -1)
+        (trace? y) 1
+
+        true (compare x y)))
+
+(defn pprint-trace [tr indent]
+  (letfn [(re [tr indent tag]
+            (if (string? tag)
+              (princ tag)
+              (pprint-atom tag))
+            (if (or (trace-has? tr)
+                    (not (empty? (trace-keys tr))))
+              (princ ": "))
+            ;; If it has a value, clojure-print the value
+            (if (trace-has? tr)
+              (pprint-atom (trace-get tr)))
+            (newline)
+            (princ indent)
+            (let [indent (str indent "  ")]
+              (doseq [key (sort compare-keys (trace-keys tr))]
+                (re (trace-subtrace tr key) indent key))))]
+    (re tr indent "trace")))
+
+;; indent gives indentation after first line...?
+
+(defn pprint-indented [x indent]
+  (if (trace? x)
+    (do (if (mutable-trace? x) (princ "!"))
+        (let [x (trace-state x)]
+          (cond (seq? x)
+                (pprint-seq x indent "(" ")")
+
+                (vector? x)
+                (pprint-seq (seq x) indent "[" "]")
+
+                true
+                (pprint-trace x indent))))
+    (pprint-atom x))
+  (flush))
+
+;!!
+(defn metaprob-pprint [x]
+  (pprint-indented x "")
+  (newline)
+  (flush))
+
+(declare same-states?)
+
+;; Compare states of two traces.
+
+(defn same-trace-states? [trace1 trace2]
+  (let [trace1 (trace-state trace1)
+        trace2 (trace-state trace2)]
+    (or (identical? trace1 trace2)
+        (and (let [h1 (trace-has? trace1)
+                   h2 (trace-has? trace2)]
+               (and (= h1 h2)
+                    (or (not h1)
+                        (same-states? (trace-get trace1) (trace-get trace2)))))
+             (let [keys1 (set (trace-keys trace1))
+                   keys2 (set (trace-keys trace2))]
+               (and (= keys1 keys2)
+                    (every? (fn [key]
+                              (same-trace-states? (trace-subtrace trace1 key)
+                                                  (trace-subtrace trace2 key)))
+                            keys1)))))))
+
+;; Compare states of two values that might or might not be traces.
+
+(defn same-states? [value1 value2]
+  (or (identical? value1 value2)
+      (if (trace? value1)
+        (if (trace? value2)
+          (same-trace-states? value1 value2)
+          false)
+        (if (trace? value2)
+          false
+          (= value1 value2)))))
+

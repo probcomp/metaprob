@@ -144,17 +144,25 @@
     (define intervene (trace-get captured "intervention-trace"))
     (define target (trace-get captured "target-trace"))
     (define output (trace-get captured "output-trace"))
-    [(if intervene (maybe-subtrace intervene more) nil)
-     (if target (maybe-subtrace target more) nil)
-     (if output (lookup output more) nil)]))
+    [(maybe-subtrace intervene more)
+     (maybe-subtrace target more)
+     (lookup output more)]))
 
 ;; Get the key to use for storing the result of a procedure call.
 
 (define procedure-key
   (gen [exp]
-    (if (eq (trace-get exp) "variable")
-      (trace-get exp "name")
-      "call")))
+    (define key (if (eq (trace-get exp) "variable")
+                  (trace-get exp "name")
+                  "call"))
+    (assert (ok-key? key) key)
+    key))
+
+;; Extend an address.
+
+(define extend-addr
+  (gen [adr key]
+    (add adr (addr key))))
 
 ;; ----------------------------------------------------------------------------
 
@@ -170,48 +178,55 @@
   (gen [proc inputs intervene target output]
     (assert (or (list? inputs) (tuple? inputs))
             ["inputs neither list nor tuple" inputs])
+    (assert (or (eq output nil)
+                (mutable-trace? output))
+            output)
     (if (and (trace? proc) (trace-has? proc "infer-method"))
       ;; Proc is a special inference procedure returned by `inf`.
       ;; Return the value+score that the infer-method computes.
-      ((trace-get proc "infer-method")
-       inputs intervene target output)
-      (block
-       ;; Proc is a generative procedure, either 'foreign' (opaque, compiled)
-       ;; or 'native' (interpreted).
-       ;; First call the procedure.  We can't skip the call when there
-       ;; is an intervention, because the call might have side effects.
-       (define [value score]
-         (if (and (trace? proc) (trace-has? proc "generative-source"))
-           ;; 'Native' procedure
-           (infer-apply-native proc inputs intervene target output)
-           (if (foreign-procedure? proc)
-             ;; 'Foreign' procedure
-             [(generate-foreign proc inputs) 0]
-             (block (pprint proc)
-                    (error "infer-apply: not a procedure" proc)))))
-       ;; Potentially modify value based on intervention trace
-       (define intervention? (and intervene (trace-has? intervene)))
-       (define intervention-value
-         (if intervention?
-           (trace-get intervene)
-           value))
-       ;; Potentially modify value (and score) based on target trace
-       (define [value2 score2]
-         (if (and target (trace-has? target))
-           [(trace-get target)
-            (if intervention?
-              ;; Score goes infinitely bad if there is both an
-              ;; intervention and a constraint, and they differ
-              (if (same-trace-states? (trace-get target) intervention-value)
-                score
-                (do (print ["value mismatch!" (trace-get target) intervention-value])
-                    negative-infinity))
-              score)]
-           [intervention-value score]))
-       ;; Store value in output trace
-       (if output
-         (trace-set! output value2))
-       [value2 score2]))))
+      ((trace-get proc "infer-method") inputs intervene target output)
+      (if (and (foreign-procedure? proc)
+               (not (or intervene target output)))
+        [(generate-foreign proc inputs) 0]
+        (block
+         ;; Proc is a generative procedure, either 'foreign' (opaque, compiled)
+         ;; or 'native' (interpreted).
+         ;; First call the procedure.  We can't skip the call when there
+         ;; is an intervention, because the call might have side effects.
+         (define [value score]
+           (if (and (trace? proc) (trace-has? proc "generative-source"))
+             ;; 'Native' generative procedure
+             (infer-apply-native proc inputs intervene target output)
+             (if (foreign-procedure? proc)
+               ;; 'Foreign' generative procedure
+               [(generate-foreign proc inputs) 0]
+               (block (pprint proc)
+                      (error "infer-apply: not a procedure" proc)))))
+         ;; Apply intervention trace to get modified value
+         (define intervention? (and intervene (trace-has? intervene)))
+         (define post-intervention-value
+           (if intervention?
+             (trace-get intervene)
+             value))
+         ;; Apply target trace to get modified value and score
+         (define [post-target-value score2]
+           (if (and target (trace-has? target))
+             [(trace-get target)
+              (if intervention?
+                ;; Score goes infinitely bad if there is both an
+                ;; intervention and a constraint, and they differ
+                (if (same-trace-states? (trace-get target) post-intervention-value)
+                  score
+                  (do (print ["value mismatch!"
+                              (trace-get target)
+                              post-intervention-value])
+                      negative-infinity))
+                score)]
+             [post-intervention-value score]))
+         ;; Store value in output trace
+         (if output
+           (trace-set! output post-target-value))
+         [post-target-value score2])))))
 
 ;; Invoke a 'native' generative procedure, i.e. one written in
 ;; metaprob, with inference mechanics (traces and scores).
@@ -222,14 +237,14 @@
         intervene
         target
         output]
-    (define source (lookup proc "generative-source"))
+    (define source (trace-subtrace proc "generative-source"))
     (define environment (trace-get proc "environment"))
     (define new-env (make-env environment))
     ;; Extend the enclosing environment by binding formals to actuals
-    (match-bind (lookup source "pattern")
+    (match-bind (trace-subtrace source "pattern")
                 inputs
                 new-env)
-    (infer-eval (lookup source "body")
+    (infer-eval (trace-subtrace source "body")
                 new-env
                 intervene
                 target
@@ -239,6 +254,9 @@
 
 (define infer-eval
   (gen [exp env intervene target output]
+    (assert (or (eq output nil)
+                (mutable-trace? output))
+            output)
     (define walk
       (gen [exp env address]
         (define [v score]
@@ -257,18 +275,18 @@
                             (define [v s]
                               (walk (trace-subtrace exp i)
                                     env
-                                    (add address (addr i))))
+                                    (extend-addr address i)))
                             (trace-set! subscore (add (trace-get subscore) s))
                             v)
                           (range n)))
                    (define new-addr
-                     (add address (addr (procedure-key (trace-subtrace exp 0)))))
+                     (extend-addr address (procedure-key (trace-subtrace exp 0))))
                    (define [val score]
                      (infer-apply (first values)
                                   (rest values)
-                                  (and intervene (lookup intervene new-addr))
-                                  (and target (lookup target new-addr))
-                                  (and output (lookup output new-addr))))
+                                  (maybe-subtrace intervene new-addr)
+                                  (maybe-subtrace target new-addr)
+                                  (lookup output new-addr)))
                    [val (add (trace-get subscore) score)])
 
             "variable"
@@ -279,38 +297,29 @@
 
             ;; Gen-expression yields a generative procedure
             "gen"
-            (block (define proc
-                     (mutable-trace :value "prob prog"
-                                    "name" (trace-name exp)
-                                    "generative-source" (** exp)
-                                    "environment" env))
-                   [(trace-as-procedure proc
-                                        ;; What to do when called directly
-                                        ;; as a clojure function (this
-                                        ;; should happen rarely if ever)
-                                        (gen [& inputs]
-                                          (nth (infer-apply proc inputs
-                                                            nil nil nil)
-                                               0)))
-                    0])
+            [(mutable-trace :value "prob prog"
+                            "name" (trace-name exp)
+                            "generative-source" (** exp)
+                            "environment" env)
+             0]
 
             ;; Conditional
             "if"
             (block
              (define [pred pred-score]
                (walk
-                (lookup exp "predicate") env
-                (add address (addr "predicate"))))
+                (trace-subtrace exp "predicate") env
+                (extend-addr address "predicate")))
              (if pred
                (block
                 (define [val score]
-                  (walk (lookup exp "then") env
-                        (add address (addr "then"))))
+                  (walk (trace-subtrace exp "then") env
+                        (extend-addr address "then")))
                 [val (add pred-score score)])
                (block
                 (define [val score]
-                  (walk (lookup exp "else") env
-                        (add address (addr "else"))))
+                  (walk (trace-subtrace exp "else") env
+                        (extend-addr address "else")))
                 [val (add pred-score score)])))
 
             ;; Sequence of expressions and definitions
@@ -323,8 +332,8 @@
                      (map          ;; How do we know map is left to right?
                       (gen [i]
                         (define [v s]
-                          (walk (lookup exp i) new-env
-                                (add address (addr i))))
+                          (walk (trace-subtrace exp i) new-env
+                                (extend-addr address i)))
                         (trace-set!
                          subscore
                          (add (trace-get subscore) s))
@@ -338,12 +347,12 @@
             "definition"
             (block (define subaddr
                      (name-for-definiens
-                      (lookup exp "pattern")))
+                      (trace-subtrace exp "pattern")))
                    (define [val score]
-                     (walk (lookup exp subaddr) env
+                     (walk (trace-subtrace exp subaddr) env
                            (add address subaddr)))
                    [(match-bind
-                     (lookup exp "pattern")
+                     (trace-subtrace exp "pattern")
                      val
                      env)
                     score])
@@ -357,15 +366,15 @@
             ;; captured by `&this`
             "with-address"
             (block (define [tag-addr tag-score]
-                     (walk (lookup exp "tag") env
-                           (add address (addr "tag"))))
+                     (walk (trace-subtrace exp "tag") env
+                           (extend-addr address "tag")))
                    ;; tag-addr is actually a quasi-address 
                    ;; (captured . address) - not an address.
                    ;; Must be constructed using (pair x (addr ...))
                    (define [new-intervene new-target new-output]
                      (resolve-tag-address tag-addr))
                    (define [val score]
-                     (infer-eval (lookup exp "expression")
+                     (infer-eval (trace-subtrace exp "expression")
                                  env
                                  new-intervene
                                  new-target
@@ -381,10 +390,8 @@
 
 (define inf
   (gen [name infer-method]
-    (define tr
-      (mutable-trace "name" (add "inf-" (procedure-name infer-method))
-                     "infer-method" infer-method))
-    (trace-as-procedure tr
+    (trace-as-procedure (mutable-trace "name" (add "inf-" (procedure-name infer-method))
+                                       "infer-method" infer-method)
                         ;; When called from Clojure:
                         (gen [& inputs]
                           (nth (infer-method inputs nil nil nil)
@@ -401,7 +408,7 @@
 
 ;; map defined using inf (instead of with-address)
 
-(define map-issue-20
+(define list-map
   (inf "map"
        (gen [[f l] intervene target output]
          (do (define luup
@@ -421,4 +428,10 @@
                              (add subscore score)
                              (pair value result)))
                    [(reverse result) score])))
-             (luup l 0 {})))))
+             (luup l 0 0 {})))))
+
+(define map-issue-20
+  (gen [f l]
+    (if (tuple? l)
+        (to-tuple (list-map f (to-list l)))
+        (list-map f l))))

@@ -1,5 +1,5 @@
 (ns metaprob.prelude-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer :all :exclude [function?]]
             [metaprob.syntax :refer :all]
             [metaprob.trace :refer :all]
             [metaprob.builtin-impl :refer :all])

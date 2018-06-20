@@ -43,13 +43,6 @@
   (gen [n f a]
     (if (lte n 0) a (block (iterate (sub n 1) f (f a))))))
 
-(define replicate
-  (gen [n f]
-    (define root (&this))
-    ;; Should be (map (gen [i] (f)) (range n))
-    ;; because map already sets the correct address.
-    (map (gen [i] (with-address (list root i) (f))) (range n))))
-
 (define repeat
   (gen [times pp]
     (if (gt times 0)
@@ -62,9 +55,16 @@
 
 (define maybe-subtrace
   (gen [tr adr]
-    (if (trace-has-subtrace? tr adr)
+    (if (and tr (trace-has-subtrace? tr adr))
       (trace-subtrace tr adr)
       nil)))
+
+(define replicate
+  (gen [n f]
+    (define root (&this))
+    ;; Should be (map (gen [i] (f)) (range n))
+    ;; because map already sets the correct address.
+    (map (gen [i] (with-address (list root i) (f))) (range n))))
 
 (define map-original
   (gen [f l]

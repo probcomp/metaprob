@@ -4,7 +4,7 @@
 (ns metaprob.builtin
   (:refer-clojure :exclude
                   [not and or case cond
-                   assert pprint print apply
+                   assert print apply
                    list list? first rest last nth range sort])
   (:require [metaprob.trace :as trace])
   (:require [metaprob.sequence :as sequence])
@@ -60,6 +60,7 @@
 (define-foreign-procedure sample-uniform impl/sample-uniform)
 
 ;; Traces
+(define-foreign-procedure ok-key? trace/ok-key?)
 (define-foreign-procedure empty-trace trace/empty-trace)
 (define-foreign-procedure empty-trace? trace/empty-trace?)
 (define-foreign-procedure trace-has? trace/trace-has?)
@@ -120,7 +121,7 @@
 
 ;; Printing
 (define-foreign-procedure print impl/metaprob-print)
-(define-foreign-procedure pprint impl/metaprob-pprint)
+(define-foreign-procedure pprint trace/metaprob-pprint)
 (define-foreign-procedure binned-histogram impl/binned-histogram)
 
 ;; -----------------------------------------------------------------------------
@@ -133,7 +134,7 @@
 
 (def positive-infinity Double/POSITIVE_INFINITY)
 (def negative-infinity Double/NEGATIVE_INFINITY)
-(define-foreign-procedure same-trace-states? impl/same-trace-states?)
+(define-foreign-procedure same-trace-states? trace/same-trace-states?)
 
 (defmacro and [& forms] `(clojure.core/and ~@forms))
 (defmacro or [& forms] `(clojure.core/or ~@forms))
