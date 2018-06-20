@@ -69,30 +69,24 @@
 (define map-original
   (gen [f l]
     (define root (&this))
-    (define
-      ans
-      (if (tuple? l)
+    (if (tuple? l)
         (to-tuple (_map f (to-list l) 0 root))
-        (block (_map f l 0 root))))
-    ;; (dereify_tag root)
-    ans))
+        (block (_map f l 0 root)))))
 
 (define map map-original)
 
 (define _map
   (gen [f l i root]
-    (block
-      (if (pair? l)
-        (block
-          (define val (with-address (list root i) (f (first l))))
-          (pair val (_map f (rest l) (add i 1) root)))
-        (empty-trace)))))
+    (if (pair? l)
+      (block (define val (with-address (list root i) (f (first l))))
+             (pair val (_map f (rest l) (add i 1) root)))
+      l)))
 
 (define _imap
   (gen [f i l]
     (if (pair? l)
       (pair (f i (first l)) (_imap f (add i 1) (rest l)))
-      (empty-trace))))
+      l)))
 
 (define imap
   (gen [f l]
@@ -104,7 +98,7 @@
   (gen [f l1 l2]
     (if (and (pair? l1) (pair? l2))
       (pair (f (first l1) (first l2)) (zipmap f (rest l1) (rest l2)))
-      (empty-trace))))
+      '())))
 
 (define for-each
   (gen [l f]
@@ -136,8 +130,10 @@
       (if (pred (first l))
         (pair (first l) (filter pred (rest l)))
         (block (filter pred (rest l))))
-      (empty-trace))))
+      l)))
 
 (define concat
   (gen [ll]
-    (if (pair? ll) (append (first ll) (concat (rest ll))) (empty-trace))))
+    (if (pair? ll)
+      (append (first ll) (concat (rest ll)))
+      ll)))
