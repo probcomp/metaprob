@@ -411,7 +411,7 @@
 
 ;; map defined using inf (instead of with-address)
 
-(define list-map
+(define map-issue-20
   (inf "map"
        (gen [[fun lst] intervene target output]
          (block (define re
@@ -429,13 +429,9 @@
                              [(pair valu more-valu)
                               (add subscore more-score)])
                       [l 0])))
-                (re lst 0)))))
-
-(define map-issue-20
-  (gen [f l]
-    (if (tuple? l)
-        (to-tuple (list-map f (to-list l)))
-        (list-map f l))))
+                (if (tuple? lst)
+                  (to-tuple (list-map fun (re lst 0)))
+                  (re lst 0))))))
 
 (define map map-issue-20)
 
