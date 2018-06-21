@@ -623,3 +623,37 @@
 ;; Repeat rest-marker here in order to avoid importing the state module
 
 (def rest-marker state/rest-marker)
+
+;; Effectless versions of effectful operators
+
+(defn ^:private trace-subtrace-maybe [tr key]
+  (if (trace-has-subtrace? tr key)
+    (trace-subtrace tr key)
+    (state/empty-state)))
+
+(defn trace-set-subtrace [tr adr sub]
+  (if (seq? adr)
+    (if (empty? adr)
+      sub
+      (state/set-subtrace (trace-state tr)
+                          (first adr)
+                          (trace-set-subtrace (trace-subtrace-maybe tr (first adr))
+                                              (rest adr)
+                                              sub)))
+    (state/set-subtrace (trace-state tr) adr sub)))
+
+(defn trace-set
+  ([tr val]
+   (state/set-value (trace-state tr) val))
+  ([tr adr val]
+   (if (seq? adr)
+     (if (empty? adr)
+       (trace-set tr val)
+       (state/set-subtrace (trace-state tr)
+                           (first adr)
+                           (trace-set (trace-subtrace-maybe tr (first adr))
+                                      (rest adr)
+                                      val)))
+     (state/set-subtrace (trace-state tr)
+                         adr
+                         (trace-set (trace-subtrace-maybe tr adr) val)))))

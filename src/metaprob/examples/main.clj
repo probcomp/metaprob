@@ -4,7 +4,8 @@
   (:require [metaprob.examples.inference-on-gaussian :as ginf]
             ;[criterium.core :as crit]
             )
-  (:gen-class))
+  ;; (:gen-class)
+  )
 
 (def s-to-ns (* 1000 1000 1000)) ; in ns
 

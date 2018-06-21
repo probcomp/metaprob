@@ -7,7 +7,7 @@
   (:require [metaprob.syntax :refer :all])
   (:require [metaprob.builtin :refer :all])
   (:require [metaprob.prelude :refer :all])
-  (:require [metaprob.infer :refer all])
+  (:require [metaprob.infer :refer :all])
   (:require [metaprob.inference :refer :all])
   (:require [metaprob.examples.gaussian :refer [gaussian score-gaussian two-variable-gaussian-model]]))
 
@@ -59,7 +59,7 @@
 
 (define gaussian-prior-samples
   (gen [number-of-runs]
-    (infer/replicate number-of-runs two-variable-gaussian-model)))
+    (replicate number-of-runs two-variable-gaussian-model)))
 
 (define target-trace (empty-trace))
 (trace-set! target-trace (addr 1 "y" "gaussian") 3.0)
