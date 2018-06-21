@@ -10,9 +10,9 @@
   reverse
   _reverse
   iterate
-  replicate
+  ;; replicate
   repeat
-  map
+  ;; map
   _map
   _imap
   imap
@@ -58,29 +58,6 @@
     (if (and tr (trace-has-subtrace? tr adr))
       (trace-subtrace tr adr)
       nil)))
-
-(define replicate
-  (gen [n f]
-    (define root (&this))
-    ;; Should be (map (gen [i] (f)) (range n))
-    ;; because map already sets the correct address.
-    (map (gen [i] (with-address (list root i) (f))) (range n))))
-
-(define map-original
-  (gen [f l]
-    (define root (&this))
-    (if (tuple? l)
-        (to-tuple (_map f (to-list l) 0 root))
-        (block (_map f l 0 root)))))
-
-(define map map-original)
-
-(define _map
-  (gen [f l i root]
-    (if (pair? l)
-      (block (define val (with-address (list root i) (f (first l))))
-             (pair val (_map f (rest l) (add i 1) root)))
-      l)))
 
 (define _imap
   (gen [f i l]
@@ -137,3 +114,29 @@
     (if (pair? ll)
       (append (first ll) (concat (rest ll)))
       ll)))
+
+;; Moved to infer.clj
+
+(define map-original
+  (gen [f l]
+    (define root (&this))
+    (if (tuple? l)
+        (to-tuple (_map f (to-list l) 0 root))
+        (block (_map f l 0 root)))))
+
+(define _map
+  (gen [f l i root]
+    (if (pair? l)
+      (block (define val (with-address (list root i) (f (first l))))
+             (pair val (_map f (rest l) (add i 1) root)))
+      l)))
+
+; (define map map-original)
+
+(define replicate-original
+  (gen [n f]
+    (define root (&this))
+    ;; Should be (map (gen [i] (f)) (range n))
+    ;; because map already sets the correct address.
+    (map-original (gen [i] (with-address (list root i) (f))) (range n))))
+

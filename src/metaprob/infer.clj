@@ -12,6 +12,8 @@
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]))
 
+(declare map)
+
 ;; ----------------------------------------------------------------------------
 ;; Lexical environments, needed by gen macro.
 ;; TBD: Move to prelude?
@@ -434,3 +436,10 @@
     (if (tuple? l)
         (to-tuple (list-map f (to-list l)))
         (list-map f l))))
+
+(define map map-issue-20)
+
+(define replicate
+  (gen [n f]
+    (map (gen [i] (f))
+         (range n))))

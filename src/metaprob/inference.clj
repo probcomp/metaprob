@@ -6,6 +6,7 @@
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
             [metaprob.distributions :refer :all]
+            [metaprob.infer :refer [map replicate]]
             [metaprob.interpreters :refer :all]))
 
 ;; Probabilistic inference methods

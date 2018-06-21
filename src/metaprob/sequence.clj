@@ -1,6 +1,5 @@
 
 (ns metaprob.sequence
-  (:require [metaprob.state :as state])
   (:require [metaprob.trace :refer :all])
   (:require [clojure.set :as set]))
 
@@ -16,7 +15,7 @@
   (and (map? state)
        (= (count state) 2)
        (contains? state :value)
-       (contains? state state/rest-marker)))
+       (contains? state rest-marker)))
 
 (defn metaprob-pair? [x]
   (and (trace? x)
@@ -31,7 +30,7 @@
 
 (defn metaprob-rest [mp-list]
   (assert (metaprob-pair? mp-list))
-  (state/subtrace (trace-state mp-list) state/rest-marker))
+  (trace-subtrace mp-list rest-marker))
 
 (defn pair [thing mp-list]              ;NEEDS ERROR CHECKING
   (assert (ok-value? thing) ["wta" thing])
@@ -40,7 +39,7 @@
           ["wanted empty or pair" mp-list])
   (if (seq? mp-list)
     (cons thing mp-list)                ;Keep it immutable
-    (make-mutable-trace {:value thing state/rest-marker mp-list})))
+    (make-mutable-trace {:value thing rest-marker mp-list})))
 
 ;; 2. Metaprob tuples (implemented as Clojure vectors)
 
@@ -61,7 +60,7 @@
           (vector? state) (seq state)
           (map? state) (if (pair-as-map? state)
                          (cons (get state :value)
-                               (sequence-to-seq (get state state/rest-marker)))
+                               (sequence-to-seq (get state rest-marker)))
                          (assert false ["not a sequence" state]))
           true (assert false ["sequence-to-seq wta" things state]))))
 
@@ -72,7 +71,7 @@
     (cond (seq? state) (count state)
           (vector? state) (count state)
           (map? state) (if (pair-as-map? state)
-                         (+ 1 (length (get state state/rest-marker)))
+                         (+ 1 (length (get state rest-marker)))
                          (assert false ["not a sequence" state]))
           true (assert false ["length wta" tr state]))))
 

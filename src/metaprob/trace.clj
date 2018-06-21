@@ -620,3 +620,6 @@
           false
           (= value1 value2)))))
 
+;; Repeat rest-marker here in order to avoid importing the state module
+
+(def rest-marker state/rest-marker)

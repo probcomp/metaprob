@@ -1,10 +1,10 @@
 ;; The file from which this one was derived is ../main.clj
 
 (ns metaprob.examples.main
-  (:gen-class)
   (:require [metaprob.examples.inference-on-gaussian :as ginf]
-            [criterium.core :as crit]
-            ))
+            ;[criterium.core :as crit]
+            )
+  (:gen-class))
 
 (def s-to-ns (* 1000 1000 1000)) ; in ns
 
@@ -12,14 +12,15 @@
   (flush)
   (if true
     (apply fun args)
-    (crit/report-result
-     (crit/benchmark*
-      (fn [] (apply fun args))
-      {:warmup-jit-period 0
-       :samples 1
-       :target-execution-time (* 10 s-to-ns)
-       :overhead 0
-       }))))
+;    (crit/report-result
+;     (crit/benchmark*
+;      (fn [] (apply fun args))
+;      {:warmup-jit-period 0
+;       :samples 1
+;       :target-execution-time (* 10 s-to-ns)
+;       :overhead 0
+;       }))
+))
 
 ;; For a more serious test, try 100 (takes about an hour?)
 (def number-of-samples 5)
