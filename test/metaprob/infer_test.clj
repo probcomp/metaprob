@@ -229,8 +229,9 @@
 
 (deftest map-1a
   (testing "Map over a clojure list"
-    (let [foo (this-map (fn [x] (+ x 1))
-                           (builtin/list 6 7 8))]
+    (let [start (builtin/list 6 7 8)
+          foo (this-map (fn [x] (+ x 1))
+                        start)]
       (is (builtin/length foo) 3)
       (is (= (builtin/nth foo 0) 7))
       (is (= (builtin/nth foo 1) 8))

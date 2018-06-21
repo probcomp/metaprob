@@ -8,6 +8,7 @@
 (ns metaprob.infer
   (:refer-clojure :only [declare ns])
   (:require [metaprob.syntax :refer :all]
+            [clojure.pprint :as pp]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]))
 
@@ -410,25 +411,23 @@
 
 (define list-map
   (inf "map"
-       (gen [[f l] intervene target output]
-         (do (define luup
-               (gen [l i score result]
-                 (if (pair? l)
-                   (do (define [value subscore]
-                         (infer-apply f
-                                      [(first l)]
-                                      ;; advance traces by address i
-                                      ;; these aren't defined
-                                      (maybe-subtrace intervene i)
-                                      (maybe-subtrace target i)
-                                      (lookup output i)))
-                       ;; What to do with the score?  Just add up?
-                       (luup (rest l)
-                             (add i 1)
-                             (add subscore score)
-                             (pair value result)))
-                   [(reverse result) score])))
-             (luup l 0 0 {})))))
+       (gen [[fun lst] intervene target output]
+         (block (define re
+                  (gen [l i]
+                    (if (pair? l)
+                      (block (define [valu subscore]
+                               (infer-apply fun
+                                            [(first l)]
+                                            ;; advance traces by address i
+                                            (maybe-subtrace intervene i)
+                                            (maybe-subtrace target i)
+                                            (lookup output i)))
+                             (define [more-valu more-score]
+                               (re (rest l) (add i 1)))
+                             [(pair valu more-valu)
+                              (add subscore more-score)])
+                      [l 0])))
+                (re lst 0)))))
 
 (define map-issue-20
   (gen [f l]
