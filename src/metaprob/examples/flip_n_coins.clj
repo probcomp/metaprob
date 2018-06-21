@@ -15,9 +15,9 @@
     (define root-addr (&this))
     (define tricky (flip 0.1))    ;unlikely to be true
     (define weight (if tricky (uniform 0 1) 0.5))
-    (map (gen [i] (with-address (pair root-addr (addr "datum" i)) ;foo
-                    (flip weight)))
-         (range n))))
+    (define datum (map (gen [i] (flip weight))
+                       (range n)))
+    datum))
 
 (define coin-flips-demo-n-flips
   (gen [n]

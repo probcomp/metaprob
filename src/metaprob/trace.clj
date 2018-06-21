@@ -409,7 +409,7 @@
 
 ;; -----------------------------------------------------------------------------
 ;; User-friendly trace construction feature
-;; Cf. book chapter mss figure 7
+;; inspired by python-metaprob
 
 ;; (trace :value 1, "z" 2, "a" (** subtrace), "c" (** (trace "d" 8)))
 
@@ -447,44 +447,7 @@
                  (kv-pairs-to-map key-value-pairs))))
 
 ;; -----------------------------------------------------------------------------
-;; Prettyprint
-
-(declare pprint-indented)
-
-(defn  ^:private princ [x]
-  (print x))
-
-(defn pprint-atom [a]
-  (if (mutable-trace? a)
-    (let [x a
-          keyseq (trace-keys x)]
-      (if (trace-has? x)
-        (if (empty? keyseq)
-          (princ (format "{:value %s}" (trace-get x)))    ;should pprint-atom
-          (princ (format "{:value %s, %s: ...}}" (trace-get x) (first keyseq))))
-        (if (empty? keyseq)
-          (princ "{}")
-          (princ (format "{%s: ...}" (first keyseq))))))
-    (pr a)))
-
-;; x is a seq
-
-(defn pprint-seq [x indent open close]
-  (assert (seq? x))
-  (princ open)
-  (let [vertical? (some mutable-trace? x)
-        indent (str indent " ")]
-    (letfn [(lup [x first?]
-              (if (not (empty? x))
-                (do (if (not first?)
-                      (if vertical?
-                        (do (newline)
-                            (princ indent))
-                        (princ " ")))
-                    (pprint-indented (first x) indent)
-                    (lup (rest x) false))))]
-      (lup x true)))
-  (princ close))
+;; Lexicographic ordering on traces.  Used by prettyprinter.
 
 (declare compare-keys)
 
@@ -546,25 +509,69 @@
 
         true (compare x y)))
 
-(defn pprint-trace [tr indent]
-  (letfn [(re [tr indent tag]
-            (if (string? tag)
-              (princ tag)
-              (pprint-atom tag))
-            (if (or (trace-has? tr)
-                    (not (empty? (trace-keys tr))))
-              (princ ": "))
-            ;; If it has a value, clojure-print the value
-            (if (trace-has? tr)
-              (pprint-atom (trace-get tr)))
-            (newline)
-            (princ indent)
-            (let [indent (str indent "  ")]
-              (doseq [key (sort compare-keys (trace-keys tr))]
-                (re (trace-subtrace tr key) indent key))))]
-    (re tr indent "trace")))
+;; -----------------------------------------------------------------------------
+;; Prettyprint
 
-;; indent gives indentation after first line...?
+(declare pprint-indented)
+
+(defn  ^:private princ [x]
+  (print x))
+
+;; Print a key or a value, on one line
+
+(defn pprint-value [x]
+  (if (mutable-trace? x)
+    (let [keyseq (trace-keys x)]
+      (if (trace-has? x)
+        (if (empty? keyseq)
+          (princ (format "{:value %s}" (trace-get x)))    ;should pprint-value
+          (princ (format "{:value %s, %s: ...}}" (trace-get x) (first keyseq))))
+        (if (empty? keyseq)
+          (princ "{}")
+          (princ (format "{%s: ...}" (first keyseq))))))
+    (pr x)))
+
+;; x is a seq
+
+(defn pprint-seq [x indent open close]
+  (assert (seq? x))
+  (princ open)
+  (let [vertical? (some trace? x)
+        indent (str indent " ")]
+    (letfn [(lup [x first?]
+              (if (not (empty? x))
+                (do (if (not first?)
+                      (if vertical?
+                        (do (newline)
+                            (princ indent))
+                        (princ " ")))
+                    (pprint-indented (first x) indent)
+                    (lup (rest x) false))))]
+      (lup x true)))
+  (princ close))
+
+;; Print {...} trace over multiple lines
+
+(defn pprint-general-trace [tr indent]
+  (let [keys (trace-keys tr)]
+    ;; If it has a value, clojure-print the value
+    (if (trace-has? tr)
+      (pprint-value (trace-get tr))
+      ;; If no value and no subtraces, print as {} (shouldn't happen)
+      (if (empty? keys) (princ "{}")))
+
+    ;; Now print the subtraces
+    (let [indent (str indent "  ")]
+      (doseq [key (sort compare-keys keys)]
+        (newline)
+        (princ indent)
+        (if (string? key)
+          (princ key)
+          (pprint-value key))
+        (princ ": ")
+        (pprint-indented (trace-subtrace tr key) indent)))))
+
+;; Indent gives indentation to use on lines after the first.
 
 (defn pprint-indented [x indent]
   (if (trace? x)
@@ -577,8 +584,8 @@
                 (pprint-seq (seq x) indent "[" "]")
 
                 true
-                (pprint-trace x indent))))
-    (pprint-atom x))
+                (pprint-general-trace x indent))))
+    (pprint-value x))
   (flush))
 
 ;!!
@@ -586,6 +593,8 @@
   (pprint-indented x "")
   (newline)
   (flush))
+
+;; -----------------------------------------------------------------------------
 
 (declare same-states?)
 
