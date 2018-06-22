@@ -123,7 +123,7 @@
 
 ;; Printing
 (define-foreign-procedure print impl/metaprob-print)
-(define-foreign-procedure newline clojure.core/newline)
+(define-foreign-procedure newline trace/metaprob-newline)
 (define-foreign-procedure pprint trace/metaprob-pprint)
 (define-foreign-procedure binned-histogram impl/binned-histogram)
 

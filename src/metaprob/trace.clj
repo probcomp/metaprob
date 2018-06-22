@@ -622,87 +622,95 @@
 ;; -----------------------------------------------------------------------------
 ;; Prettyprint
 
+(defn metaprob-newline
+  ([] (newline))
+  ([out] (.write out "\n")))
+
 (declare pprint-indented)
 
-(defn  ^:private princ [x]
-  (print x))
+(defn  ^:private princ [x out]
+  (.write out (if (string? x) x (format "%s" x))))
 
 ;; Print a key or a value, on one line
 
-(defn pprint-value [x]
+(defn pprint-value [x out]
   (if (mutable-trace? x)
     (let [keyseq (trace-keys x)]
       (if (trace-has? x)
         (if (empty? keyseq)
-          (princ (format "{:value %s}" (trace-get x)))    ;should pprint-value
-          (princ (format "{:value %s, %s: ...}}" (trace-get x) (first keyseq))))
+          (princ (format "{:value %s}" (trace-get x))
+                 out)    ;should pprint-value
+          (princ (format "{:value %s, %s: ...}}" (trace-get x) (first keyseq))
+                 out))
         (if (empty? keyseq)
-          (princ "{}")
-          (princ (format "{%s: ...}" (first keyseq))))))
+          (princ "{}" out)
+          (princ (format "{%s: ...}" (first keyseq)) out))))
     (pr x)))
 
 ;; x is a seq
 
-(defn pprint-seq [x indent open close]
-  (princ open)
+(defn pprint-seq [x indent open close out]
+  (princ open out)
   (let [vertical? (some trace? x)
         indent (str indent " ")]
     (loop [x x first? true]
       (if (not (empty? x))
         (do (if (not first?)
               (if vertical?
-                (do (newline)
-                    (princ indent))
-                (princ " ")))
-            (pprint-indented (first x) indent)
+                (do (metaprob-newline out)
+                    (princ indent out))
+                (princ " " out)))
+            (pprint-indented (first x) indent out)
             (recur (rest x) false)))))
-  (princ close))
+  (princ close out))
 
 ;; Print {...} trace over multiple lines
 
-(defn pprint-general-trace [tr indent]
+(defn pprint-general-trace [tr indent out]
   (let [keys (trace-keys tr)]
     ;; If it has a value, clojure-print the value
     (if (trace-has? tr)
       (pprint-value (trace-get tr))
       ;; If no value and no subtraces, print as {} (shouldn't happen)
-      (if (empty? keys) (princ "{}")))
+      (if (empty? keys) (princ "{}" out)))
 
     ;; Now print the subtraces
     (let [indent (str indent "  ")]
       (doseq [key (sort compare-keys keys)]
-        (newline)
-        (princ indent)
+        (metaprob-newline out)
+        (princ indent out)
         (if (string? key)
-          (princ key)
-          (pprint-value key))
-        (princ ": ")
-        (pprint-indented (trace-subtrace tr key) indent)))))
+          (princ key out)
+          (pprint-value key out))
+        (princ ": " out)
+        (pprint-indented (trace-subtrace tr key) indent out)))))
 
 ;; Indent gives indentation to use on lines after the first.
 
-(defn pprint-indented [x indent]
+(defn pprint-indented [x indent out]
   (if (trace? x)
-    (do (if (function? x) (print "COMPILED "))
-        (if (mutable-trace? x) (princ "!"))
+    (do (if (function? x) (princ "COMPILED " out))
+        (if (mutable-trace? x) (princ "!" out))
         (let [state (trace-state x)]
           (cond (empty? state)
-                (princ "{}")
+                (princ "{}" out)
 
                 (seq? state)
-                (pprint-seq state indent "(" ")")
+                (pprint-seq state indent "(" ")" out)
 
                 (vector? state)
-                (pprint-seq (seq state) indent "[" "]")
+                (pprint-seq (seq state) indent "[" "]" out)
 
                 true
-                (pprint-general-trace state indent))))
-    (pprint-value x))
-  (flush))
+                (pprint-general-trace state indent out))))
+    (pprint-value x out))
+  (.flush out))
 
 ;!!
-(defn metaprob-pprint [x]
-  (pprint-indented x "")
-  (newline)
-  (flush))
+(defn metaprob-pprint
+  ([x] (metaprob-pprint x *out*))
+  ([x out]
+   (pprint-indented x "" out)
+   (metaprob-newline out)
+   (.flush out)))
 
