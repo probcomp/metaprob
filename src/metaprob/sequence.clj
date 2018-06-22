@@ -50,7 +50,10 @@
             inputs)))
 
 (defn metaprob-tuple? [x]
-  (vector? (trace-state x)))
+  (and (trace? x)
+       (let [state (trace-state x)]
+         ;; [] always ends up getting represented as ()
+         (or (empty? state) (vector? state)))))
 
 ;; sequence-to-seq - convert metaprob sequence (list or tuple) to clojure seq.
 

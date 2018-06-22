@@ -105,17 +105,6 @@
       (str "?-" (trace-name pp)))    ;???
     (foreign-procedure-name pp)))    ;E.g. "clojure.core$str@1593f8c5"
 
-;; !! REVIEW
-;; This is a kludge, to use until there's a better solution.
-;; Its purpose is to strip off all properties from the procedure, especially 
-;; "generative_source", in order to prevent use of the interpreter.
-;; !! TBD:  If ifn is not, in fact, a function, then it is an
-;; interpreted procedure, and it needs to be wrapped so that
-;; the traces and score are ignored.
-
-(defn opaque [name ifn]
-  (with-meta ifn nil))
-
 ;; prelude has: trace_of lookup_chain lookup_chain_with_exactly 
 
 ;; What about sp = tracing_proposer_to_prob_prog in prelude (!!) - do
@@ -127,7 +116,8 @@
 
 ;; The assert macro in clojure is much nicer, since (1) it can catch
 ;; exceptions in the evaluation of its subforms, (2) it can show you
-;; the source code for the subforms.
+;; the source code for the subforms, (3) it doesn't evaluate the
+;; 2nd argument unless the condition fails.
 
 (defn metaprob-assert [condition complaint & irritants]
   (binding [*out* *err*]

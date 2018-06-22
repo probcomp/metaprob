@@ -3,7 +3,8 @@
 
 (ns metaprob.builtin
   (:refer-clojure :exclude
-                  [not and or case cond
+                  [newline not
+                   and or case cond
                    assert print apply
                    list list? first rest last nth range sort])
   (:require [metaprob.trace :as trace])
@@ -122,6 +123,7 @@
 
 ;; Printing
 (define-foreign-procedure print impl/metaprob-print)
+(define-foreign-procedure newline clojure.core/newline)
 (define-foreign-procedure pprint trace/metaprob-pprint)
 (define-foreign-procedure binned-histogram impl/binned-histogram)
 
@@ -130,7 +132,6 @@
 
 (define-foreign-procedure generate-foreign impl/generate-foreign)
 (define-foreign-procedure make-foreign-procedure impl/make-foreign-procedure)
-(define-foreign-procedure opaque impl/opaque)
 (define-foreign-procedure foreign-procedure? trace/foreign-procedure?)
 
 (def positive-infinity Double/POSITIVE_INFINITY)

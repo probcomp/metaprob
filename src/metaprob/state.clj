@@ -49,12 +49,15 @@
           true (assert false ["not a state" state]))))
 
 (defn subtrace [state key]
-  (if steady?
-    (get (state-to-map state) key)
-    (cond (seq? state) (rest state)
-          (vector? state) {:value (nth state key)}
-          (map? state) (get state key)
-          true (assert false ["not a state" state]))))
+  (let [val (if steady?
+              (get (state-to-map state) key)
+              (cond (seq? state) (rest state)
+                    (vector? state) {:value (nth state key)}
+                    (map? state) (get state key)
+                    true (assert false ["not a state" state])))]
+    (assert (not (= val nil))
+            ["no such subtrace" key state])
+    val))
 
 (defn state-keys [state]
   (if steady?

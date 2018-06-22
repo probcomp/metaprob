@@ -16,6 +16,7 @@
   (and (instance? clojure.lang.IFn x)
        (not (seq? x))
        (not (vector? x))
+       (not (map? x))
        (not (symbol? x))
        (not (keyword? x))))
 
@@ -249,7 +250,8 @@
    (trace-value (trace-subtrace tr adr))))
 
 (defn empty-trace? [x]
-  (empty? (trace-state x)))
+  (and (trace? x)
+       (empty? (trace-state x))))
 
 ;; Special hack for output trace management - phase out.
 ;; The result is always going to be mutated, so should be a cell.
@@ -447,7 +449,7 @@
 ;; The ** is annoying so you can omit it
 
 (defn ^:private splice? [x]
-  (and (map? x) (contains? x :splice)))
+  (and (map? x) (contains? x :subtrace)))
 
 (defn kv-pairs-to-map [kvps]
   (if (empty? kvps)
@@ -461,7 +463,7 @@
                 (assoc more key val))
             (do (assert (ok-key? key))
                 (if (splice? val)
-                  (assoc more key (get val :splice))
+                  (assoc more key (get val :subtrace))
                   (if (trace? val)      ;DWIM
                     (assoc more key val)
                     (do (assert (ok-value? val))
@@ -469,7 +471,7 @@
 
 (defn ** [tr]
   (assert (trace? tr) "**: expected a trace")
-  {:splice tr})
+  {:subtrace tr})
 
 (defn trace [& key-value-pairs]
   (state/map-to-state
@@ -681,7 +683,8 @@
 
 (defn pprint-indented [x indent]
   (if (trace? x)
-    (do (if (mutable-trace? x) (princ "!"))
+    (do (if (function? x) (print "COMPILED "))
+        (if (mutable-trace? x) (princ "!"))
         (let [state (trace-state x)]
           (cond (empty? state)
                 (princ "{}")

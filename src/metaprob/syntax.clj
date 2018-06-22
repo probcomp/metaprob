@@ -75,9 +75,16 @@
 
 (defmacro named-generator [name params & body]
   {:style/indent 2}
-  (let [fn-exp `(fn ~@(if name `(~name) `())
+  (let [fn-body (if (some #(= '& %) params)
+                  (let [screwy (last params)]
+                    `(let [~screwy (if (= ~screwy nil)
+                                     '()
+                                     ~screwy)]
+                       (block ~@body)))
+                  `(block ~@body))     ;cope with defines if any
+        fn-exp `(fn ~@(if name `(~name) `())
                   ~params
-                  (block ~@body))     ;cope with defines if any
+                  ~fn-body)
         exp-trace (from-clojure `(~'gen ~params ~@body))]
     `(make-generator ~fn-exp
                      '~name
@@ -241,52 +248,61 @@
     (let [body-exp (if (= (count body) 1)
                      (first body)
                      (cons 'block body))]
-      (set-value {"pattern" (from-clojure-pattern pattern)
-                  "body" (from-clojure body-exp)}
-                 "gen"))))
+      (trace :value "gen"
+             "pattern" (** (from-clojure-pattern pattern))
+             "body" (** (from-clojure body-exp))))))
 
 (defn from-clojure-pattern [pattern]
   (if (symbol? pattern)
     (if (= pattern '&)
-      (set-value {} "&")
-      (set-value {"name" (set-value {} (str pattern))} "variable"))
+      (trace :value "&")
+      (trace :value "variable" "name" (str pattern)))
     (do (assert (vector? pattern) pattern)
         (to-immutable
          (trace-from-subtrace-seq (map from-clojure-pattern pattern) "tuple")))))
 
 (defn from-clojure-if [exp]
   (let [[_ pred thn els] exp]
-    (set-value {"predicate" (from-clojure pred)
-                "then" (from-clojure thn)
-                "else" (from-clojure els)}
-               "if")))
+    (trace :value "if"
+           "predicate" (** (from-clojure pred))
+           "then" (** (from-clojure thn))
+           "else" (** (from-clojure els)))))
 
 (defn from-clojure-block [exp]
+  (assert (not (empty? exp))
+          ["empty block" exp])
   (from-clojure-seq (rest exp) "block"))
 
 (defn from-clojure-with-address [exp]
   (let [[_ tag ex] exp]
-    (set-value {"tag" (from-clojure tag)
-                "expression" (from-clojure ex)}
-               "with-address")))
+    (trace :value "with-address"
+           "tag" (** (from-clojure tag))
+           "expression" (** (from-clojure ex)))))
 
-; This doesn't handle _ properly.  Fix later.
+;; Cf. name-for-definiens in infer.clj.
 
 (defn from-clojure-definition [exp]
   (let [[_ pattern rhs] exp
-        key (if (symbol? pattern) (str pattern) "definiens")]
-    (set-value {"pattern" (from-clojure pattern)
-                key (from-clojure rhs)}
-               "definition")))
+        key (if (and (symbol? pattern)
+                     (not (= pattern '_))
+                     (not (= pattern 'pattern)))
+              (str pattern)
+              "definiens")]
+    (trace :value "definition"
+           "pattern" (** (from-clojure-pattern pattern))
+           key (** (from-clojure rhs)))))
 
 (defn from-clojure-application [exp]
+  (assert (not (empty? exp))
+          ["empty application" exp])
   (from-clojure-seq exp "application"))
 
 (defn from-clojure-tuple [exp]
   (from-clojure-application (cons 'tuple exp)))
 
 (defn from-clojure-literal [value]
-  (set-value {"value" (set-value {} value)} "literal"))
+  (trace :value "literal"
+         "value" value))
 
 (defn from-clojure-and [exp]
   (letfn [(expand [forms]
@@ -352,7 +368,8 @@
   (or (number? exp)
       (string? exp)
       (boolean? exp)
-      (keyword? exp)))
+      (keyword? exp)
+      (= exp nil)))
 
 ;; Don't create variables with these names...
 ;;   (tbd: look for :meta on a Var in this namespace ??)
@@ -367,33 +384,36 @@
         (symbol? exp)
         (let [s (str exp)]
           (assert (not (contains? prohibited-names s)) exp)
-          (set-value {"name" (set-value {} s)}
-                     "variable"))
+          (trace :value "variable"
+                 "name" s))
 
         ;; I don't know why this is sometimes a non-list seq.
         ;; TBD: check that (first exp) is a non-namespaced symbol.
-        (seqable? exp) (case (first exp)
-                         gen (from-clojure-gen exp)
-                         probprog  (from-clojure-gen exp)    ;DEPRECATED
-                         program  (from-clojure-gen exp)     ;DEPRECATED
-                         if (from-clojure-if exp)
-                         block (from-clojure-block exp)
-                         mp-splice (set-value {"expression" (from-clojure exp)} "splice")
-                         mp-unquote (set-value {"expression" (from-clojure exp)} "unquote")
-                         with-address (from-clojure-with-address exp)
-                         define (from-clojure-definition exp)
-                         &this (set-value {} "this")
-                         ;; Syntactic sugar
-                         and (from-clojure-and exp)
-                         or (from-clojure-or exp)
-                         case (from-clojure-case exp)
-                         cond (from-clojure-cond exp)
-                         ;; else
-                         (from-clojure-application exp))
+        (seq? exp) (case (first exp)
+                     gen (from-clojure-gen exp)
+                     probprog  (from-clojure-gen exp)    ;DEPRECATED
+                     program  (from-clojure-gen exp)     ;DEPRECATED
+                     if (from-clojure-if exp)
+                     block (from-clojure-block exp)
+                     mp-splice (trace :value "splice"
+                                      "expression" (** (from-clojure exp)))
+                     mp-unquote (trace :value "unquote"
+                                       (** "expression" (from-clojure exp)))
+                     with-address (from-clojure-with-address exp)
+                     define (from-clojure-definition exp)
+                     &this (trace :value "this")
+                     ;; Syntactic sugar
+                     and (from-clojure-and exp)
+                     or (from-clojure-or exp)
+                     case (from-clojure-case exp)
+                     cond (from-clojure-cond exp)
+                     ;; else
+                     (from-clojure-application exp))
         ;; Literal
         true (assert false ["bogus expression" exp])))
         
 (defn from-clojure [exp]
   (let [answer (from-clojure-1 exp)]
     (assert (trace? answer) ["bad answer" answer])
+    (assert (trace-has? answer) ["no value" answer])
     answer))

@@ -104,8 +104,8 @@
                               (loup (add i 1) (rest cursor))))))
 
              (loup 0 (to-list input)))
-      true
-      (assert false ["bad pattern" pattern input]))
+      (do (pprint pattern)
+          (assert false ["bad pattern" pattern input])))
     "return value of match-bind"))
 
 ;; -----------------------------------------------------------------------------
@@ -117,10 +117,12 @@
 (define name-for-definiens
   (gen [pattern]
     (if (eq (trace-get pattern) "variable")
-      (if (neq (trace-get pattern "name") "_")
-        (addr (trace-get pattern "name"))
-        (addr "definiens"))
-      (addr "definiens"))))
+      (block (define name (trace-get pattern "name"))
+             (if (or (eq name "_")           ;Cf. from-clojure-definition in syntax.clj
+                     (eq name "pattern"))
+               "definiens"
+               (trace-get pattern "name")))
+      "definiens")))
 
 ;; The tag address business, needed for the implementation of 'this'
 ;; and 'with-address'
@@ -157,7 +159,7 @@
 
 ;; Get the key to use for storing the result of a procedure call.
 
-(define procedure-key
+(define application-result-key
   (gen [exp]
     (define key (if (eq (trace-get exp) "variable")
                   (trace-get exp "name")
@@ -268,6 +270,9 @@
             output)
     (define walk
       (gen [exp env address]
+        (assert (trace? exp) ["bad trace - eval" exp address])
+        ;; (print ["eval" (trace-get exp) address])
+        ;; (pprint exp)
         (define [v score]
           ;; Dispatch on type of expression
           (case (trace-get exp)
@@ -289,7 +294,8 @@
                             v)
                           (range n)))
                    (define new-addr
-                     (extend-addr address (procedure-key (trace-subtrace exp 0))))
+                     (extend-addr address
+                                  (application-result-key (trace-subtrace exp 0))))
                    (define [val score]
                      (infer-apply (first values)
                                   (rest values)
@@ -354,12 +360,13 @@
 
             ;; Definition: bind a variable to some value
             "definition"
-            (block (define subaddr
+            (block (define key
                      (name-for-definiens
                       (trace-subtrace exp "pattern")))
+                   ;; (print ["definiens =" key])
                    (define [val score]
-                     (walk (trace-subtrace exp subaddr) env
-                           (add address subaddr)))
+                     (walk (trace-subtrace exp key) env
+                           (extend-addr address key)))
                    [(match-bind
                      (trace-subtrace exp "pattern")
                      val
@@ -445,3 +452,13 @@
   (gen [n f]
     (map (gen [i] (f))
          (range n))))
+
+
+;; Experimental
+
+(define opaque
+  (gen [name proc]
+    (inf name
+         (gen [inputs intervene target output]
+           ;; Ignore the traces.
+           (infer-apply proc inputs nil nil nil)))))

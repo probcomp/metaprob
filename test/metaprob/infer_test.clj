@@ -107,7 +107,7 @@
   (testing "export a procedure"
     (let [x 5
           m1 (gen [] x)
-          m2 (builtin/opaque "opaque-test" m1)]
+          m2 (infer/opaque "opaque-test" m1)]
       (is (= (m2) (m1))))))
 
 ;; Lift a generate method up to a infer method

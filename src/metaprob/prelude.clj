@@ -75,7 +75,7 @@
   (gen [f l1 l2]
     (if (and (pair? l1) (pair? l2))
       (pair (f (first l1) (first l2)) (zipmap f (rest l1) (rest l2)))
-      '())))
+      (list))))
 
 (define for-each
   (gen [l f]
