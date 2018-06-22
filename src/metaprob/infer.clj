@@ -24,9 +24,19 @@
       (trace-has-subtrace? obj "*parent*")
       false)))
 
+(define environment?
+  (gen [obj]
+    (or (frame? obj)
+        (top-level-environment? obj))))
+
 (define frame-parent
   (gen [frame]
     (trace-get frame "*parent*")))
+
+(define make-env
+  (gen [parent]
+    (assert (environment? parent) parent)
+    (mutable-trace "*parent*" (trace :value parent))))
 
 (define env-lookup
   (gen [env name]
@@ -36,12 +46,6 @@
         (env-lookup (frame-parent env) name))
       ;; Top level environment
       (top-level-lookup env name))))
-
-;; make-env - overrides original prelude
-
-(define make-env
-  (gen [parent]
-    (mutable-trace "*parent*" parent)))
 
 (define env-bind!
   (gen [env name val]
@@ -71,8 +75,8 @@
                                ["too many inputs"
                                 (length input)
                                 count
-                                (clojure.core/map make-immutable
-                                                  (make-immutable input))
+                                (clojure.core/map to-immutable
+                                                  (to-immutable input))
                                 pattern
                                 env])
 
@@ -89,8 +93,8 @@
                                ["too few inputs"
                                 (length input)
                                 count
-                                (clojure.core/map make-immutable
-                                                  (make-immutable input))
+                                (clojure.core/map to-immutable
+                                                  (to-immutable input))
                                 pattern
                                 env])
 
@@ -197,7 +201,9 @@
          ;; First call the procedure.  We can't skip the call when there
          ;; is an intervention, because the call might have side effects.
          (define [value score]
-           (if (and (trace? proc) (trace-has? proc "generative-source"))
+           (if (and (trace? proc)
+                    (trace-has? proc "generative-source")
+                    (trace-has? proc "environment"))
              ;; 'Native' generative procedure
              (infer-apply-native proc inputs intervene target output)
              (if (foreign-procedure? proc)
@@ -303,7 +309,7 @@
             [(mutable-trace :value "prob prog"
                             "name" (trace-name exp)
                             "generative-source" (** exp)
-                            "environment" env)
+                            "environment" (trace :value env))
              0]
 
             ;; Conditional
@@ -394,7 +400,7 @@
 (define inf
   (gen [name infer-method]
     (trace-as-procedure (mutable-trace "name" (add "inf-" (procedure-name infer-method))
-                                       "infer-method" infer-method)
+                                       "infer-method" (trace :value infer-method))
                         ;; When called from Clojure:
                         (gen [& inputs]
                           (nth (infer-method inputs nil nil nil)
@@ -413,7 +419,7 @@
 
 (define map-issue-20
   (inf "map"
-       (gen [[fun lst] intervene target output]
+       (gen [[fun sequ] intervene target output]
          (block (define re
                   (gen [l i]
                     (if (pair? l)
@@ -429,9 +435,9 @@
                              [(pair valu more-valu)
                               (add subscore more-score)])
                       [l 0])))
-                (if (tuple? lst)
-                  (to-tuple (list-map fun (re lst 0)))
-                  (re lst 0))))))
+                (if (tuple? sequ)
+                  (to-tuple (re (to-list sequ) 0))
+                  (re sequ 0))))))
 
 (define map map-issue-20)
 

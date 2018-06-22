@@ -164,16 +164,16 @@
       (is (= (trace-get tr) 17)))))
 
 (deftest trace-mut
-  (testing "make-mutable smoke test"
+  (testing "to-mutable smoke test"
     (let [m (empty-trace)]
       (is (trace? m))
       (trace-set! m "x" 13)
-      (let [tr (make-immutable m)]
+      (let [tr (to-immutable m)]
         (is (count-is? tr 1))
         (is (trace-has? tr "x"))
         (is (= (trace-get tr "x") 13)))
       (trace-set! m 17)
-      (let [tr (make-immutable m)]
+      (let [tr (to-immutable m)]
         (is (count-is? tr 1))
         (is (trace-has? tr "x"))
         (is (= (trace-get tr) 17))))))

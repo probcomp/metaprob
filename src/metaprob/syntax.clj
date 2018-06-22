@@ -54,33 +54,39 @@
 
 (declare from-clojure from-clojure-pattern)
 
-(defn make-generator [fun name exp-trace top]
-  (let [env (impl/make-top-level-env top)
-        proc-name (impl/trace-name exp-trace name)]               ;original metaprob
+;; Run time
+
+(defn make-generator [fun name exp-trace env]
+  (let [proc-name (impl/trace-name exp-trace name)]               ;original metaprob
     (assert (= (trace-get exp-trace) "gen"))
-    (trace-as-procedure (set-value {"name" (new-trace proc-name)
-                                    "generative-source" exp-trace
-                                    ;; Environment is always the top level
-                                    ;; env, and often this is incorrect.
-                                    "environment" (new-trace env)}
-                                   "prob prog")
+    (trace-as-procedure (if (top-level-environment? env)
+                          (trace "name" proc-name
+                                 "generative-source" (** exp-trace)
+                                 "environment" env
+                                 :value "prob prog")
+                          (do ;(print "*** throwing away env *** ")
+                              ;(print (get env :names))
+                              (trace "name" proc-name
+                                     :value "prob prog")))
                         ;; When called from clojure:
-                        fun)))          ;; ??!!??
+                        fun)))
+
+;; Compile time
 
 (defmacro named-generator [name params & body]
   {:style/indent 2}
-  (let [exp `(~'gen ~params ~@body)
-        exp-trace (from-clojure exp)]
-    `(make-generator (fn
-                       ~@(if name `(~name) `())
-                       ~params
-                       (block ~@body))
+  (let [fn-exp `(fn ~@(if name `(~name) `())
+                  ~params
+                  (block ~@body))     ;cope with defines if any
+        exp-trace (from-clojure `(~'gen ~params ~@body))]
+    `(make-generator ~fn-exp
                      '~name
                      '~exp-trace
-                     ;; *ns* will be ok at top level as a file is loaded,
-                     ;; but will be nonsense at other times.  Fix somehow.
-                     ;; (should be lexical, not dynamic.)
-                     *ns*)))
+                     ~(if (empty? &env)
+                        `(impl/make-top-level-env *ns*)
+                        (let [names (vec (keys &env))]
+                          `{:names '~names
+                            :values ~names})))))
 
 (defmacro gen
   "like fn, but for metaprob procedures"
@@ -245,7 +251,7 @@
       (set-value {} "&")
       (set-value {"name" (set-value {} (str pattern))} "variable"))
     (do (assert (vector? pattern) pattern)
-        (make-immutable
+        (to-immutable
          (trace-from-subtrace-seq (map from-clojure-pattern pattern) "tuple")))))
 
 (defn from-clojure-if [exp]

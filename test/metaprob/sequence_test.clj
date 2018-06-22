@@ -10,19 +10,19 @@
     (is (mutable-trace? (pair 1 (empty-trace))))
     (is (mutable-trace? (pair 1 (pair 2 (empty-trace)))))
 
-    (is (mutable-trace? (make-mutable (pair 1 '()))))
-    (is (immutable-trace? (make-immutable (pair 1 (empty-trace)))))))
+    (is (mutable-trace? (to-mutable (pair 1 '()))))
+    (is (immutable-trace? (to-immutable (pair 1 (empty-trace)))))))
 
 (deftest pair?-1
   (testing "pair? predicate"
     (is (metaprob-pair? '(17)))
     (is (metaprob-pair? '(17 18)))
     (is (metaprob-pair? (pair 17 '())))
-    (is (metaprob-pair? (make-mutable (pair 17 '()))))
+    (is (metaprob-pair? (to-mutable (pair 17 '()))))
     (is (not (metaprob-pair? '())))
     (is (not (metaprob-pair? nil)))
     (is (not (metaprob-pair? [17 18])))
-    (is (not (metaprob-pair? (make-mutable [17 18]))))))
+    (is (not (metaprob-pair? (to-mutable [17 18]))))))
 
 (deftest seq-as-trace
   (testing "see how well seqs serve as traces"

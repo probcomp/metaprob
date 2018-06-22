@@ -7,8 +7,6 @@
 ;;   3. clojure object with (meta ...) having :trace property
 ;;        (usually a procedure)
 
-(declare metaprob-pprint)
-
 ;; ----------------------------------------------------------------------------
 ;; Metaprob type predicates
 
@@ -34,7 +32,7 @@
       (boolean? val)
       (= val nil)))      ; needed?
 
-;; Generic trace types
+;; Generic traces and their subtypes
 
 (defn make-cell [x] (atom x))
 
@@ -64,7 +62,7 @@
       (function? val)))
 
 ;; ----------------------------------------------------------------------------
-;; Basic utilities implementing generic traces
+;; Utilities implementing mutable traces
 
 (declare trace-set-direct-subtrace!
          trace-has-direct-subtrace?
@@ -148,6 +146,9 @@
   (swap! (trace-cell tr) swapper)
   "value of trace-swap!")
 
+;; -----------------------------------------------------------------------------
+;; Utilities implementing the trace-as-procedure trace type
+
 ;; Procedures are of four kinds:
 ;;    compiled / interpreted
 ;;    generative / inference
@@ -176,16 +177,16 @@
 
 ;; I don't think this is used, but it's documentational
 
-(declare trace-get)
+(declare trace-get trace-has?)
 
 (defn procedure? [val]
   (or (function? val)
       (and (trace? val)
-           (or (trace-get val "infer-method")
-               (trace-get val "generative-source")))))
+           (trace-has? val)
+           (= (trace-get val) "prob prog"))))
 
 ;; ----------------------------------------------------------------------------
-;; Generic trace operations
+;; Read operations on generic traces
 
 (defn ^:private trace-has-value? [tr]
   (state/has-value? (trace-state tr)))
@@ -277,42 +278,89 @@
   (for [i (range (trace-count tr))] (trace-subtrace tr i)))
 
 ;; ----------------------------------------------------------------------------
-;; Side effects.
+;; Trace constructors.
+;; A motley bunch.  This can be cleaned up - we ought to be able to
+;; significantly reduce the number of constructors, and make the
+;; naming more regular.
 
-;; Trace constructors
+;; The values in state-or-map should be subtraces (except for :value value).
 
-(declare make-mutable-trace)
-
-(defn empty-trace
-  ([] (make-mutable-trace {}))
-  ([val]
+(defn canonical-trace-state
+  ([state-or-map]
+   (if (map? state-or-map)
+     (state/map-to-state state-or-map)
+     ;; TBD: check type, at least, and maybe check ok-key? etc.
+     state-or-map))
+  ([state-or-map val]
    (assert (ok-value? val))
-   (make-mutable-trace {:value val})))
+   (let [state (canonical-trace-state state-or-map)]
+     (state/set-value state val))))
 
-(def new-trace empty-trace)
+(defn make-mutable-trace
+  ([state-or-map]
+   (make-cell (canonical-trace-state state-or-map)))
+  ([state-or-map val]
+   (make-cell (canonical-trace-state state-or-map val))))
 
 ;; Creates a mutable trace from a map whose values are traces.
-;; TBD: Check well-formedness of map.
-;; TBD: Currently the subtraces all have to be mutable.  Fix.
+;; Same as make-mutable-trace, for now.
 
 (defn trace-from-map
   ([maap] (make-mutable-trace maap))
-  ([maap val] (make-mutable-trace (assoc maap :value val))))
+  ([maap val] (make-mutable-trace maap val)))
+
+;; mk_nil in the python version
+
+(defn empty-trace
+  ([] (make-mutable-trace {}))
+  ([val] (make-mutable-trace {} val)))
+
+(def new-trace empty-trace)
+
+;; tlist is a seq of traces (either mutable or immutable)
 
 (defn trace-from-subtrace-seq
   ([tlist]
-   (make-mutable-trace (vec tlist)))
+   (make-mutable-trace tlist))
   ([tlist val]
+   ;; zipmap returns a map
    (trace-from-map (zipmap (range (count tlist))
                            tlist)
                    val)))
 
-(defn make-mutable-trace [initial-state]
-  (let [state (if (map? initial-state)
-                (state/map-to-state initial-state)
-                initial-state)]
-    (assert (state/state? state))
-    (make-cell state)))
+;; Convert a mutable object to an immutable one, nonrecursively.
+
+(defn to-immutable [x]
+  (if (trace? x)
+    (trace-state x)
+    x))
+
+;; Convert an immutable trace to a mutable trace, nonrecursively.
+;; Not sure about this.
+
+(defn to-mutable [x]
+  (if (mutable-trace? x)
+    x
+    (if (trace? x)
+      (make-mutable-trace x)
+      (make-mutable-trace {} x))))
+
+;; Recursive copy, mutable result... hmm... maybe should copy mutability as well?
+;; see earthquake example...
+
+(defn trace-copy [x]
+  (if (trace? x)
+    (let [keys (trace-keys x)
+          result (into {} (for [key keys] [key (trace-copy (trace-get x key))]))]
+      (if (trace-has-value? x)
+        (make-mutable-trace (state/set-value result (trace-get x)))
+        (make-mutable-trace result)))
+    x))
+
+;; see also: freeze
+
+;; -----------------------------------------------------------------------------
+;; Side effects.
 
 (defn ^:private trace-set-direct-subtrace! [tr key sub]
   (assert (ok-key? key))
@@ -368,30 +416,12 @@
   ([tr] (trace-clear! tr))
   ([tr adr] (trace-clear! (trace-subtrace tr adr))))
 
-;; Convert a mutable trace to an immutable trace, nonrecursively.
+;; New utility - useful for checking that addresses are correct
 
-(defn make-immutable [x]
-  (trace-state x))
-
-;; Convert an immutable trace to a mutable trace, nonrecursively.
-;; Not sure about this.
-
-(defn make-mutable [x]
-  (if (mutable-trace? x)
-    x
-    (make-mutable-trace (trace-state x))))
-
-;; Recursive copy, mutable result... hmm... maybe should copy mutability as well?
-;; see earthquake example...
-
-(defn trace-copy [x]
-  (if (trace? x)
-    (let [keys (trace-keys x)
-          result (into {} (for [key keys] [key (trace-copy (trace-get x key))]))]
-      (if (trace-has-value? x)
-        (make-mutable-trace (state/set-value result (trace-get x)))
-        (make-mutable-trace result)))
-    x))
+(defn trace-set!
+  ([tr val] (trace-set-value! tr val))
+  ([tr adr val]
+   (trace-set-value-at! tr adr val)))
 
 ;; Alexey's version (in python-metaprob) has a broader optimization
 ;; than the one that's here.  I don't know how important it is.
@@ -411,7 +441,10 @@
 ;; User-friendly trace construction feature
 ;; inspired by python-metaprob
 
+;; DWIMmish: subtraces can be given as either values or traces
+
 ;; (trace :value 1, "z" 2, "a" (** subtrace), "c" (** (trace "d" 8)))
+;; The ** is annoying so you can omit it
 
 (defn ^:private splice? [x]
   (and (map? x) (contains? x :splice)))
@@ -429,8 +462,10 @@
             (do (assert (ok-key? key))
                 (if (splice? val)
                   (assoc more key (get val :splice))
-                  (do (assert (ok-value? val))
-                      (assoc more key {:value val})))))))))
+                  (if (trace? val)      ;DWIM
+                    (assoc more key val)
+                    (do (assert (ok-value? val))
+                        (assoc more key {:value val}))))))))))
 
 (defn ** [tr]
   (assert (trace? tr) "**: expected a trace")
@@ -440,10 +475,10 @@
   (state/map-to-state
    (kv-pairs-to-map key-value-pairs)))
 
-(def immutable-trace trace)
+(def immutable-trace trace)    ;for completeness
 
 (defn mutable-trace [& key-value-pairs]
-  (make-mutable (state/map-to-state
+  (to-mutable (state/map-to-state
                  (kv-pairs-to-map key-value-pairs))))
 
 ;; -----------------------------------------------------------------------------
@@ -508,91 +543,6 @@
         (trace? y) 1
 
         true (compare x y)))
-
-;; -----------------------------------------------------------------------------
-;; Prettyprint
-
-(declare pprint-indented)
-
-(defn  ^:private princ [x]
-  (print x))
-
-;; Print a key or a value, on one line
-
-(defn pprint-value [x]
-  (if (mutable-trace? x)
-    (let [keyseq (trace-keys x)]
-      (if (trace-has? x)
-        (if (empty? keyseq)
-          (princ (format "{:value %s}" (trace-get x)))    ;should pprint-value
-          (princ (format "{:value %s, %s: ...}}" (trace-get x) (first keyseq))))
-        (if (empty? keyseq)
-          (princ "{}")
-          (princ (format "{%s: ...}" (first keyseq))))))
-    (pr x)))
-
-;; x is a seq
-
-(defn pprint-seq [x indent open close]
-  (assert (seq? x))
-  (princ open)
-  (let [vertical? (some trace? x)
-        indent (str indent " ")]
-    (letfn [(lup [x first?]
-              (if (not (empty? x))
-                (do (if (not first?)
-                      (if vertical?
-                        (do (newline)
-                            (princ indent))
-                        (princ " ")))
-                    (pprint-indented (first x) indent)
-                    (lup (rest x) false))))]
-      (lup x true)))
-  (princ close))
-
-;; Print {...} trace over multiple lines
-
-(defn pprint-general-trace [tr indent]
-  (let [keys (trace-keys tr)]
-    ;; If it has a value, clojure-print the value
-    (if (trace-has? tr)
-      (pprint-value (trace-get tr))
-      ;; If no value and no subtraces, print as {} (shouldn't happen)
-      (if (empty? keys) (princ "{}")))
-
-    ;; Now print the subtraces
-    (let [indent (str indent "  ")]
-      (doseq [key (sort compare-keys keys)]
-        (newline)
-        (princ indent)
-        (if (string? key)
-          (princ key)
-          (pprint-value key))
-        (princ ": ")
-        (pprint-indented (trace-subtrace tr key) indent)))))
-
-;; Indent gives indentation to use on lines after the first.
-
-(defn pprint-indented [x indent]
-  (if (trace? x)
-    (do (if (mutable-trace? x) (princ "!"))
-        (let [x (trace-state x)]
-          (cond (seq? x)
-                (pprint-seq x indent "(" ")")
-
-                (vector? x)
-                (pprint-seq (seq x) indent "[" "]")
-
-                true
-                (pprint-general-trace x indent))))
-    (pprint-value x))
-  (flush))
-
-;!!
-(defn metaprob-pprint [x]
-  (pprint-indented x "")
-  (newline)
-  (flush))
 
 ;; -----------------------------------------------------------------------------
 
@@ -666,3 +616,90 @@
      (state/set-subtrace (trace-state tr)
                          adr
                          (trace-set (trace-subtrace-maybe tr adr) val)))))
+
+;; -----------------------------------------------------------------------------
+;; Prettyprint
+
+(declare pprint-indented)
+
+(defn  ^:private princ [x]
+  (print x))
+
+;; Print a key or a value, on one line
+
+(defn pprint-value [x]
+  (if (mutable-trace? x)
+    (let [keyseq (trace-keys x)]
+      (if (trace-has? x)
+        (if (empty? keyseq)
+          (princ (format "{:value %s}" (trace-get x)))    ;should pprint-value
+          (princ (format "{:value %s, %s: ...}}" (trace-get x) (first keyseq))))
+        (if (empty? keyseq)
+          (princ "{}")
+          (princ (format "{%s: ...}" (first keyseq))))))
+    (pr x)))
+
+;; x is a seq
+
+(defn pprint-seq [x indent open close]
+  (princ open)
+  (let [vertical? (some trace? x)
+        indent (str indent " ")]
+    (loop [x x first? true]
+      (if (not (empty? x))
+        (do (if (not first?)
+              (if vertical?
+                (do (newline)
+                    (princ indent))
+                (princ " ")))
+            (pprint-indented (first x) indent)
+            (recur (rest x) false)))))
+  (princ close))
+
+;; Print {...} trace over multiple lines
+
+(defn pprint-general-trace [tr indent]
+  (let [keys (trace-keys tr)]
+    ;; If it has a value, clojure-print the value
+    (if (trace-has? tr)
+      (pprint-value (trace-get tr))
+      ;; If no value and no subtraces, print as {} (shouldn't happen)
+      (if (empty? keys) (princ "{}")))
+
+    ;; Now print the subtraces
+    (let [indent (str indent "  ")]
+      (doseq [key (sort compare-keys keys)]
+        (newline)
+        (princ indent)
+        (if (string? key)
+          (princ key)
+          (pprint-value key))
+        (princ ": ")
+        (pprint-indented (trace-subtrace tr key) indent)))))
+
+;; Indent gives indentation to use on lines after the first.
+
+(defn pprint-indented [x indent]
+  (if (trace? x)
+    (do (if (mutable-trace? x) (princ "!"))
+        (let [state (trace-state x)]
+          (cond (empty? state)
+                (princ "{}")
+
+                (seq? state)
+                (pprint-seq state indent "(" ")")
+
+                (vector? state)
+                (pprint-seq (seq state) indent "[" "]")
+
+                true
+                (pprint-general-trace state indent))))
+    (pprint-value x))
+  (flush))
+
+;!!
+(defn metaprob-pprint [x]
+  (pprint-indented x "")
+  (newline)
+  (flush))
+

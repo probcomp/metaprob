@@ -79,8 +79,8 @@
 (define-foreign-procedure mutable-trace trace/mutable-trace)    ;constructor
 (define-foreign-procedure immutable-trace trace/immutable-trace)    ;constructor
 (define-foreign-procedure trace-copy trace/trace-copy)
-(define-foreign-procedure make-mutable trace/make-mutable)
-(define-foreign-procedure make-immutable trace/make-immutable)
+(define-foreign-procedure to-mutable trace/to-mutable)
+(define-foreign-procedure to-immutable trace/to-immutable)
 (define-foreign-procedure mutable-trace? trace/mutable-trace?)
 (define-foreign-procedure immutable-trace? trace/immutable-trace?)
 (define-foreign-procedure ** trace/**)          ;for (trace ... (** ...) ...)
@@ -118,6 +118,7 @@
 
 ;; Environments
 (define-foreign-procedure top-level-lookup impl/top-level-lookup)
+(define-foreign-procedure top-level-environment? trace/top-level-environment?)
 
 ;; Printing
 (define-foreign-procedure print impl/metaprob-print)

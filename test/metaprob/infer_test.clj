@@ -23,26 +23,6 @@
       (is (= (infer/env-lookup f "a") 1))
       (is (= (infer/env-lookup f "b") 2)))))
 
-(deftest tag-capture
-  (testing "capture- and retrieve-tag-address smoke test"
-    (let [root (trace/new-trace "root")
-          cap (infer/capture-tag-address root root root)
-          adr (impl/addr "that" "those")]
-      (is (= (trace/trace-count cap) 3))
-      (trace/trace-set! root adr "value-1")  ; Extend the root trace
-      (let [quasi (builtin/pair cap adr)      ; /*this/that/those/ ?
-            [i t o] (infer/resolve-tag-address quasi)]
-        (is (trace/trace? i))
-        (trace/trace-set! i "value-2")
-        (is (= (trace/trace-get i) "value-2"))
-
-        (let [again (trace/trace-subtrace root adr)]
-          (is (= (trace/trace-get again) "value-2"))
-          (is (= (trace/trace-get root adr) "value-2")))))))
-
-
-
-
 (defn mk_nil [] (trace/empty-trace))
 
 (defn ez-call [prob-prog & inputs]

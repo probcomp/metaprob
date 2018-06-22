@@ -12,7 +12,6 @@
 
 (define flip-n-coins
   (gen [n] 
-    (define root-addr (&this))
     (define tricky (flip 0.1))    ;unlikely to be true
     (define weight (if tricky (uniform 0 1) 0.5))
     (define datum (map (gen [i] (flip weight))
@@ -38,10 +37,10 @@
 ;; to ensure the coin is tricky and the weight is 0.99
 ;; but the fourth flip comes up false
 
-(define ensure-tricky-and-biased (empty-trace))
-(trace-set! ensure-tricky-and-biased (addr 1 "tricky" "flip") true)
-(trace-set! ensure-tricky-and-biased (addr 2 "weight" "then" "uniform") 0.99)
-(trace-set! ensure-tricky-and-biased (addr "datum" 3 "flip") false)
+(define ensure-tricky-and-biased
+  (trace 0 (trace "tricky" (trace "flip" true))
+         1 (trace "weight" (trace "then" (trace "uniform" 0.99)))
+         2 (trace "datum" (trace "map" (trace 3 (trace "flip" false))))))
 
 (define coin-flips-demo-biased
   (gen [n]

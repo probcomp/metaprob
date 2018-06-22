@@ -64,20 +64,17 @@
 (defn foreign-procedure-name [ifn]
   (str ifn))
 
-;; Like make-immutable, but recursive.
+;; Like to-immutable, but recursive.
 ;; DEPRECATED, DO NOT USE.
 
 (defn ^:private freeze [x]
   (if (trace? x)
     (let [x (trace-state x)]
-      (cond (empty-trace? x)
-            '()
+      (cond (seq? x)
+            (map freeze x)
 
-            (metaprob-pair? x)
-            (map freeze (sequence-to-seq x)) ;cf. ok-value?
-
-            (metaprob-tuple? x)
-            (vec (map freeze (sequence-to-seq x)))
+            (vector? x)
+            (vec (map freeze (seq x)))
 
             true
             (let [keys (trace-keys x)
@@ -161,10 +158,12 @@
 ;; TBD: extend this to allow namespace-prefixed variable references foo/bar
 
 (defn top-level-lookup [the-ns name]
+  (assert (top-level-environment? the-ns) ["wanted a top-level env" the-ns])
   (assert (string? name) ["wanted a string" name])
   (let [v (ns-resolve the-ns (symbol name))]
-    (assert (var? v) ["unbound variable" name the-ns])
+    (assert (var? v) ["no such variable" name the-ns])
     (assert (not (get (meta v) :macro)) ["reference to macro" name the-ns])
+    (assert (bound? v) ["unbound variable" name the-ns])
     (deref v)))
 
 (defn top-level-bind! [the-ns name value]

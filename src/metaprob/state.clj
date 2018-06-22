@@ -96,7 +96,7 @@
   (map-to-state (assoc (state-to-map state) key sub)))
 
 (defn clear-subtrace [state key]
-  (map-to-state (dissoc state key)))
+  (map-to-state (dissoc (state-to-map state) key)))
 
 
 
