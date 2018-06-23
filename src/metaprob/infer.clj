@@ -246,9 +246,7 @@
 
             ;; Application of a procedure to arguments (call)
             "application"
-            (block (define n (length (trace-keys exp)))
-                   (define subscore (empty-trace))
-                   (trace-set! subscore 0)
+            (block (define subscore (empty-trace 0))
                    ;; Evaluate all subexpressions, including the procedure
                    ;; position
                    (define values
@@ -259,7 +257,7 @@
                                     (extend-addr address i)))
                             (trace-set! subscore (add (trace-get subscore) s))
                             v)
-                          (range n)))
+                          (range (trace-count exp))))
                    (define new-addr
                      (extend-addr address
                                   (application-result-key (trace-subtrace exp 0))))
@@ -289,38 +287,32 @@
             "if"
             (block
              (define [pred pred-score]
-               (walk
-                (trace-subtrace exp "predicate") env
-                (extend-addr address "predicate")))
+               (walk (trace-subtrace exp "predicate") env
+                     (extend-addr address "predicate")))
              (if pred
-               (block
-                (define [val score]
-                  (walk (trace-subtrace exp "then") env
-                        (extend-addr address "then")))
-                [val (add pred-score score)])
-               (block
-                (define [val score]
-                  (walk (trace-subtrace exp "else") env
-                        (extend-addr address "else")))
-                [val (add pred-score score)])))
+               (block (define [val score]
+                        (walk (trace-subtrace exp "then") env
+                              (extend-addr address "then")))
+                      [val (add pred-score score)])
+               (block (define [val score]
+                        (walk (trace-subtrace exp "else") env
+                              (extend-addr address "else")))
+                      [val (add pred-score score)])))
 
             ;; Sequence of expressions and definitions
             "block"
-            (block (define n (length (trace-keys exp)))
-                   (define new-env (make-env env))
-                   (define subscore (empty-trace))
-                   (trace-set! subscore 0)
+            (block (define new-env (make-env env))
+                   (define subscore (empty-trace 0))
                    (define values
-                     (map          ;; How do we know map is left to right?
-                      (gen [i]
-                        (define [v s]
-                          (walk (trace-subtrace exp i) new-env
-                                (extend-addr address i)))
-                        (trace-set!
-                         subscore
-                         (add (trace-get subscore) s))
-                        v)
-                      (range n)))
+                     ;; This assumes that map is left to right!
+                     (map (gen [i]
+                            (define [v s]
+                              (walk (trace-subtrace exp i) new-env
+                                    (extend-addr address i)))
+                            (trace-set! subscore
+                                        (add (trace-get subscore) s))
+                            v)
+                          (range (trace-count exp))))
                    (if (gt (length values) 0)
                      [(last values) (trace-get subscore)]
                      [(empty-trace) (trace-get subscore)]))
@@ -334,10 +326,9 @@
                    (define [val score]
                      (walk (trace-subtrace exp key) env
                            (extend-addr address key)))
-                   [(match-bind
-                     (trace-subtrace exp "pattern")
-                     val
-                     env)
+                   [(match-bind (trace-subtrace exp "pattern")
+                                val
+                                env)
                     score])
 
             (block (pprint exp)
