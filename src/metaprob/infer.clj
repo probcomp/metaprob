@@ -124,39 +124,6 @@
                (trace-get pattern "name")))
       "definiens")))
 
-;; The tag address business, needed for the implementation of 'this'
-;; and 'with-address'
-
-;; capture-tag-address - used in interpretation of `this`.
-;; Combine the return value with an address to make a 'quasi-address'
-;; to pass to resolve-tag-address, e.g.
-;;   (pair (capture-tag-address ...) (addr ...))
-;; This is rather hacky; there ought to be a better way to do this.
-
-(define capture-tag-address
-  (gen [intervene target output]
-    ;; Cannot freeze, freezing is hereditary.
-    ;; Ergo, these things can't go into addresses (addr)
-    (immutable-trace "intervention-trace" intervene
-                     "target-trace" target
-                     "output-trace" output
-                     :value "captured tag address")))
-
-;; resolve-tag-address
-;; Convert a quasi-address, whose first element was returned by 
-;; capture-tag-address, into the appropriate trace
-
-(define resolve-tag-address
-  (gen [quasi-addr]
-    (define captured (first quasi-addr))
-    (define more (rest quasi-addr))
-    (define intervene (trace-get captured "intervention-trace"))
-    (define target (trace-get captured "target-trace"))
-    (define output (trace-get captured "output-trace"))
-    [(maybe-subtrace intervene more)
-     (maybe-subtrace target more)
-     (lookup output more)]))
-
 ;; Get the key to use for storing the result of a procedure call.
 
 (define application-result-key
@@ -372,30 +339,6 @@
                      val
                      env)
                     score])
-
-            ;; `(&this)` is the current location in the traces
-            "this"
-            [(capture-tag-address intervene target output)
-             0]
-
-            ;; `with-address` makes use of a location previously
-            ;; captured by `&this`
-            "with-address"
-            (block (define [tag-addr tag-score]
-                     (walk (trace-subtrace exp "tag") env
-                           (extend-addr address "tag")))
-                   ;; tag-addr is actually a quasi-address 
-                   ;; (captured . address) - not an address.
-                   ;; Must be constructed using (pair x (addr ...))
-                   (define [new-intervene new-target new-output]
-                     (resolve-tag-address tag-addr))
-                   (define [val score]
-                     (infer-eval (trace-subtrace exp "expression")
-                                 env
-                                 new-intervene
-                                 new-target
-                                 new-output))
-                   [val (add tag-score score)])
 
             (block (pprint exp)
                    (error "Not a code expression"))))

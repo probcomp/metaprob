@@ -1,14 +1,12 @@
 
 # Probabilistic inference examples
 
-First load the system into clojure:
+First load the system into clojure.  A namespace has been prepared for
+you that imports everything you will need, so you won't have to worry
+about namespace issues; use `in-ns` to enter that namespace.
 
     (require '[clojure.tools.namespace.repl :refer [refresh]])
     (refresh)
-
-A namespace has been prepared for you that imports everything you will
-need, so you won't have to worry about namespace issues.
-
     (in-ns 'metaprob.examples.all)
 
 ## Biased coin example

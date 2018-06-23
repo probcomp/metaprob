@@ -203,9 +203,6 @@
 ;  `(set-value ~(zipmap (range (count members))
 ;              (map (fn [x] `(new-trace ~x)) members))))
 
-(defmacro with-address [addr & body]
-  `(do ~addr ~@body))                   ;fake
-
 (defmacro &this []
   "(&this) makes no sense when clojure-compiled")
 
@@ -272,12 +269,6 @@
   (assert (not (empty? exp))
           ["empty block" exp])
   (from-clojure-seq (rest exp) "block"))
-
-(defn from-clojure-with-address [exp]
-  (let [[_ tag ex] exp]
-    (trace :value "with-address"
-           "tag" (** (from-clojure tag))
-           "expression" (** (from-clojure ex)))))
 
 ;; Cf. name-for-definiens in infer.clj.
 
@@ -399,9 +390,7 @@
                                       "expression" (** (from-clojure exp)))
                      mp-unquote (trace :value "unquote"
                                        (** "expression" (from-clojure exp)))
-                     with-address (from-clojure-with-address exp)
                      define (from-clojure-definition exp)
-                     &this (trace :value "this")
                      ;; Syntactic sugar
                      and (from-clojure-and exp)
                      or (from-clojure-or exp)
