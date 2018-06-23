@@ -6,6 +6,11 @@
 
 (ns metaprob.examples.all
   (:refer-clojure :only [ns declare in-ns])
+  (:require [metaprob.state :as state])
+  (:require [metaprob.trace :as trace])
+  (:require [metaprob.sequence :as sequence])
+  (:require [metaprob.builtin_impl :as impl])
+
   (:require [metaprob.syntax :refer :all])
   (:require [metaprob.builtin :refer :all])
   (:require [metaprob.prelude :refer :all])
