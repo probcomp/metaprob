@@ -1,10 +1,11 @@
 (ns metaprob.infer-test
   (:require [clojure.test :refer :all]
-            [metaprob.trace :as trace]
-            [metaprob.syntax :as syntax :refer :all]
-            [metaprob.builtin-impl :as impl]
+            [metaprob.trace :refer :all :as trace]
+            [metaprob.sequence :refer [tuple]]
+            [metaprob.syntax :refer :all :as syntax]
+            [metaprob.builtin-impl :refer :all :as impl]
             [metaprob.builtin :as builtin]
-            [metaprob.infer :as infer]))
+            [metaprob.infer :refer :all :exclude [map replicate apply] :as infer]))
 
 (def top (impl/make-top-level-env 'metaprob.infer))
 
@@ -232,3 +233,27 @@
                               1)
            8))))
 
+
+;; Self-application
+
+;; These have to be defined at top level because only top level defined
+;; gens can be interpreted (due to inability to understand environments).
+
+(define apply-test
+  (gen [thunk]
+    (define output (empty-trace))
+    (define [val score]
+      (infer-apply thunk [] nil nil output))
+    output))
+
+(define tst1 (gen [] (builtin/add 2 (builtin/mul 3 5))))
+(define tst2 (gen [] (apply-test tst1)))
+
+(deftest infer-apply-self-application
+  (testing "apply infer-apply to program that calls infer-apply"
+
+    ;; 3
+    (is (> (count (addresses-of (apply-test tst1))) 2))
+
+    ;; 271
+    (is (> (count (addresses-of (apply-test tst2))) 100))))

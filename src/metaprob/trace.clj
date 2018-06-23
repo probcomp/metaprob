@@ -670,7 +670,7 @@
   (let [keys (trace-keys tr)]
     ;; If it has a value, clojure-print the value
     (if (trace-has? tr)
-      (pprint-value (trace-get tr))
+      (pprint-value (trace-get tr) out)
       ;; If no value and no subtraces, print as {} (shouldn't happen)
       (if (empty? keys) (princ "{}" out)))
 
