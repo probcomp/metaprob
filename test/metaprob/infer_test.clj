@@ -45,25 +45,38 @@
     (is (= (ez-call builtin/sub 7)
            -7))))
 
+(def no-trace (trace))    ;formerly nil
+
 (defn ez-eval [x]
   (let [[value score]
-        (builtin/sequence-to-seq
-         (infer/infer-eval (from-clojure x)
-                     top
-                     (mk_nil)
-                     (mk_nil)
-                     (mk_nil)))]
+        (infer/infer-eval (from-clojure x) top no-trace no-trace false)]
     value))
 
-(deftest smoke-1
+(deftest literal-1
   (testing "Interpret a literal expression"
     (is (= (ez-eval '3)
            3))))
 
-(deftest smoke-2
+(deftest variable-1
   (testing "Interpret a variable"
     (is (= (ez-eval 'trace-get)
            builtin/trace-get))))
+
+(deftest application-0
+  (testing "Interpret a call, no args"
+    (is (= (ez-eval '(+)) 0))))
+
+(deftest application-1
+  (testing "Interpret a call, one arg"
+    (is (= (ez-eval '(+ 7)) 7))))
+
+(deftest application-2
+  (testing "Interpret a call, two args"
+    (is (= (ez-eval '(+ 2 3)) 5))))
+
+(deftest if-1
+  (testing "Interpret an if"
+    (is (= (ez-eval '(if true 2 3)) 2))))
 
 (deftest thunk-1
   (testing "call a thunk"
@@ -129,7 +142,7 @@
                                               50]))
           lifted (infer/inf "lifted" qq)]
       (is (= (lifted 7 8) 15))
-      (let [[answer score] (infer/infer-apply lifted [7 8] nil nil nil)]
+      (let [[answer score] (infer/infer-apply lifted [7 8] no-trace no-trace no-trace)]
         (is (= answer 15))
         (is (= score 50))))))
 
@@ -159,27 +172,29 @@
 
 (deftest intervene-1
   (testing "simple intervention"
-    (let [form (from-clojure '(block 17 19))
-          [value1 _] (infer/infer-eval form top nil nil nil)]
-      (is (= value1 19))
-      (let [intervene (builtin/empty-trace)]
-        (builtin/trace-set! intervene 1 23)
-        (let [[value2 _] (infer/infer-eval form top intervene nil nil)]
+    (let [form (from-clojure '(block 17 (sub 19)))
+          [value1 output _] (infer/infer-eval form top no-trace no-trace true)]
+      (is (= value1 -19))
+      (is (= (trace-count output) 1))
+      (is (= (trace-get output 1) -19))
+      (let [intervene (trace 1 23)]
+        (let [[value2 output _] (infer/infer-eval form top intervene no-trace true)]
+          (is (= (trace-count output) 1))
+          (is (= (trace-get output 1) 23))
           (is (= value2 23)))))))
 
 
 (deftest intervene-2
   (testing "output capture, then intervention"
     (let [form (from-clojure '(block (add 15 2) (sub 21 2)))
-          output (builtin/empty-trace)
-          [value1 _] (infer/infer-eval form top nil nil output)]
+          [value1 output _] (infer/infer-eval form top no-trace no-trace true)]
       (is (= value1 19))
       (let [intervene (builtin/empty-trace)
             addresses (builtin/addresses-of output)]
         ;; (builtin/pprint output)
         (doseq [a addresses]
           (builtin/trace-set! intervene a 23))
-        (let [[value2 _] (infer/infer-eval form top intervene nil nil)]
+        (let [[value2 _] (infer/infer-eval form top intervene no-trace false)]
           (is (= value2 23)))))))
 
 (deftest apply-1
@@ -190,7 +205,7 @@
 
 ;; ------------------------------------------------------------------
 
-(def this-map infer/map-issue-20)
+(def this-map infer/map)
 
 (deftest map-1
   (testing "map smoke test"
@@ -241,9 +256,8 @@
 
 (define apply-test
   (gen [thunk]
-    (define output (empty-trace))
-    (define [val score]
-      (infer-apply thunk [] nil nil output))
+    (define [val output score]
+      (infer-apply-neuf thunk [] (trace) (trace) true))
     output))
 
 (define tst1 (gen [] (builtin/add 2 (builtin/mul 3 5))))
