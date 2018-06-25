@@ -270,5 +270,4 @@
     (is (> (count (addresses-of (apply-test tst1))) 2))
 
     ;; 271
-    (builtin/pprint (apply-test tst2))
     (is (> (count (addresses-of (apply-test tst2))) 100))))
