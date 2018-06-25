@@ -36,7 +36,7 @@
 (define make-env
   (gen [parent]
     (assert (environment? parent) parent)
-    (mutable-trace "*parent*" (** (trace :value parent)))))
+    (mutable-trace "*parent*" parent)))
 
 (define env-lookup
   (gen [env name]
@@ -300,7 +300,7 @@
                                    output?))
                [result
                 (if output?
-                  (trace-set output result-key suboutput)
+                  (trace-set-subtrace output result-key suboutput)
                   output)
                 (+ subscore score)])
 
