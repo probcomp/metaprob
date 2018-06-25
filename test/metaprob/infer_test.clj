@@ -257,7 +257,7 @@
 (define apply-test
   (gen [thunk]
     (define [val output score]
-      (infer-apply-neuf thunk [] (trace) (trace) true))
+      (infer-apply-neuf thunk (tuple) (trace) (trace) true))
     output))
 
 (define tst1 (gen [] (builtin/add 2 (builtin/mul 3 5))))

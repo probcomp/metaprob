@@ -208,30 +208,27 @@
              (infer-apply-native proc inputs intervene target output?)
              (if (foreign-procedure? proc)
                ;; 'Foreign' generative procedure
-               [(generate-foreign proc inputs) (trace) 0]
+               (block (define value (generate-foreign proc inputs))
+                      [(if (trace-has? intervene) (trace-get intervene) value)
+                       intervene
+                       0])
                (block (pprint proc)
                       (error "infer-apply: not a procedure" proc)))))
-         ;; Apply intervention trace to get modified value
-         (define intervention? (and intervene (trace-has? intervene)))
-         (define post-intervention-value
-           (if intervention?
-             (trace-get intervene)
-             value))
          ;; Apply target trace to get modified value and score
          (define [post-target-value score2]
-           (if (and target (trace-has? target))
+           (if (trace-has? target)
              [(trace-get target)
-              (if intervention?
+              (if (trace-has? intervene)
                 ;; Score goes infinitely bad if there is both an
                 ;; intervention and a constraint, and they differ
-                (if (same-trace-states? (trace-get target) post-intervention-value)
+                (if (same-trace-states? (trace-get target) value)
                   score
                   (do (print ["value mismatch!"
                               (trace-get target)
-                              post-intervention-value])
+                              value])
                       negative-infinity))
                 score)]
-             [post-intervention-value score]))
+             [value score]))
          (assert (trace? output) ["lose" output? output])
          [post-target-value
           (if output?
@@ -444,9 +441,9 @@
 
 (define apply
   (trace-as-procedure
-   (inf "apply"
-        (gen [inputs intervene target output]
-          (infer-apply (first inputs) (rest inputs) intervene target output)))
+   (inf-neuf "apply"
+             (gen [inputs intervene target output?]
+               (infer-apply-neuf (first inputs) (rest inputs) intervene target output?)))
    ;; Kludge
    (gen [proc inputs] (clojure.core/apply proc (to-immutable-list inputs)))))
 
