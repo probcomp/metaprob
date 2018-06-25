@@ -371,7 +371,7 @@
 ;; (trace-merge large small) - when calling, try to make tr1 larger than tr2,
 ;; because it will be tr2 that is traversed.
 
-(declare same-states? trace-set)
+(declare same-states? trace-set-value)
 
 (defn trace-merge [tr1 tr2]
   (let [tr (state/map-to-state
@@ -385,17 +385,69 @@
                     ["incompatible trace states" tr tr2]))
           tr)
       (if (trace-has-value? tr2)
-        (trace-set tr (trace-value tr2))
+        (trace-set-value tr (trace-value tr2))
         tr))))
+
+;; -----------------------------------------------------------------------------
+;; Effectless versions of operators that are ordinarily effectful
+
+(defn trace-set-direct-subtrace [tr key sub]
+  (assert (ok-key? key))
+  (assert (trace? sub))
+  (state/set-subtrace (trace-state tr) key sub))
+
+(defn trace-set-subtrace [tr adr sub]
+  (if (seq? adr)
+    (if (empty? adr)
+      sub
+      (trace-set-direct-subtrace tr
+                                 (first adr)
+                                 (trace-set-subtrace (trace-subtrace-maybe tr (first adr))
+                                                     (rest adr)
+                                                     sub)))
+    (trace-set-direct-subtrace tr adr sub)))
+
+(defn trace-set-value [tr val]
+  (state/set-value (trace-state tr) val))
+
+(defn trace-set-value-at [tr adr val]
+  (if (seq? adr)
+    (if (empty? adr)
+      (trace-set-value tr val)
+      (trace-set-direct-subtrace tr
+                                 (first adr)
+                                 (trace-set-value-at (trace-subtrace-maybe tr (first adr))
+                                                     (rest adr)
+                                                     val)))
+    (trace-set-direct-subtrace tr
+                               adr
+                               (trace-set-value (trace-subtrace-maybe tr adr) val))))
+
+(defn trace-set
+  ([tr val] (trace-set-value tr val))
+  ([tr adr val] (trace-set-value-at tr adr val)))
+
+(defn trace-delete
+  ([tr] (state/clear-value (trace-state tr)))
+  ([tr adr]
+   (if (seq? adr)
+     (if (empty? adr)
+       (state/clear-value (trace-state tr))
+       (trace-set-direct-subtrace tr
+                                  (first adr)
+                                  (trace-delete (trace-subtrace-maybe tr (first adr)) (rest adr))))
+     (trace-set-direct-subtrace tr
+                                adr
+                                (trace-delete (trace-subtrace-maybe tr adr))))))
+
 
 ;; -----------------------------------------------------------------------------
 ;; Side effects.
 
 (defn ^:private trace-set-direct-subtrace! [tr key sub]
-  (assert (ok-key? key))
   (trace-swap! tr
                (fn [state]
-                 (state/set-subtrace state key sub))))
+                 (trace-set-direct-subtrace state key sub))))
 
 (defn ^:private build-out [tr key]
   (if (trace-has-direct-subtrace? tr key)
@@ -405,12 +457,12 @@
       novo)))
 
 (defn trace-set-subtrace! [tr adr sub]
-  (assert (mutable-trace? tr))
   (assert (trace? sub))
   (if (seq? adr)
     (loop [tr tr adr adr]
       (let [[head & tail] adr]
         (if (empty? tail)
+          ;; (if (mutable-trace? tr) ... (trace-set-direct-trace ...) ...
           (trace-set-direct-subtrace! tr head sub)
           (recur (build-out tr head) tail))))
     (trace-set-direct-subtrace! tr adr sub)))
@@ -455,38 +507,6 @@
 (defn trace-merge! [mutable tr]
   (trace-swap! mutable (fn [state] (trace-merge state tr)))
   "value of trace-merge!")
-
-;; -----------------------------------------------------------------------------
-;; Effectless versions of operators that are ordinarily effectful
-
-(defn trace-set-subtrace [tr adr sub]
-  (if (seq? adr)
-    (if (empty? adr)
-      sub
-      (state/set-subtrace (trace-state tr)
-                          (first adr)
-                          (trace-set-subtrace (trace-subtrace-maybe tr (first adr))
-                                              (rest adr)
-                                              sub)))
-    (state/set-subtrace (trace-state tr) adr sub)))
-
-(defn trace-set
-  ([tr val]
-   (state/set-value (trace-state tr) val))
-  ([tr adr val]
-   (if (seq? adr)
-     (if (empty? adr)
-       (trace-set tr val)
-       (state/set-subtrace (trace-state tr)
-                           (first adr)
-                           (trace-set (trace-subtrace-maybe tr (first adr))
-                                      (rest adr)
-                                      val)))
-     (state/set-subtrace (trace-state tr)
-                         adr
-                         (trace-set (trace-subtrace-maybe tr adr) val)))))
-
-;; TBD: delete
 
 ;; -----------------------------------------------------------------------------
 ;; Zip and unzip are inverses, for valueless traces
