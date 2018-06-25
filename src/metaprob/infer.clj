@@ -261,7 +261,19 @@
                 target
                 output?)))
 
-;; Evaluate the body of a 'native' procedure by recursive descent.
+;; Evaluate a subexpression (a subproblem)
+
+(define infer-subeval
+  (gen [exp key env intervene target output?]
+    (define [value output score]
+      (infer-eval (trace-subtrace exp key)
+                  env
+                  (maybe-subtrace intervene key)
+                  (maybe-subtrace target key)
+                  output?))
+    [value (maybe-set-subtrace (trace) key output) score]))
+
+;; Evaluate a subexpression (by reduction)
 
 (define infer-eval
   (gen [exp env intervene target output?]
@@ -270,11 +282,7 @@
     (assert (trace? intervene) ["bad intervene" intervene])
     (assert (trace? target) ["bad target" target])
     (assert (boolean? output?) output?)
-    (define output-set
-      (gen [output key suboutput]
-        (if output?
-          (maybe-set-subtrace output key suboutput)
-          output)))
+
     (define [v output score]
       ;; Dispatch on type of expression
       (case (trace-get exp)
@@ -294,7 +302,9 @@
                                    (maybe-subtrace target result-key)
                                    output?))
                [result
-                (output-set output result-key suboutput)
+                (if output?
+                  (trace-set output result-key suboutput)
+                  output)
                 (+ subscore score)])
 
         "variable"
@@ -316,17 +326,16 @@
         "if"
         (block
          (define [pred-val pred-output pred-score]
-           (infer-eval (trace-subtrace exp "predicate")
-                       env intervene target output?))
+           (infer-subeval exp "predicate"
+                          env intervene target output?))
          (define key
            (if pred-val "then" "else"))
          (define [val output score]
-           (infer-eval (trace-subtrace exp key) env intervene target output?))
+           (infer-subeval exp key
+                          env intervene target output?))
 
          [val
-          (output-set (output-set (trace) "predicate" pred-output)
-                      key
-                      output)
+          (trace-merge pred-output output)
           (+ pred-score score)])
 
         ;; Sequence of expressions and definitions
@@ -339,15 +348,11 @@
         ;; Definition: bind a variable to some value
         "definition"
         (block (define key
-                 (name-for-definiens
-                  (trace-subtrace exp "pattern")))
-               ;; (print ["definiens =" key])
+                 (name-for-definiens (trace-subtrace exp "pattern")))
                (define [val output score]
-                 (infer-eval (trace-subtrace exp key) env intervene target output?))
-               [(match-bind! (trace-subtrace exp "pattern")
-                             val
-                             env)
-                (output-set (trace) key output)
+                 (infer-subeval exp key env intervene target output?))
+               [(match-bind! (trace-subtrace exp "pattern") val env)
+                output
                 score])
 
         (block (pprint exp)
@@ -379,16 +384,15 @@
       (gen [i values output score]
         (if (trace-has? exp i)
           (block (define [val suboutput subscore]
-                   (infer-eval (trace-subtrace exp i)
-                               env
-                               (maybe-subtrace intervene i)
-                               (maybe-subtrace target i)
-                               output?))
+                   (infer-subeval exp
+                                  i
+                                  env
+                                  intervene
+                                  target
+                                  output?))
                  (luup (+ i 1)
                        (pair val values)
-                       (if output?
-                         (maybe-set-subtrace output i suboutput)
-                         output)
+                       (trace-merge suboutput output)
                        (+ score subscore)))
           [(reverse values) output score])))
     (luup 0 (list) (trace) 0)))
