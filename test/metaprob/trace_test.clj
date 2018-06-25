@@ -277,3 +277,11 @@
       (trace-merge! tr {9 {3 {:value 33}}})
       (is (= (trace-get tr '(9 3)) 33))
       )))
+
+(deftest delete-1
+  (testing "delete"
+    (is (empty-trace? (trace-delete {:value 5})))
+    (is (same-trace-states? (trace-delete {:value 40 50 {:value 60}}) {50 {:value 60}}))
+    (is (same-trace-states? (trace-delete {20 {:value 40 50 {:value 60}}} 20) {20 {50 {:value 60}}}))
+    (is (same-trace-states? (trace-delete {10 {20 {:value 40 50 {:value 60}}}} (list 10 20))
+                            {10 {20 {50 {:value 60}}}}))))
