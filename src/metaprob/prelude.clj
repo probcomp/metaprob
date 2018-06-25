@@ -51,14 +51,6 @@
         (repeat (sub times 1) pp))
       "ok")))
 
-;; Similar to `lookup` but does not create locatives
-
-(define maybe-subtrace
-  (gen [tr adr]
-    (if (and tr (trace-has-subtrace? tr adr))
-      (trace-subtrace tr adr)
-      nil)))
-
 (define _imap
   (gen [f i l]
     (if (pair? l)

@@ -25,11 +25,11 @@
            (pair-as-map? state)))))
 
 (defn metaprob-first [mp-list]
-  (assert (metaprob-pair? mp-list))
+  (assert (metaprob-pair? mp-list) ["first" mp-list])
   (trace-get mp-list))
 
 (defn metaprob-rest [mp-list]
-  (assert (metaprob-pair? mp-list))
+  (assert (metaprob-pair? mp-list) ["rest" mp-list])
   (trace-subtrace mp-list rest-marker))
 
 (defn pair [thing mp-list]              ;NEEDS ERROR CHECKING

@@ -56,9 +56,11 @@
 ;; Invoke a "foreign" procedure.  Called from interpreter.
 
 (defn generate-foreign [ifn inputs]
+  (assert (proper-function? ifn) ["not a foreign-procedure" ifn inputs])
   (apply ifn (sequence-to-seq inputs)))
 
 (defn make-foreign-procedure [name ifn]
+  (assert (proper-function? ifn) ["not procedure" name ifn])
   ifn)
 
 (defn foreign-procedure-name [ifn]
@@ -148,12 +150,12 @@
 ;; TBD: extend this to allow namespace-prefixed variable references foo/bar
 
 (defn top-level-lookup [the-ns name]
-  (assert (top-level-environment? the-ns) ["wanted a top-level env" the-ns])
-  (assert (string? name) ["wanted a string" name])
+  (assert (string? name) ["wanted a string" the-ns name])
+  (assert (top-level-environment? the-ns) ["wanted a top-level env" the-ns name])
   (let [v (ns-resolve the-ns (symbol name))]
-    (assert (var? v) ["no such variable" name the-ns])
-    (assert (not (get (meta v) :macro)) ["reference to macro" name the-ns])
-    (assert (bound? v) ["unbound variable" name the-ns])
+    (assert (var? v) ["no such variable" the-ns name])
+    (assert (not (get (meta v) :macro)) ["reference to macro" the-ns name])
+    (assert (bound? v) ["unbound variable" the-ns name])
     (deref v)))
 
 (defn top-level-bind! [the-ns name value]

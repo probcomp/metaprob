@@ -108,6 +108,14 @@
           (assert false ["bad pattern" pattern input])))
     "return value of match-bind"))
 
+;; Similar to `lookup` but does not create locatives
+
+(define maybe-subtrace
+  (gen [tr adr]
+    (if (and tr (trace-has-subtrace? tr adr))
+      (trace-subtrace tr adr)
+      nil)))
+
 ;; -----------------------------------------------------------------------------
 ;; Utilities for interpreter
 

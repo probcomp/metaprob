@@ -12,7 +12,7 @@
 
 ;; Clojure function ~= Metaprob procedure
 
-(defn ^:private function? [x]
+(defn proper-function? [x]
   (and (instance? clojure.lang.IFn x)
        (not (seq? x))
        (not (vector? x))
@@ -60,7 +60,7 @@
       (trace? val)
       (keyword? val)
       (top-level-environment? val)
-      (function? val)))
+      (proper-function? val)))
 
 ;; ----------------------------------------------------------------------------
 ;; Utilities implementing mutable traces
@@ -169,7 +169,7 @@
 ;;  see infer-apply
 
 (defn foreign-procedure? [x]
-  (function? x))
+  (proper-function? x))
 
 (defn trace-as-procedure [tr ifn]
   (do (assert (instance? clojure.lang.IFn ifn) ifn)
@@ -181,7 +181,7 @@
 (declare trace-get trace-has?)
 
 (defn procedure? [val]
-  (or (function? val)
+  (or (proper-function? val)
       (and (trace? val)
            (trace-has? val)
            (= (trace-get val) "prob prog"))))
@@ -474,32 +474,48 @@
 
 ;; TBD: delete
 
-;; Marco's merge operator (+).  Should be commutative.
+;; Marco's merge operator (+).  Commutative and idempotent.
+;; (trace-merge small large) - when calling, try to make tr1 smaller than tr2,
+;; because it will be tr1 that is traversed.
 
 (declare same-states?)
 
-(defn trace-update [tr1 tr2]
+(defn trace-merge [tr1 tr2]
   (let [tr (state/map-to-state
-            (into (state/state-to-map (trace-state tr1))
-                  (for [key (trace-keys tr2)]
-                    [key (trace-update (trace-subtrace-maybe tr1 key)
-                                       (trace-subtrace tr2 key))])))]
+            (into (state/state-to-map (trace-state tr2))
+                  (for [key (trace-keys tr1)]
+                    [key (trace-merge (trace-subtrace tr1 key)
+                                      (trace-subtrace-maybe tr2 key))])))]
     (if (trace-has-value? tr)
       (if (trace-has-value? tr2)
-        (assert (same-states? (trace-value tr) (trace-value tr2))
-                ["incompatible trace states" tr tr2]))
-      (if (trace-has-value? tr2)
-        (trace-set tr (trace-value tr2))
+        (do (assert (same-states? (trace-value tr) (trace-value tr2))
+                    ["incompatible trace states" tr tr2])
+            tr))
+      (if (trace-has-value? tr1)
+        (trace-set tr (trace-value tr1))
         tr))))
+
+;; -----------------------------------------------------------------------------
+;; Zip and unzip are inverses, for valueless traces
+;; The value is treated as a keyed entry with key :value (all the other entries are traces)
+
+(defn trace-zip [tr]
+  (seq (state/state-to-map tr)))
+
+(defn trace-unzip [keyval-seq]
+  (into {} (filter (fn [[key sub]]
+                     (or (= key :value)
+                         (if (= sub nil)
+                           false
+                           (do (assert (trace? sub))
+                               true))))
+                   keyval-seq)))
 
 ;; -----------------------------------------------------------------------------
 ;; User-friendly trace construction feature
 ;; inspired by python-metaprob
 
-;; DWIMmish: subtraces can be given as either values or traces
-
 ;; (trace :value 1, "z" 2, "a" (** subtrace), "c" (** (trace "d" 8)))
-;; The ** is annoying so you can omit it
 
 (defn ^:private splice? [x]
   (and (map? x) (contains? x :subtrace)))
@@ -517,8 +533,15 @@
             (do (assert (ok-key? key))
                 (if (splice? val)
                   (assoc more key (get val :subtrace))
-                  (if (trace? val)      ;DWIM
-                    (assoc more key val)
+
+                  (if true
+                    ;; Old version
+                    (if (trace? val)      ;DWIM
+                      (assoc more key val)
+                      (do (assert (ok-value? val))
+                          (assoc more key {:value val})))
+
+                    ;; New version
                     (do (assert (ok-value? val))
                         (assoc more key {:value val}))))))))))
 
@@ -708,7 +731,7 @@
 
 (defn pprint-indented [x indent out]
   (if (trace? x)
-    (do (if (function? x) (princ "COMPILED " out))
+    (do (if (proper-function? x) (princ "COMPILED " out))
         (if (mutable-trace? x) (princ "!" out))
         (let [state (trace-state x)]
           (cond (empty? state)

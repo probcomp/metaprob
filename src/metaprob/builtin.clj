@@ -3,7 +3,7 @@
 
 (ns metaprob.builtin
   (:refer-clojure :exclude
-                  [newline not
+                  [newline not + = boolean?
                    and or case cond
                    assert print apply
                    list list? first rest last nth range sort])
@@ -26,7 +26,8 @@
 ;; the source code for the subforms.
 
 ;; General
-(define-foreign-procedure eq =)
+(define-foreign-procedure eq clojure.core/=)
+(define-foreign-procedure = clojure.core/=)
 (define-foreign-procedure neq impl/neq)
 (define-foreign-procedure assert impl/metaprob-assert)
 (define-foreign-procedure error impl/error)
@@ -37,6 +38,7 @@
 
 ;; Logical
 (define-foreign-procedure not clojure.core/not)
+(define-foreign-procedure boolean? clojure.core/boolean?)
 
 ;; Numeric
 (define-foreign-procedure gt >)
@@ -44,6 +46,7 @@
 (define-foreign-procedure lte <=)
 (define-foreign-procedure lt <)
 (define-foreign-procedure add impl/add)
+(define-foreign-procedure + clojure.core/+)
 (define-foreign-procedure sub -)
 (define-foreign-procedure mul *)
 (define-foreign-procedure div /)
@@ -88,9 +91,9 @@
 (define-foreign-procedure trace-set-subtrace! trace/trace-set-subtrace!)
 (define-foreign-procedure trace-update! trace/trace-update!)
 
-(define-foreign-procedure trace-update trace/trace-update)
 (define-foreign-procedure trace-set trace/trace-set)
 (define-foreign-procedure trace-set-subtrace trace/trace-set-subtrace)
+(define-foreign-procedure trace-merge trace/trace-merge)
 (define-foreign-procedure trace-copy trace/trace-copy)
 
 (define-foreign-procedure addresses-of impl/addresses-of)
@@ -137,6 +140,7 @@
 (define-foreign-procedure generate-foreign impl/generate-foreign)
 (define-foreign-procedure make-foreign-procedure impl/make-foreign-procedure)
 (define-foreign-procedure foreign-procedure? trace/foreign-procedure?)
+(define-foreign-procedure procedure? trace/procedure?)
 
 (def positive-infinity Double/POSITIVE_INFINITY)
 (def negative-infinity Double/NEGATIVE_INFINITY)
