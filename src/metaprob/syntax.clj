@@ -389,7 +389,7 @@
                      mp-splice (trace :value "splice"
                                       "expression" (** (from-clojure exp)))
                      mp-unquote (trace :value "unquote"
-                                       (** "expression" (from-clojure exp)))
+                                       "expression" (** (from-clojure exp)))
                      define (from-clojure-definition exp)
                      ;; Syntactic sugar
                      and (from-clojure-and exp)

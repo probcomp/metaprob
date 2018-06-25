@@ -38,9 +38,9 @@
 ;; but the fourth flip comes up false
 
 (define ensure-tricky-and-biased
-  (trace 0 (trace "tricky" (trace "flip" true))
-         1 (trace "weight" (trace "then" (trace "uniform" 0.99)))
-         2 (trace "datum" (trace "map" (trace 3 (trace "flip" false))))))
+  (trace 0 (trace "tricky" (** (trace "flip" true)))
+         1 (trace "weight" (** (trace "then" (** (trace "uniform" 0.99)))))
+         2 (trace "datum" (** (trace "map" (** (trace 3 (** (trace "flip" false)))))))))
 
 (define coin-flips-demo-biased
   (gen [n]

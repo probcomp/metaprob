@@ -475,6 +475,7 @@
 ;; TBD: delete
 
 ;; Marco's merge operator (+).  Commutative and idempotent.
+;;
 ;; (trace-merge small large) - when calling, try to make tr1 smaller than tr2,
 ;; because it will be tr1 that is traversed.
 
@@ -533,7 +534,6 @@
             (do (assert (ok-key? key))
                 (if (splice? val)
                   (assoc more key (get val :subtrace))
-
                   (if true
                     ;; Old version
                     (if (trace? val)      ;DWIM
