@@ -475,7 +475,7 @@
 ;; TBD: delete
 
 ;; Marco's merge operator (+).  Commutative and idempotent.
-;;
+
 ;; (trace-merge small large) - when calling, try to make tr1 smaller than tr2,
 ;; because it will be tr1 that is traversed.
 
