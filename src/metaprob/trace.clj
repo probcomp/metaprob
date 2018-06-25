@@ -299,6 +299,8 @@
      (state/set-value state val))))
 
 (defn make-mutable-trace
+  ([]
+   (make-cell (state/empty-state)))
   ([state-or-map]
    (make-cell (canonical-trace-state state-or-map)))
   ([state-or-map val]
@@ -314,8 +316,8 @@
 ;; mk_nil in the python version
 
 (defn empty-trace
-  ([] (make-mutable-trace {}))
-  ([val] (make-mutable-trace {} val)))
+  ([] (make-mutable-trace (state/empty-state)))
+  ([val] (make-mutable-trace (state/empty-state) val)))
 
 (def new-trace empty-trace)
 
@@ -345,7 +347,7 @@
     x
     (if (trace? x)
       (make-mutable-trace x)
-      (make-mutable-trace {} x))))
+      (make-mutable-trace (state/empty-state) x))))
 
 ;; Recursive copy, mutable result... hmm... maybe should copy mutability as well?
 ;; see earthquake example...
@@ -450,11 +452,16 @@
                  (trace-set-direct-subtrace state key sub))))
 
 (defn ^:private build-out [tr key]
-  (if (trace-has-direct-subtrace? tr key)
-    (trace-direct-subtrace tr key)
-    (let [novo (make-mutable-trace {})]
-      (trace-set-direct-subtrace! tr key novo)
-      novo)))
+  (let [state
+        (trace-swap! tr
+                     (fn [state]
+                       (if (trace-has-direct-subtrace? state key)
+                         (let [sub (trace-direct-subtrace state key)]
+                           (if (mutable-trace? sub)
+                             state      ;Nothing to be done!
+                             (trace-set-direct-subtrace state key (make-mutable-trace sub))))
+                         (trace-set-direct-subtrace tr key (make-mutable-trace (state/empty-state))))))]
+    (state/subtrace state key)))
 
 (defn trace-set-subtrace! [tr adr sub]
   (assert (trace? sub))
@@ -469,19 +476,22 @@
 
 (defn ^:private trace-set-value! [tr val]
   (assert (ok-value? val) val)
-  (assert (mutable-trace? tr) tr)            ;REMOVE
   (trace-swap! tr
                (fn [state]
                  (state/set-value state val))))
 
 (defn ^:private trace-set-value-at! [tr adr val] ;cf. trace-get
   (assert (mutable-trace? tr) tr)
-  (let [adr (if (seq? adr) adr (list adr))]
-    (loop [tr tr adr adr]
-      (if (empty? adr)
-        (trace-set-value! tr val)
-        (let [[head & tail] adr]
-          (recur (build-out tr head) tail))))))
+  (if true
+    (trace-swap! tr
+                 (fn [state]
+                   (trace-set-value-at tr adr val)))
+    (let [adr (if (seq? adr) adr (list adr))]
+      (loop [tr tr adr adr]
+        (if (empty? adr)
+          (trace-set-value! tr val)
+          (let [[head & tail] adr]
+            (recur (build-out tr head) tail)))))))
 
 (defn trace-set!
   ([tr val] (trace-set-value! tr val))
@@ -493,7 +503,10 @@
 
 (defn trace-delete!
   ([tr] (trace-clear! tr))
-  ([tr adr] (trace-clear! (trace-subtrace tr adr))))
+  ([tr adr]
+   (trace-swap! tr (fn [state] (trace-delete state adr)))
+   ;; formerly: (trace-clear! (trace-subtrace tr adr))
+   ))
 
 (defn trace-set!
   ([tr val] (trace-set-value! tr val))

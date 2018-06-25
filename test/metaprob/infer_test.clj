@@ -142,7 +142,7 @@
                                               50]))
           lifted (infer/inf "lifted" qq)]
       (is (= (lifted 7 8) 15))
-      (let [[answer score] (infer/infer-apply lifted [7 8] no-trace no-trace no-trace)]
+      (let [[answer score] (infer/infer-apply lifted [7 8] nil nil nil)]
         (is (= answer 15))
         (is (= score 50))))))
 
