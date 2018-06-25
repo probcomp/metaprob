@@ -265,3 +265,15 @@
     (is (> (compare-keys {"abc" {:value 9}} {"abc" {:value 7}}) 0))
     (is (> (compare-keys {"abc" {:value 9} "foo" {:value 17}} {"abc" {:value 9}}) 0))))
 
+(deftest merge!-1
+  (testing "trace-merge!"
+    (let [tr (empty-trace)]
+      (trace-merge! tr {5 {:value 55}})
+      (is (= (trace-get tr 5) 55))
+      (trace-merge! tr {6 {:value 66} 7 {:value 77}})
+      (is (= (trace-get tr 7) 77))
+      (trace-merge! tr {:value 8})
+      (is (= (trace-get tr) 8))
+      (trace-merge! tr {9 {3 {:value 33}}})
+      (is (= (trace-get tr '(9 3)) 33))
+      )))
