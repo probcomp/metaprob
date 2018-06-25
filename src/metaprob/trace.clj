@@ -361,6 +361,33 @@
 
 ;; see also: freeze
 
+(defn ^:private trace-subtrace-maybe [tr key]
+  (if (trace-has-direct-subtrace? tr key)
+    (trace-direct-subtrace tr key)
+    (state/empty-state)))
+
+;; Marco's merge operator (+).  Commutative and idempotent.
+;;
+;; (trace-merge large small) - when calling, try to make tr1 larger than tr2,
+;; because it will be tr2 that is traversed.
+
+(declare same-states? trace-set)
+
+(defn trace-merge [tr1 tr2]
+  (let [tr (state/map-to-state
+            (into (state/state-to-map (trace-state tr1))
+                  (for [key (trace-keys tr2)]
+                    [key (trace-merge (trace-subtrace-maybe tr1 key)
+                                      (trace-subtrace tr2 key))])))]
+    (if (trace-has-value? tr)
+      (do (if (trace-has-value? tr2)
+            (assert (same-states? (trace-value tr) (trace-value tr2))
+                    ["incompatible trace states" tr tr2]))
+          tr)
+      (if (trace-has-value? tr2)
+        (trace-set tr (trace-value tr2))
+        tr))))
+
 ;; -----------------------------------------------------------------------------
 ;; Side effects.
 
@@ -370,19 +397,22 @@
                (fn [state]
                  (state/set-subtrace state key sub))))
 
+(defn ^:private build-out [tr key]
+  (if (trace-has-direct-subtrace? tr key)
+    (trace-direct-subtrace tr key)
+    (let [novo (make-mutable-trace {})]
+      (trace-set-direct-subtrace! tr key novo)
+      novo)))
+
 (defn trace-set-subtrace! [tr adr sub]
+  (assert (mutable-trace? tr))
   (assert (trace? sub))
   (if (seq? adr)
     (loop [tr tr adr adr]
       (let [[head & tail] adr]
         (if (empty? tail)
           (trace-set-direct-subtrace! tr head sub)
-          (let [more (if (trace-has-direct-subtrace? tr head)
-                       (trace-direct-subtrace tr head)
-                       (let [novo (make-mutable-trace {})]
-                         (trace-set-direct-subtrace! tr head novo)
-                         novo))]
-            (recur more tail)))))
+          (recur (build-out tr head) tail))))
     (trace-set-direct-subtrace! tr adr sub)))
 
 (defn ^:private trace-set-value! [tr val]
@@ -399,12 +429,7 @@
       (if (empty? adr)
         (trace-set-value! tr val)
         (let [[head & tail] adr]
-          (let [more (if (trace-has-direct-subtrace? tr head)
-                       (trace-direct-subtrace tr head)
-                       (let [novo (make-mutable-trace {})]
-                         (trace-set-direct-subtrace! tr head novo)
-                         novo))]
-            (recur more tail)))))))
+          (recur (build-out tr head) tail))))))
 
 (defn trace-set!
   ([tr val] (trace-set-value! tr val))
@@ -428,22 +453,11 @@
 ;; See earthquake...
 
 (defn trace-merge! [mutable tr]
-  (if (trace-has? tr)
-    (trace-set-value! mutable (trace-get tr)))
-  (if (> (trace-count mutable) 0)          ;Do I have any subtraces?
-    (doseq [key (trace-keys tr)]
-      (if (trace-has? mutable key)
-        (trace-merge! (trace-subtrace mutable key)
-                       (trace-subtrace tr key))
-        (trace-set-subtrace! mutable key (trace-subtrace tr key))))))
+  (trace-swap! mutable (fn [state] (trace-merge state tr)))
+  "value of trace-merge!")
 
 ;; -----------------------------------------------------------------------------
 ;; Effectless versions of operators that are ordinarily effectful
-
-(defn ^:private trace-subtrace-maybe [tr key]
-  (if (trace-has-subtrace? tr key)
-    (trace-subtrace tr key)
-    (state/empty-state)))
 
 (defn trace-set-subtrace [tr adr sub]
   (if (seq? adr)
@@ -473,28 +487,6 @@
                          (trace-set (trace-subtrace-maybe tr adr) val)))))
 
 ;; TBD: delete
-
-;; Marco's merge operator (+).  Commutative and idempotent.
-;;
-;; (trace-merge small large) - when calling, try to make tr1 smaller than tr2,
-;; because it will be tr1 that is traversed.
-
-(declare same-states?)
-
-(defn trace-merge [tr1 tr2]
-  (let [tr (state/map-to-state
-            (into (state/state-to-map (trace-state tr2))
-                  (for [key (trace-keys tr1)]
-                    [key (trace-merge (trace-subtrace tr1 key)
-                                      (trace-subtrace-maybe tr2 key))])))]
-    (if (trace-has-value? tr)
-      (if (trace-has-value? tr2)
-        (do (assert (same-states? (trace-value tr) (trace-value tr2))
-                    ["incompatible trace states" tr tr2])
-            tr))
-      (if (trace-has-value? tr1)
-        (trace-set tr (trace-value tr1))
-        tr))))
 
 ;; -----------------------------------------------------------------------------
 ;; Zip and unzip are inverses, for valueless traces
@@ -534,7 +526,7 @@
             (do (assert (ok-key? key))
                 (if (splice? val)
                   (assoc more key (get val :subtrace))
-                  (if true
+                  (if false
                     ;; Old version
                     (if (trace? val)      ;DWIM
                       (assoc more key val)

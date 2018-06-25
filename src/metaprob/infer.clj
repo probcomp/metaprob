@@ -171,9 +171,9 @@
       (infer-apply-neuf proc inputs
                         (or intervene (trace))
                         (or target (trace))
-                        (if output-place true false)))
-    (if output-place
-      (trace-update! output-place output))
+                        (not (= output-place nil))))
+    (if (not (= output-place nil))
+      (trace-merge! output-place output))
     [val score]))
 
 ;; Output-not-an-input version
@@ -188,7 +188,10 @@
     (if (and (trace? proc) (trace-has? proc "infer-method"))
       ;; Proc is a special inference procedure returned by `inf`.
       ;; Return the value+score that the infer-method computes.
-      ((trace-get proc "infer-method") inputs intervene target output?)
+      
+      (do (define im (trace-get proc "infer-method"))
+          (assert (procedure? im) ["what" im])
+          ((trace-get proc "infer-method") inputs intervene target output?))
       (if (and (foreign-procedure? proc)
                (empty-trace? intervene)
                (empty-trace? target)
@@ -389,7 +392,7 @@
                                   output?))
                  (luup (+ i 1)
                        (pair val values)
-                       (trace-merge suboutput output)
+                       (trace-merge output suboutput)
                        (+ score subscore)))
           [(reverse values) output score])))
     (luup 0 (list) (trace) 0)))
@@ -401,7 +404,7 @@
 (define inf-neuf
   (gen [name infer-method]
     (assert (procedure? infer-method) infer-method)
-    (trace-as-procedure (mutable-trace "name" (add "inf-" (procedure-name infer-method))
+    (trace-as-procedure (mutable-trace "name" (add "inf-" name)
                                        "infer-method" infer-method)
                         ;; When called from Clojure:
                         (gen [& inputs]
