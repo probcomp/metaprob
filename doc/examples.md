@@ -26,6 +26,8 @@ an intervention for one of the flips forcing a false:
 
 Source code: [metaprob.examples.earthquake](../src/metaprob/examples/earthquake.clj))
 
+Setup:
+
     (define exact-probabilities 
       (enumerate-executions earthquake-bayesian-network [] (empty-trace) (empty-trace)))
     (define fake-samples

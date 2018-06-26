@@ -5,14 +5,18 @@
             [metaprob.interpreters :refer :all]
             [metaprob.examples.flip-n-coins :refer :all]))
 
+(defn datum-addr [n]
+  (builtin/addr 2 "datum" "map" n "flip"))
+
 (deftest flip-n-coins-smoke-1
   (testing "testing flip-n-coins"
     (let [n 4
-          trace-with-flips (builtin/empty-trace)
-          datum-addr (fn [n] (builtin/addr 2 "datum" "map" n "flip"))]
+          trace-with-flips (builtin/empty-trace)]
+      (builtin/print "trace-with-flips = ") (builtin/pprint trace-with-flips)
       (let [[answer score]
             (infer :procedure flip-n-coins :inputs (builtin/tuple n)
                    :output-trace trace-with-flips)]
+        (builtin/print "trace-with-flips = ") (builtin/pprint trace-with-flips)
         (is (builtin/list? answer))
         (let [a1 (builtin/nth answer 0)]
           (is (or (= a1 true) (= a1 false))))
