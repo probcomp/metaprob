@@ -2,6 +2,7 @@
 
 (ns metaprob.examples.main
   (:require [metaprob.examples.inference-on-gaussian :as ginf]
+            [metaprob.examples.earthquake :as quake]
             ;[criterium.core :as crit]
             )
   ;; (:gen-class)
@@ -24,7 +25,8 @@
 ))
 
 ;; For a more serious test, try 100 (takes about an hour?)
-(def number-of-samples 5)
+(def gaussian-number-of-samples 5)
+(def quake-number-of-samples 5)
 
 (def n-particles 20)
 (def mh-count 20)
@@ -36,6 +38,7 @@
               "rejection" (assoc dict :rejection true :any true)
               "importance" (assoc dict :importance true :any true)
               "mh" (assoc dict :mh true :any true)
+              "quake-rejection" (assoc dict :quake-rejection true :any true)
               (let [matches (re-seq #"^\d+$" arg)]
                 (if matches
                   (assoc dict :count (Integer. (first matches)))
@@ -47,36 +50,44 @@
               (combine (first args)
                        (reduc (rest args)))))]
     (let [dict (reduc args)
-          number-of-samples (or (get dict :count) 5)
           all? (not (get dict :any))]
-      (print (format "dict=%s n=%s all=%s\n" dict number-of-samples all?))
 
-      (print "---- Prior ----\n")
-      (ginf/gaussian-histogram
-       "samples from the gaussian demo prior"
-       (instrument ginf/gaussian-prior-samples number-of-samples))
+      (let [gaussian-number-of-samples (or (get dict :count)
+                                           gaussian-number-of-samples)]
+        (print (format "dict=%s all=%s\n" dict all?))
 
-      (when (or all? (get dict :rejection))
-        ;; Rejection sampling is very slow - 20 seconds per
-        (print "---- Rejection ----\n")
+        (print "---- Prior ----\n")
         (ginf/gaussian-histogram
-         "samples from the gaussian demo target"   
-         (instrument ginf/rejection-assay number-of-samples)))
+         "samples from the gaussian demo prior"
+         (instrument ginf/gaussian-prior-samples gaussian-number-of-samples))
 
-      (when (or all? (get dict :importance))
-        ;; Importance sampling is very fast
-        (print "---- Importance ----\n")
-        (ginf/gaussian-histogram
-         (format "importance sampling gaussian demo with %s particles" n-particles)
-         (ginf/importance-assay n-particles number-of-samples)))
+        (when (or all? (get dict :rejection))
+          ;; Rejection sampling is very slow - 20 seconds per
+          (print "---- Rejection ----\n")
+          (ginf/gaussian-histogram
+           "samples from the gaussian demo target"   
+           (instrument ginf/rejection-assay gaussian-number-of-samples)))
 
-      (when (or all? (get dict :mh))
-        ;; MH is fast
-        (print "---- MH ----\n")
-        (ginf/gaussian-histogram
-         (format "samples from gaussian demo lightweight single-site MH with %s iterations"
-                 mh-count)
-         (instrument ginf/MH-assay mh-count number-of-samples))))))
+        (when (or all? (get dict :importance))
+          ;; Importance sampling is very fast
+          (print "---- Importance ----\n")
+          (ginf/gaussian-histogram
+           (format "importance sampling gaussian demo with %s particles" n-particles)
+           (instrument ginf/importance-assay n-particles gaussian-number-of-samples)))
 
-;; TBD: Bayes net example?
+        (when (or all? (get dict :mh))
+          ;; MH is fast
+          (print "---- MH ----\n")
+          (ginf/gaussian-histogram
+           (format "samples from gaussian demo lightweight single-site MH with %s iterations"
+                   mh-count)
+           (instrument ginf/MH-assay mh-count gaussian-number-of-samples))))
 
+      (let []
+
+        (when (or all? (get dict :quake-rejection))
+          (print "---- earthquake rejection ----\n")
+          (ginf/gaussian-histogram
+           (format "samples from earthquake demo target"
+                   mh-count)
+           (instrument quake/eq-rejection-assay quake-number-of-samples)))))))
