@@ -26,7 +26,7 @@
 
 (define drop
   (gen [lst index]
-    (block (if (gt index 0) (drop (rest lst) (sub index 1)) lst))))
+    (block (if (> index 0) (drop (rest lst) (- index 1)) lst))))
 
 (define reverse
   (gen [lst] (_reverse lst (if (mutable-trace? lst)
@@ -41,20 +41,20 @@
 
 (define iterate
   (gen [n f a]
-    (if (lte n 0) a (block (iterate (sub n 1) f (f a))))))
+    (if (<= n 0) a (block (iterate (- n 1) f (f a))))))
 
 (define repeat
   (gen [times pp]
-    (if (gt times 0)
+    (if (> times 0)
       (block
         (pp)
-        (repeat (sub times 1) pp))
+        (repeat (- times 1) pp))
       "ok")))
 
 (define _imap
   (gen [f i l]
     (if (pair? l)
-      (pair (f i (first l)) (_imap f (add i 1) (rest l)))
+      (pair (f i (first l)) (_imap f (+ i 1) (rest l)))
       l)))
 
 (define imap
@@ -88,7 +88,7 @@
     (if (and (pair? l1) (pair? l2))
       (block
         (f i (first l1) (first l2))
-        (_i_for_each2 f (add i 1) (rest l1) (rest l2)))
+        (_i_for_each2 f (+ i 1) (rest l1) (rest l2)))
       "done")))
 
 (define i_for_each2 (gen [f l1 l2] (_i_for_each2 f 0 l1 l2)))
@@ -120,7 +120,7 @@
 ;;   (gen [f l i root]
 ;;     (if (pair? l)
 ;;       (block (define val (with-address (list root i) (f (first l))))
-;;              (pair val (_map f (rest l) (add i 1) root)))
+;;              (pair val (_map f (rest l) (+ i 1) root)))
 ;;       l)))
 
 ;; ; (define map map-original)

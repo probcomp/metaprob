@@ -31,7 +31,7 @@
   (gen [samples]
     (define so (sort samples))
     (define window (add 1 (clojure.core/quot (length so) 10)))
-    (define nthcdr (gen [x i] (if (eq i 0) x (nthcdr (rest x) (sub i 1)))))
+    (define nthcdr (gen [x i] (if (= i 0) x (nthcdr (rest x) (sub i 1)))))
     (define lead (nthcdr so window))
     (nth (first (sort (clojure.core/map (gen [x y] [(sub y x) (div (add x y) 2)])
                                         so

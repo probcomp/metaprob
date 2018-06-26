@@ -3,7 +3,7 @@
 
 (ns metaprob.builtin
   (:refer-clojure :exclude
-                  [newline not + = boolean?
+                  [newline not + = boolean? > >= < <= - * /
                    and or case cond
                    assert print apply
                    list list? first rest last nth range sort])
@@ -26,7 +26,6 @@
 ;; the source code for the subforms.
 
 ;; General
-(define-foreign-procedure eq clojure.core/=)
 (define-foreign-procedure = clojure.core/=)
 (define-foreign-procedure neq impl/neq)
 (define-foreign-procedure assert impl/metaprob-assert)
@@ -41,15 +40,15 @@
 (define-foreign-procedure boolean? clojure.core/boolean?)
 
 ;; Numeric
-(define-foreign-procedure gt >)
-(define-foreign-procedure gte >=)
-(define-foreign-procedure lte <=)
-(define-foreign-procedure lt <)
+(define-foreign-procedure > clojure.core/>)
+(define-foreign-procedure >= clojure.core/>=)
+(define-foreign-procedure <= clojure.core/<=)
+(define-foreign-procedure < clojure.core/<)
 (define-foreign-procedure add impl/add)
 (define-foreign-procedure + clojure.core/+)
-(define-foreign-procedure sub -)
-(define-foreign-procedure mul *)
-(define-foreign-procedure div /)
+(define-foreign-procedure - clojure.core/-)
+(define-foreign-procedure * clojure.core/*)
+(define-foreign-procedure / clojure.core//)
 (define-foreign-procedure log impl/log)
 (define-foreign-procedure cos impl/cos)
 (define-foreign-procedure sin impl/sin)
@@ -133,6 +132,16 @@
 (define-foreign-procedure newline trace/metaprob-newline)
 (define-foreign-procedure pprint trace/metaprob-pprint)
 (define-foreign-procedure binned-histogram impl/binned-histogram)
+
+;; Deprecated
+(define-foreign-procedure eq clojure.core/=)
+(define-foreign-procedure gt clojure.core/>)
+(define-foreign-procedure gte clojure.core/>=)
+(define-foreign-procedure lte clojure.core/<=)
+(define-foreign-procedure lt clojure.core/<)
+(define-foreign-procedure sub clojure.core/-)
+(define-foreign-procedure mul clojure.core/*)
+(define-foreign-procedure div clojure.core//)
 
 ;; -----------------------------------------------------------------------------
 ;; Work in progress

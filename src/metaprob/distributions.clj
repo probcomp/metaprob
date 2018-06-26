@@ -60,7 +60,7 @@
      (define n (sample-uniform 0 (length items)))
      (nth items (floor n)))
    (gen [item [items]]
-     (sub (log (length (clojure.core/filter (gen [x] (eq x item)) items)))
+     (sub (log (length (clojure.core/filter (gen [x] (= x item)) items)))
         (log (length items))))))
 
 ;; 
@@ -72,20 +72,20 @@
      ;; if scores is a tuple, coerce to list
      (define weights (to-immutable-list (map exp scores)))
      ;; reduce probably won't work
-     (define normalizer (apply add (to-immutable-list weights)))
-     (define probabilities (map (gen [w] (div w normalizer)) weights))
+     (define normalizer (apply + (to-immutable-list weights)))
+     (define probabilities (map (gen [w] (/ w normalizer)) weights))
      (define sample (sample-uniform 0 1))
      ;; iterate over probabilities, accumulate running sum, stop when cumu prob > sample.
      (define scan (gen [i probs running]
-                    (define running (add (first probs) running))
-                    (if (gt running sample)
+                    (define running (+ (first probs) running))
+                    (if (> running sample)
                       i
-                      (scan (add i 1) (rest probs) running))))
+                      (scan (+ i 1) (rest probs) running))))
      (scan 0 probabilities 0.0))
    (gen [i [scores]]
      (define weights (map exp scores))
-     (define normalizer (clojure.core/reduce add 0 weights))
-     (define probabilities (map (gen [w] (div w normalizer)) weights))
+     (define normalizer (clojure.core/reduce + 0 weights))
+     (define probabilities (map (gen [w] (/ w normalizer)) weights))
      (log (nth probabilities i)))))
 
 ;; ----------------------------------------------------------------------------

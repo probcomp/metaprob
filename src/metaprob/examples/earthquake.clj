@@ -21,8 +21,8 @@
        (gen [i n]
          (if (gte i len)
            n
-           (luup (add i 1) (add (mul 2 n)
-                                (if (nth qu i) 1 0))))))
+           (luup (+ i 1) (+ (* 2 n)
+                            (if (nth qu i) 1 0))))))
      (luup 0 0))))
 
 (define earthquake-bayesian-network

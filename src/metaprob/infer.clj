@@ -102,7 +102,6 @@
                        true
                        (block (match-bind! (trace-subtrace pattern i) (first cursor) env)
                               (loup (add i 1) (rest cursor))))))
-
              (loup 0 (to-list input)))
       (do (pprint pattern)
           (assert false ["bad pattern" pattern input])))
