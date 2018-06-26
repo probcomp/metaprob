@@ -89,7 +89,7 @@
 (define-foreign-procedure trace-set! trace/trace-set!)
 (define-foreign-procedure trace-delete! trace/trace-delete!)
 (define-foreign-procedure trace-set-subtrace! trace/trace-set-subtrace!)
-(define-foreign-procedure trace-update! trace/trace-update!)
+(define-foreign-procedure trace-merge! trace/trace-merge!)
 
 (define-foreign-procedure trace-set trace/trace-set)
 (define-foreign-procedure trace-set-subtrace trace/trace-set-subtrace)

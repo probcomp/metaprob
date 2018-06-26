@@ -427,13 +427,13 @@
 ;; than the one that's here.  I don't know how important it is.
 ;; See earthquake...
 
-(defn trace-update! [mutable tr]
+(defn trace-merge! [mutable tr]
   (if (trace-has? tr)
     (trace-set-value! mutable (trace-get tr)))
   (if (> (trace-count mutable) 0)          ;Do I have any subtraces?
     (doseq [key (trace-keys tr)]
       (if (trace-has? mutable key)
-        (trace-update! (trace-subtrace mutable key)
+        (trace-merge! (trace-subtrace mutable key)
                        (trace-subtrace tr key))
         (trace-set-subtrace! mutable key (trace-subtrace tr key))))))
 
