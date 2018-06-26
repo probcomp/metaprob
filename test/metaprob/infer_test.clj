@@ -17,10 +17,10 @@
       (is (= (infer/env-lookup f "sub") builtin/sub)))))
 
 (deftest frame-2
-  (testing "match-bind smoke test"
+  (testing "match-bind! smoke test"
     (let [f (infer/make-env top)
           pat (from-clojure-pattern '[a b])]
-      (infer/match-bind pat (list 1 2) f)
+      (infer/match-bind! pat (list 1 2) f)
       (is (= (infer/env-lookup f "a") 1))
       (is (= (infer/env-lookup f "b") 2)))))
 

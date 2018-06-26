@@ -53,11 +53,11 @@
       (trace-set! env name val)
       (assert false "bad env-bind!"))))
 
-;; match-bind - overrides original prelude.
+;; match-bind! - overrides original prelude.
 ;; Liberal in what it accepts: the input can be either a list or a
 ;; tuple, at any level.
 
-(define match-bind
+(define match-bind!
   ;; pattern is a parse-tree trace (variable or tuple expression) - not a tuple.
   ;; input is anything.
   (gen [pattern input env]
@@ -83,9 +83,9 @@
                        ;; The pattern [& x] matches anything
                        (and (eq i (sub count 2))
                             (eq (trace-get pattern i) "&"))
-                       (match-bind (trace-subtrace pattern (add i 1))
-                                   cursor
-                                   env)
+                       (match-bind! (trace-subtrace pattern (add i 1))
+                                    cursor
+                                    env)
 
                        ;; Ensure that an input remains to match remaining pattern
                        (empty-trace? cursor)
@@ -100,13 +100,13 @@
 
                        ;; Bind pattern to input, and continue
                        true
-                       (block (match-bind (trace-subtrace pattern i) (first cursor) env)
+                       (block (match-bind! (trace-subtrace pattern i) (first cursor) env)
                               (loup (add i 1) (rest cursor))))))
 
              (loup 0 (to-list input)))
       (do (pprint pattern)
           (assert false ["bad pattern" pattern input])))
-    "return value of match-bind"))
+    "return value of match-bind!"))
 
 ;; Similar to `lookup` but does not create locatives
 
@@ -227,9 +227,9 @@
     (define environment (trace-get proc "environment"))
     (define new-env (make-env environment))
     ;; Extend the enclosing environment by binding formals to actuals
-    (match-bind (trace-subtrace source "pattern")
-                inputs
-                new-env)
+    (match-bind! (trace-subtrace source "pattern")
+                 inputs
+                 new-env)
     (infer-eval (trace-subtrace source "body")
                 new-env
                 intervene
@@ -334,9 +334,9 @@
                    (define [val score]
                      (walk (trace-subtrace exp key) env
                            (extend-addr address key)))
-                   [(match-bind (trace-subtrace exp "pattern")
-                                val
-                                env)
+                   [(match-bind! (trace-subtrace exp "pattern")
+                                 val
+                                 env)
                     score])
 
             (block (pprint exp)

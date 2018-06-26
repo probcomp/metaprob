@@ -23,12 +23,12 @@
           sites (addresses-of tree)]
       (is (= (sequence/length sites) 3)))))
 
-;; match-bind
+;; match-bind!
 
 ;; (deftest match-bind-1
-;;   (testing "match-bind smoke"
+;;   (testing "match-bind! smoke"
 ;;     (let [env (make-env ... what a pain in the ass ...)]
-;;       (match-bind (from-clojure '[a b])
+;;       (match-bind! (from-clojure '[a b])
 ;;                   [1 2]
 ;;                   env)
 ;;       (is (= (env-lookup env "a") 1))
