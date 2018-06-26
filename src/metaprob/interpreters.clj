@@ -3,6 +3,8 @@
             [metaprob.builtin :as builtin]
             [metaprob.infer :refer [infer-apply]]))
 
+;; Returns [value score]
+
 (defn infer [& {:keys [procedure inputs intervention-trace
                        target-trace output-trace]}]
   (infer-apply procedure

@@ -84,7 +84,6 @@
            (instrument ginf/MH-assay mh-count gaussian-number-of-samples))))
 
       (let []
-
         (when (or all? (get dict :quake-rejection))
           (print "---- earthquake rejection ----\n")
           (ginf/gaussian-histogram
