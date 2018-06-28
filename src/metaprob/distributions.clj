@@ -63,30 +63,66 @@
      (sub (log (length (clojure.core/filter (gen [x] (= x item)) items)))
         (log (length items))))))
 
-;; 
+;; Cf. CategoricalOutputPSP from discrete.py in Venturecxx
+;; This is just the one-argument form, so is simpler than what's in Venture.
+
+(define categorical
+  (hard-to-name
+   "categorical"
+   (gen [probabilities]
+     ;; Returns an index i.
+     ;; Assume that probabilities add to 1.
+     ;; return simulateCategorical(vals[0], args.np_prng(),
+     ;;   [VentureInteger(i) for i in range(len(vals[0]))])
+     (define threshold (sample-uniform 0 1))
+     ;; iterate over probabilities, accumulate running sum, stop when cumu prob > threshold.
+     (define scan (gen [i probs running-prob]
+                    (if (empty-trace? probs)
+                      (- i 1)
+                      (block (define next-prob (+ (first probs) running-prob))
+                             (if (> next-prob threshold)
+                               i
+                               (scan (+ i 1) (rest probs) next-prob))))))
+     (scan 0 (to-list probabilities) 0.0))
+   (gen [i [probabilities]]
+     ;; return logDensityCategorical(val, vals[0],
+     ;;   [VentureInteger(i) for i in range(len(vals[0]))])
+     (log (nth probabilities i)))))
+
+(declare scores-to-probabilities)
+
+;; Returns 0, 1, 2, ... weighted by the given weights (given as log
+;; probabilities, unnormalized).
 
 (define log-categorical
   (hard-to-name
    "log-categorical"
    (gen [scores]
-     ;; if scores is a tuple, coerce to list
-     (define weights (to-immutable-list (map exp scores)))
-     ;; reduce probably won't work
-     (define normalizer (apply + (to-immutable-list weights)))
-     (define probabilities (map (gen [w] (/ w normalizer)) weights))
-     (define sample (sample-uniform 0 1))
-     ;; iterate over probabilities, accumulate running sum, stop when cumu prob > sample.
-     (define scan (gen [i probs running]
-                    (define running (+ (first probs) running))
-                    (if (> running sample)
+     (define threshold (sample-uniform 0 1))
+     ;; iterate over probabilities, accumulate running sum, stop when cumu prob > threshold.
+     (define scan (gen [i probs running-prob]
+                    (define p (+ (first probs) running-prob))
+                    (if (> p threshold)
                       i
-                      (scan (+ i 1) (rest probs) running))))
-     (scan 0 probabilities 0.0))
+                      (scan (+ i 1) (rest probs) p))))
+     (scan 0 (scores-to-probabilities scores) 0.0))
    (gen [i [scores]]
-     (define weights (map exp scores))
-     (define normalizer (clojure.core/reduce + 0 weights))
-     (define probabilities (map (gen [w] (/ w normalizer)) weights))
-     (log (nth probabilities i)))))
+     ;; iterate over scores, accumulate running sum, for first i scores.
+     (define scan (gen [j scores running-score]
+                    (define score (+ (first scores) running-score))
+                    (if (> j i)
+                      running-score
+                      (scan (+ j 1) (rest scores) score))))
+     (scan 0 scores 0.0))))
+
+;;  ^:private
+(define scores-to-probabilities
+  (gen [scores]
+    (define weights (map exp (to-immutable-list scores)))
+    ;; reduce probably won't work
+    (define normalizer (apply add (to-immutable-list weights)))
+    (map (gen [w] (/ w normalizer)) weights)))
+
 
 ;; ----------------------------------------------------------------------------
 ;; I'm going to defer the implementation of beta until later;

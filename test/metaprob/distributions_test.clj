@@ -38,3 +38,55 @@
   (testing "flip score smoke test"
     (is (> (get-score uniform (list 0 1)) -0.1))))
 
+(defn normalize [weights]
+  (let [total (apply + weights)]
+    (map (fn [x] (/ x total)) weights)))
+
+;; target-distribution is a seq of [value probability]
+
+(defn test-generator [generator target-distribution reps]
+  (let [values (map first target-distribution)
+        probabilities (map second target-distribution)
+        samples (map (fn [x] (generator)) (range reps))
+        measured (normalize
+                  (map (fn [value]
+                         (apply +
+                                (map (fn [sample]
+                                       (if (= sample value)
+                                         1
+                                         0))
+                                     samples)))
+                       values))
+        abs (fn [x] (if (< x 0) (- 0 x) x))
+        close? (fn [x y]
+                 (if (if (= x 0)
+                       (= y 0)
+                       (< (abs (- (/ y x) 1)) 0.1))
+                   true
+                   (do (print [x y]) false)))]
+    (every? (fn [x] x) (map close? probabilities measured))))
+
+(deftest categorical-1
+  (testing "categorical"
+    (let [weights (range 10)
+          probabilities (normalize weights)]
+      (is (test-generator (fn [] (categorical probabilities))
+                          (map (fn [i p] [i p])
+                               weights
+                               probabilities)
+                          10000)))))
+
+(deftest log-categorical-1
+  (testing "log-categorical"
+    (let [weights (range 10)
+          probabilities (normalize weights)
+          scores (map (fn [p]
+                        (if (= p 0)
+                          Double/NEGATIVE_INFINITY
+                          (impl/log p)))
+                      probabilities)]
+      (is (test-generator (fn [] (log-categorical scores))
+                          (map (fn [i p] [i p])
+                               weights
+                               probabilities)
+                          5000)))))
