@@ -22,7 +22,10 @@
   (:require [metaprob.examples.flip-n-coins :refer :all])
   (:require [metaprob.examples.earthquake :refer :all])
   (:require [metaprob.examples.inference-on-gaussian :refer :all])
-  (:require [clojure.tools.namespace.repl :refer [refresh]]))
+  ;; The following would simplify startup a bit but I'm getting
+  ;; an error in `lein test`
+  ;; (:require [clojure.tools.namespace.repl :refer [refresh]])
+  )
 
 ;; You may prefer to invoke particular demos in the REPL, rather than
 ;; run them all wholesale
