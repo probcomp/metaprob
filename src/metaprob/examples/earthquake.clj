@@ -10,6 +10,8 @@
             [metaprob.distributions :refer :all]
             [metaprob.inference :refer :all]))
 
+(define quake-env (make-top-level-env 'metaprob.examples.earthquake))
+
 ;; Convert a tuple of booleans to an integer.
 ;; Tuple element 0 determines the highest order bit.
 
@@ -54,10 +56,6 @@
 ;; ----------------------------------------------------------------------------
 ;; Calculate exact probabilities
 
-;; Kludge
-
-(define top-level-env (trace-get (gen [x] x) "environment"))
-
 (trace-set! flip "support" (list true false))
 
 ;; Returns a list of output traces
@@ -71,7 +69,7 @@
         (print ["site:" site])
         (if (pair? site)
           (block (define oper-name (last site))
-                 (define oper (top-level-lookup top-level-env oper-name))
+                 (define oper (top-level-lookup quake-env oper-name))
                  (if (and (trace? oper)
                           (trace-has? oper "support"))
                    (block
@@ -205,7 +203,7 @@
       (enumerate-executions earthquake-bayesian-network [] (empty-trace) (empty-trace)))
     (define fake-samples
       (fake-samples-for-enumerated-executions exact-probabilities 12240))
-    (earthquake-histogram "exact earthquake prior probabilities"
+    (earthquake-histogram "exact bayesnet prior probabilities"
                           fake-samples)
 
     (print "Exact alarm-went-off probabilities")
@@ -213,19 +211,19 @@
       (enumerate-executions earthquake-bayesian-network [] alarm-went-off (empty-trace)))
     (define fake-awo-samples
       (fake-samples-for-enumerated-executions exact-awo-probabilities 12240))
-    (earthquake-histogram "exact earthquake alarm-went-off probabilities"
+    (earthquake-histogram "exact bayesnet alarm-went-off probabilities"
                           fake-awo-samples)
 
     (define number-of-samples 100)
 
-    (print "Sampling from the prior")
-    (earthquake-histogram "sampled earthquake prior probabilities"
+    (print "bayesnet sampling from the prior")
+    (earthquake-histogram "bayesnet sampled prior probabilities"
                           (prior-samples number-of-samples))
 
-    (print "Rejection sampling")
-    (earthquake-histogram "samples from the target"
+    (print "bayesnet rejection sampling")
+    (earthquake-histogram "bayesnet samples from rejection sampling"
                           (eq-rejection-assay number-of-samples))
 
-    (print "Importance sampling")
-    (earthquake-histogram "samples from importance sampling with 20 particles"
+    (print "bayesnet importance sampling")
+    (earthquake-histogram "bayesnet samples from importance sampling with 20 particles"
                           (eq-importance-assay 20 number-of-samples))))

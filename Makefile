@@ -41,34 +41,21 @@ convert: src/metaprob/main.clj src/metaprob/to_clojure.clj .lein_classpath
 # compile'. I don't understand the difference.
 # To change number of samples, pass the number on the command line.
 # 2000 is a good number, but it takes hours to run.
-# 5 is good for testing.
+# 5 is good for smoke tests.  To get more, you can say e.g.
+#  make histograms COUNT=100
 COUNT=5
-exa:
+exa: results/samples_from_the_prior.samples
+
+results/samples_from_the_prior.samples:
+	mkdir -p results
 	lein compile 
 	time lein run -m metaprob.examples.main $(COUNT)
-	ls -tl results/*.samples
 
-histograms: h1.png h2.png h3.png h4.png
-# Prior
-h1.png: results/samples_from_the_prior.samples
-	bin/gnuplot-hist $<
-	mv gnuplot-hist-tmp.png h1.png
-	open h1.png
-# Rejection
-h2.png: results/samples_from_the_target.samples 
-	bin/gnuplot-hist $<
-	mv gnuplot-hist-tmp.png h2.png
-	open h2.png
-# Importance
-h3.png: results/samples_from_importance_sampling_with_20_particles.samples 
-	bin/gnuplot-hist $<
-	mv gnuplot-hist-tmp.png h3.png
-	open h3.png
-# MH
-h4.png: results/samples_from_lightweight_single-site_MH_with_20_iterations.samples
-	bin/gnuplot-hist $<
-	mv gnuplot-hist-tmp.png h4.png
-	open h4.png
+results/samples_from_the_prior.samples.png: results/samples_from_the_prior.samples
+	for f in results/*.samples; do bin/gnuplot-hist $$f; done
+
+view: results/samples_from_the_prior.samples.png
+	open results/*.png
 
 # suppress '.#foo.clj' somehow
 tags:

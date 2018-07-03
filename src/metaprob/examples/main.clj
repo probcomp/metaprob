@@ -38,7 +38,7 @@
               "rejection" (assoc dict :rejection true :any true)
               "importance" (assoc dict :importance true :any true)
               "mh" (assoc dict :mh true :any true)
-              "quake-rejection" (assoc dict :quake-rejection true :any true)
+              "quake-rejection" (assoc dict :quake true :any true)
               (let [matches (re-seq #"^\d+$" arg)]
                 (if matches
                   (assoc dict :count (Integer. (first matches)))
@@ -51,6 +51,14 @@
                        (reduc (rest args)))))]
     (let [dict (reduc args)
           all? (not (get dict :any))]
+
+      (let [quake-number-of-samples (or (get dict :count)
+                                             quake-number-of-samples)]
+        (when (or all? (get dict :quake))
+          (print "---- earthquake bayesnet ----\n")
+          ;; (quake/demo-earthquake) - doesn't work yet
+          (quake/earthquake-histogram "bayesnet samples from rejection sampling"
+                                (quake/eq-rejection-assay quake-number-of-samples))))
 
       (let [gaussian-number-of-samples (or (get dict :count)
                                            gaussian-number-of-samples)]
@@ -81,12 +89,4 @@
           (ginf/gaussian-histogram
            (format "samples from gaussian demo lightweight single-site MH with %s iterations"
                    mh-count)
-           (instrument ginf/MH-assay mh-count gaussian-number-of-samples))))
-
-      (let []
-        (when (or all? (get dict :quake-rejection))
-          (print "---- earthquake rejection ----\n")
-          (ginf/gaussian-histogram
-           (format "samples from earthquake demo target"
-                   mh-count)
-           (instrument quake/eq-rejection-assay quake-number-of-samples)))))))
+           (instrument ginf/MH-assay mh-count gaussian-number-of-samples)))))))

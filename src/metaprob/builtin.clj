@@ -126,6 +126,7 @@
 ;; Environments
 (define-foreign-procedure top-level-lookup impl/top-level-lookup)
 (define-foreign-procedure top-level-environment? trace/top-level-environment?)
+(define-foreign-procedure make-top-level-env impl/make-top-level-env)
 
 ;; Printing
 (define-foreign-procedure print impl/metaprob-print)
