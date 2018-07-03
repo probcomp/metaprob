@@ -9,7 +9,7 @@
   (:require [metaprob.state :as state])
   (:require [metaprob.trace :as trace])
   (:require [metaprob.sequence :as sequence])
-  (:require [metaprob.builtin_impl :as impl])
+  (:require [metaprob.builtin-impl :as impl])
 
   (:require [metaprob.syntax :refer :all])
   (:require [metaprob.builtin :refer :all])
@@ -21,7 +21,8 @@
 
   (:require [metaprob.examples.flip-n-coins :refer :all])
   (:require [metaprob.examples.earthquake :refer :all])
-  (:require [metaprob.examples.inference-on-gaussian :refer :all]))
+  (:require [metaprob.examples.inference-on-gaussian :refer :all])
+  (:require [clojure.tools.namespace.repl :refer [refresh]]))
 
 ;; You may prefer to invoke particular demos in the REPL, rather than
 ;; run them all wholesale
