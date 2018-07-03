@@ -396,8 +396,6 @@
                        (+ score subscore)))
           [(reverse values) output score])))
     (luup 0 (list) (trace) 0)))
->>>>>>> tests run with new eval protocol
-
 
 ;; -----------------------------------------------------------------------------
 
