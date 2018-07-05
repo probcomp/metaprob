@@ -534,16 +534,8 @@
             (do (assert (ok-key? key))
                 (if (splice? val)
                   (assoc more key (get val :subtrace))
-                  (if true
-                    ;; Old version
-                    (if (trace? val)      ;DWIM
-                      (assoc more key val)
-                      (do (assert (ok-value? val))
-                          (assoc more key {:value val})))
-
-                    ;; New version
-                    (do (assert (ok-value? val))
-                        (assoc more key {:value val}))))))))))
+                  (do (assert (ok-value? val))
+                      (assoc more key {:value val})))))))))
 
 (defn ** [tr]
   (assert (trace? tr) "**: expected a trace")

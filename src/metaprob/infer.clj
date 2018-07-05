@@ -36,7 +36,7 @@
 (define make-env
   (gen [parent]
     (assert (environment? parent) parent)
-    (mutable-trace "*parent*" (trace :value parent))))
+    (mutable-trace "*parent*" parent)))
 
 (define env-lookup
   (gen [env name]
@@ -287,7 +287,7 @@
             [(mutable-trace :value "prob prog"
                             "name" (trace-name exp)
                             "generative-source" (** exp)
-                            "environment" (trace :value env))
+                            "environment" env)
              0]
 
             ;; Conditional
@@ -348,7 +348,7 @@
 (define inf
   (gen [name infer-method]
     (trace-as-procedure (mutable-trace "name" (add "inf-" (procedure-name infer-method))
-                                       "infer-method" (trace :value infer-method))
+                                       "infer-method" infer-method)
                         ;; When called from Clojure:
                         (gen [& inputs]
                           (nth (infer-method inputs nil nil nil)
