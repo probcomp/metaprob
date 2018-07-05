@@ -299,6 +299,8 @@
      (state/set-value state val))))
 
 (defn make-mutable-trace
+  ([]
+   (make-cell (state/empty-state)))
   ([state-or-map]
    (make-cell (canonical-trace-state state-or-map)))
   ([state-or-map val]
@@ -314,8 +316,8 @@
 ;; mk_nil in the python version
 
 (defn empty-trace
-  ([] (make-mutable-trace {}))
-  ([val] (make-mutable-trace {} val)))
+  ([] (make-mutable-trace (state/empty-state)))
+  ([val] (make-mutable-trace (state/empty-state) val)))
 
 (def new-trace empty-trace)
 
@@ -345,7 +347,8 @@
     x
     (if (trace? x)
       (make-mutable-trace x)
-      (make-mutable-trace {} x))))
+      ;; somewhat DWIMmish.
+      (make-mutable-trace (state/empty-state) x))))
 
 ;; Recursive copy, mutable result... hmm... maybe should copy mutability as well?
 ;; see earthquake example...
@@ -379,7 +382,7 @@
           (trace-set-direct-subtrace! tr head sub)
           (let [more (if (trace-has-direct-subtrace? tr head)
                        (trace-direct-subtrace tr head)
-                       (let [novo (make-mutable-trace {})]
+                       (let [novo (make-mutable-trace)]
                          (trace-set-direct-subtrace! tr head novo)
                          novo))]
             (recur more tail)))))
@@ -401,7 +404,7 @@
         (let [[head & tail] adr]
           (let [more (if (trace-has-direct-subtrace? tr head)
                        (trace-direct-subtrace tr head)
-                       (let [novo (make-mutable-trace {})]
+                       (let [novo (make-mutable-trace)]
                          (trace-set-direct-subtrace! tr head novo)
                          novo))]
             (recur more tail)))))))
