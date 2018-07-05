@@ -374,20 +374,31 @@
 ;; (trace-merge small large) - when calling, try to make tr1 smaller than tr2,
 ;; because it will be tr1 that is traversed.
 
-(defn trace-merge [tr1 tr2]
-  (let [tr (state/map-to-state
-            (into (state/state-to-map (trace-state tr1))
-                  (for [key (trace-keys tr2)]
-                    [key (trace-merge (trace-subtrace-maybe tr1 key)
-                                      (trace-subtrace tr2 key))])))]
-    (if (trace-has-value? tr)
-      (do (if (trace-has-value? tr2)
-            (assert (same-states? (trace-value tr) (trace-value tr2))
-                    ["incompatible trace states" tr tr2]))
-          tr)
-      (if (trace-has-value? tr2)
-        (trace-set-value tr (trace-value tr2))
-        tr))))
+(defn trace-merge
+  ([tr1 tr2] (trace-merge tr1 tr2 false))
+  ([tr1 tr2 clobber?]
+   (let [s1 (trace-state tr1)
+         s2 (trace-state tr2)
+         s (state/map-to-state
+            (into (state/state-to-map s1)
+                  (for [key (state/state-keys s2)]
+                    [key (if (state/has-subtrace? s1 key)
+                           (trace-merge (state/subtrace s1 key)
+                                        (state/subtrace s2 key)
+                                        clobber?)
+                           (state/subtrace s2 key))])))
+         s (if (state/has-value? s)
+             (do (if (state/has-value? s2)
+                   (assert (same-states? (state/value s) (state/value s2))
+                           ["incompatible trace states" s s2]))
+                 s)
+             (if (state/has-value? s2)
+               (state/set-value s (state/value s2))
+               s))]
+     ;; see trace-merge!, below
+     (if (and clobber? (mutable-trace? tr1))
+       (do (trace-swap! tr1 s) tr1)
+       s))))
 
 ;; see also: freeze
 
@@ -450,7 +461,7 @@
   (assert (ok-key? key))
   (trace-swap! tr
                (fn [state]
-                 (state/set-subtrace state key sub))))
+                 (trace-set-direct-subtrace state key sub))))
 
 (defn trace-set-subtrace! [tr adr sub]
   (assert (trace? sub))
@@ -498,26 +509,16 @@
 
 (defn trace-delete!
   ([tr] (trace-clear! tr))
-  ([tr adr] (trace-clear! (trace-subtrace tr adr))))
+  ([tr adr]
+   (trace-swap! tr (fn [state] (trace-delete state adr)))))
 
 (defn trace-set!
   ([tr val] (trace-set-value! tr val))
   ([tr adr val]
    (trace-set-value-at! tr adr val)))
 
-;; Alexey's version (in python-metaprob) has a broader optimization
-;; than the one that's here.  I don't know how important it is.
-;; See earthquake...
-
 (defn trace-merge! [mutable tr]
-  (if (trace-has? tr)
-    (trace-set-value! mutable (trace-get tr)))
-  (if (> (trace-count mutable) 0)          ;Do I have any subtraces?
-    (doseq [key (trace-keys tr)]
-      (if (trace-has? mutable key)
-        (trace-merge! (trace-subtrace mutable key)
-                       (trace-subtrace tr key))
-        (trace-set-subtrace! mutable key (trace-subtrace tr key))))))
+  (trace-merge mutable tr true))
 
 ;; -----------------------------------------------------------------------------
 ;; Zip and unzip are inverses, for valueless traces
