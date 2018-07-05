@@ -1,4 +1,4 @@
-;; The meta-circular Metaprob interpreter.
+;; A meta-circular Metaprob interpreter.
 
 ;; Although this file will almost always run as clojure code, it
 ;; is a goal to retain the ability to run it as metaprob
