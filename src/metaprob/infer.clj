@@ -371,16 +371,16 @@
          (block (define re
                   (gen [l i]
                     (if (pair? l)
-                      (block (define out (if output (lookup output i) nil))
+                      (block (define suboutput (if output (lookup output i) nil))
                              (define [valu subscore]
                                (infer-apply fun
                                             [(first l)]
                                             ;; advance traces by address i
                                             (maybe-subtrace intervene i)
                                             (maybe-subtrace target i)
-                                            out))
-                             (if output
-                               (trace-set! output i out))
+                                            suboutput))
+                             (if (and output suboutput)
+                               (trace-set! output i suboutput))
                              (define [more-valu more-score]
                                (re (rest l) (add i 1)))
                              [(pair valu more-valu)
