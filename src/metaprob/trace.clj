@@ -392,6 +392,58 @@
 ;; see also: freeze
 
 ;; -----------------------------------------------------------------------------
+;; Effectless versions of operators that are ordinarily effectful
+
+(defn trace-set-direct-subtrace [tr key sub]
+  (assert (ok-key? key))
+  (assert (trace? sub))
+  (state/set-subtrace (trace-state tr) key sub))
+
+(defn trace-set-subtrace [tr adr sub]
+  (if (seq? adr)
+    (if (empty? adr)
+      sub
+      (trace-set-direct-subtrace tr
+                                 (first adr)
+                                 (trace-set-subtrace (trace-subtrace-maybe tr (first adr))
+                                                     (rest adr)
+                                                     sub)))
+    (trace-set-direct-subtrace tr adr sub)))
+
+(defn trace-set-value [tr val]
+  (state/set-value (trace-state tr) val))
+
+(defn trace-set-value-at [tr adr val]
+  (if (seq? adr)
+    (if (empty? adr)
+      (trace-set-value tr val)
+      (trace-set-direct-subtrace tr
+                                 (first adr)
+                                 (trace-set-value-at (trace-subtrace-maybe tr (first adr))
+                                                     (rest adr)
+                                                     val)))
+    (trace-set-direct-subtrace tr
+                               adr
+                               (trace-set-value (trace-subtrace-maybe tr adr) val))))
+
+(defn trace-set
+  ([tr val] (trace-set-value tr val))
+  ([tr adr val] (trace-set-value-at tr adr val)))
+
+(defn trace-delete
+  ([tr] (state/clear-value (trace-state tr)))
+  ([tr adr]
+   (if (seq? adr)
+     (if (empty? adr)
+       (state/clear-value (trace-state tr))
+       (trace-set-direct-subtrace tr
+                                  (first adr)
+                                  (trace-delete (trace-subtrace-maybe tr (first adr)) (rest adr))))
+     (trace-set-direct-subtrace tr
+                                adr
+                                (trace-delete (trace-subtrace-maybe tr adr))))))
+
+;; -----------------------------------------------------------------------------
 ;; Side effects.
 
 (defn ^:private trace-set-direct-subtrace! [tr key sub]
@@ -466,52 +518,6 @@
         (trace-merge! (trace-subtrace mutable key)
                        (trace-subtrace tr key))
         (trace-set-subtrace! mutable key (trace-subtrace tr key))))))
-
-;; -----------------------------------------------------------------------------
-;; Effectless versions of operators that are ordinarily effectful
-
-(defn ^:private trace-subtrace-maybe [tr key]
-  (if (trace-has-subtrace? tr key)
-    (trace-subtrace tr key)
-    (state/empty-state)))
-
-(defn trace-set-direct-subtrace [tr key sub]
-  (assert (ok-key? key))
-  (assert (trace? sub))
-  (state/set-subtrace (trace-state tr) key sub))
-
-(defn trace-set-subtrace [tr adr sub]
-  (if (seq? adr)
-    (if (empty? adr)
-      sub
-      (trace-set-direct-subtrace tr
-                                 (first adr)
-                                 (trace-set-subtrace (trace-subtrace-maybe tr (first adr))
-                                                     (rest adr)
-                                                     sub)))
-    (trace-set-direct-subtrace tr adr sub)))
-
-(defn trace-set-value [tr val]
-  (state/set-value (trace-state tr) val))
-
-(defn trace-set-value-at [tr adr val]
-  (if (seq? adr)
-    (if (empty? adr)
-      (trace-set-value tr val)
-      (trace-set-direct-subtrace tr
-                                 (first adr)
-                                 (trace-set-value-at (trace-subtrace-maybe tr (first adr))
-                                                     (rest adr)
-                                                     val)))
-    (trace-set-direct-subtrace tr
-                               adr
-                               (trace-set-value (trace-subtrace-maybe tr adr) val))))
-
-(defn trace-set
-  ([tr val] (trace-set-value tr val))
-  ([tr adr val] (trace-set-value-at tr adr val)))
-
-;; TBD: delete
 
 ;; -----------------------------------------------------------------------------
 ;; Zip and unzip are inverses, for valueless traces
