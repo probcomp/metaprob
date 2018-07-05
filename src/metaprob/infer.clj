@@ -72,10 +72,10 @@
     (assert (or (eq output nil)
                 (mutable-trace? output))
             output)
-    (if (and (trace? proc) (trace-has? proc "infer-method"))
+    (if (and (trace? proc) (trace-has? proc "implementation"))
       ;; Proc is a special inference procedure returned by `inf`.
-      ;; Return the value+score that the infer-method computes.
-      ((trace-get proc "infer-method") inputs intervene target output)
+      ;; Return the value+score that the implementation computes.
+      ((trace-get proc "implementation") inputs intervene target output)
       (if (and (foreign-procedure? proc)
                (not (or intervene target output)))
         [(generate-foreign proc inputs) 0]
@@ -254,17 +254,19 @@
     (walk exp env (addr))))
 
 (define inf
-  (gen [name infer-method]
-    (trace-as-procedure (mutable-trace "name" (add "inf-" (procedure-name infer-method))
-                                       "infer-method" infer-method)
+  (gen [name model implementation]
+    (trace-as-procedure (mutable-trace "name" (add "inf-" (procedure-name implementation))
+                                       "model" model
+                                       "implementation" implementation)
                         ;; When called from Clojure:
                         (gen [& inputs]
-                          (nth (infer-method inputs nil nil nil)
+                          (nth (implementation inputs nil nil nil)
                                0)))))
 
 (define apply
   (trace-as-procedure
    (inf "apply"
+        nil
         (gen [inputs intervene target output]
           (infer-apply (first inputs) (rest inputs) intervene target output)))
    ;; Kludge
@@ -275,6 +277,7 @@
 
 (define map-issue-20
   (inf "map"
+       nil
        (gen [[fun sequ] intervene target output]
          (block (define re
                   (gen [l i]
@@ -311,6 +314,7 @@
 (define opaque
   (gen [name proc]
     (inf name
+         nil
          (gen [inputs intervene target output]
            ;; Ignore the traces.
            (infer-apply proc inputs nil nil nil)))))

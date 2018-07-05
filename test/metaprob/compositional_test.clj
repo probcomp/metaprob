@@ -101,7 +101,7 @@
     (let [m (gen [inputs i t o]
                       (define [x y] inputs)
                       (builtin/tuple (+ x 1) 19))
-          l (infer/inf "testing" m)]
+          l (infer/inf "testing" nil m)]
       (is (= (l 17 "z") 18)))))
 
 
@@ -112,7 +112,7 @@
                                             [(+ (builtin/nth inputs 0) (builtin/nth inputs 1))
                                              (trace)
                                              50]))
-          lifted (infer/inf "lifted" qq)]
+          lifted (infer/inf "lifted" nil qq)]
       (is (= (lifted 7 8) 15))
       (let [[answer output score] (infer/infer-apply lifted [7 8] no-trace no-trace false)]
         (is (= answer 15))

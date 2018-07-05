@@ -103,7 +103,7 @@
     (let [m (gen [inputs i t o]
                       (define [x y] inputs)
                       (builtin/tuple (+ x 1) 19))
-          l (infer/inf "testing" m)]
+          l (infer/inf "testing" nil m)]
       (is (= (l 17 "z") 18)))))
 
 
@@ -112,7 +112,7 @@
     (let [qq (impl/make-foreign-procedure "qq" (fn [inputs i t o]
                                              [(+ (builtin/nth inputs 0) (builtin/nth inputs 1))
                                               50]))
-          lifted (infer/inf "lifted" qq)]
+          lifted (infer/inf "lifted" nil qq)]
       (is (= (lifted 7 8) 15))
       (let [[answer score] (infer/infer-apply lifted [7 8] nil nil nil)]
         (is (= answer 15))

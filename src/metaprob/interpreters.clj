@@ -5,7 +5,7 @@
             [metaprob.infer :as infer]
             [metaprob.compositional :as comp]))
 
-;; Returns [value score]
+;; Returns [value ?output-trace? score]
 
 (defn infer [& {:keys [procedure inputs intervention-trace
                        target-trace output-trace]}]

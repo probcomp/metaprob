@@ -11,6 +11,7 @@
 (define hard-to-name
   (gen [name sampler scorer]
     (inf name
+         sampler                        ;model ?
          (gen [inputs intervene target output]
            (define [value score]
              (if (and intervene (trace-has? intervene))

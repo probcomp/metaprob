@@ -64,13 +64,13 @@
     (assert (trace? intervene) ["bad intervene" intervene])
     (assert (trace? target) ["target" target])
     (assert (boolean? output?) output?)
-    (if (and (trace? proc) (trace-has? proc "infer-method"))
+    (if (and (trace? proc) (trace-has? proc "implementation"))
       ;; Proc is a special inference procedure returned by `inf`.
-      ;; Return the value+score that the infer-method computes.
+      ;; Return the value+score that the implementation computes.
       
-      (do (define im (trace-get proc "infer-method"))
-          (assert (procedure? im) ["what" im])
-          ((trace-get proc "infer-method") inputs intervene target output?))
+      (do (define imp (trace-get proc "implementation"))
+          (assert (procedure? imp) ["what" imp])
+          (imp inputs intervene target output?))
       (if (and (foreign-procedure? proc)
                (empty-trace? intervene)
                (empty-trace? target)
@@ -279,13 +279,14 @@
 ;; -----------------------------------------------------------------------------
 
 (define inf
-  (gen [name infer-method]
-    (assert (procedure? infer-method) infer-method)
+  (gen [name model implementation]
+    (assert (procedure? implementation) implementation)
     (trace-as-procedure (mutable-trace "name" (add "inf-" name)
-                                       "infer-method" infer-method)
+                                       "model" model
+                                       "implementation" implementation)
                         ;; When called from Clojure:
                         (gen [& inputs]
-                          (nth (infer-method inputs (trace) (trace) false)
+                          (nth (implementation inputs (trace) (trace) false)
                                0)))))
 
 ;; Experimental
@@ -293,6 +294,7 @@
 (define opaque
   (gen [name proc]
     (inf name
+         proc   ;model (generative procedure)
          (gen [inputs intervene target output]
            ;; Ignore the traces.
            (infer-apply proc inputs (trace) (trace) false)))))
@@ -300,6 +302,7 @@
 (define apply
   (trace-as-procedure
    (inf "apply"
+        clojure.core/apply   ;model (generative procedure)
         (gen [inputs intervene target output?]
           (infer-apply (first inputs) (rest inputs) intervene target output?)))
    ;; Kludge
@@ -310,6 +313,7 @@
 
 (define map-issue-20
   (inf "map"
+       nil
        (gen [[fun sequ] intervene target output?]
          (block (define re
                   (gen [i l]
