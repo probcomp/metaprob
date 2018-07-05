@@ -287,17 +287,18 @@
             (is (= (trace-get tr '(9 3)) 33))
             ))))))
 
-;; (deftest merge!-1
-;;   (testing "trace-merge!"
-;;     (let [tr (empty-trace)]
-;;       (trace-merge! tr {5 {:value 55}})
-;;       (is (= (trace-count tr) 1) tr)
-;;       (is (= (trace-get tr 5) 55) tr)
-;;       (trace-merge! tr {6 {:value 66} 7 {:value 77}})
-;;       (is (= (trace-get tr 7) 77))
-;;       (trace-merge! tr {:value 8})
-;;       (is (= (trace-get tr) 8))
-;;       (trace-merge! tr {9 {3 {:value 33}}})
-;;       (is (= (trace-get tr '(9 3)) 33))
-;;       )))
+(deftest merge!-1
+  (testing "trace-merge!"
+    (let [tr (empty-trace)]
+      (trace-merge! tr {5 {:value 55}})
+      (is (not (empty-trace? tr)) tr)
+      (is (= (trace-count tr) 1) tr)
+      (is (= (trace-get tr 5) 55) tr)
+      (trace-merge! tr {6 {:value 66} 7 {:value 77}})
+      (is (= (trace-get tr 7) 77))
+      (trace-merge! tr {:value 8})
+      (is (= (trace-get tr) 8))
+      (trace-merge! tr {9 {3 {:value 33}}})
+      (is (= (trace-get tr '(9 3)) 33))
+      )))
 

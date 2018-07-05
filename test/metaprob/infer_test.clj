@@ -9,21 +9,6 @@
 
 (def top (impl/make-top-level-env 'metaprob.infer))
 
-(deftest frame-1
-  (testing "frame smoke test"
-    (let [f (infer/make-env top)]
-      (infer/env-bind! f "foo" 17)
-      (is (= (infer/env-lookup f "foo") 17))
-      (is (= (infer/env-lookup f "sub") builtin/sub)))))
-
-(deftest frame-2
-  (testing "match-bind! smoke test"
-    (let [f (infer/make-env top)
-          pat (from-clojure-pattern '[a b])]
-      (infer/match-bind! pat (list 1 2) f)
-      (is (= (infer/env-lookup f "a") 1))
-      (is (= (infer/env-lookup f "b") 2)))))
-
 (defn mk_nil [] (trace/empty-trace))
 
 (defn ez-call [prob-prog & inputs]

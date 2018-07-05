@@ -22,7 +22,7 @@
 
 ;; Metaprob top-level variable environment = clojure namespace
 
-(defn ^:local top-level-environment? [x]
+(defn top-level-environment? [x]
   (instance? clojure.lang.Namespace x))
 
 ;; Is a clojure value useable as a Metaprob subtrace key?
@@ -362,11 +362,6 @@
         (make-mutable-trace result)))
     x))
 
-(defn ^:private trace-subtrace-maybe [tr key]
-  (if (trace-has-direct-subtrace? tr key)
-    (trace-direct-subtrace tr key)
-    (state/empty-state)))
-
 (declare same-states? trace-set-value)
 
 ;; Marco's merge operator (+).  Commutative and idempotent.
@@ -375,35 +370,36 @@
 ;; because it will be tr1 that is traversed.
 
 (defn trace-merge
-  ([tr1 tr2] (trace-merge tr1 tr2 false))
-  ([tr1 tr2 clobber?]
+  ([tr1 tr2] (trace-merge tr1 tr2 trace-merge))
+  ([tr1 tr2 submerge]
    (let [s1 (trace-state tr1)
          s2 (trace-state tr2)
          s (state/map-to-state
             (into (state/state-to-map s1)
                   (for [key (state/state-keys s2)]
                     [key (if (state/has-subtrace? s1 key)
-                           (trace-merge (state/subtrace s1 key)
-                                        (state/subtrace s2 key)
-                                        clobber?)
-                           (state/subtrace s2 key))])))
-         s (if (state/has-value? s)
-             (do (if (state/has-value? s2)
-                   (assert (same-states? (state/value s) (state/value s2))
-                           ["incompatible trace states" s s2]))
-                 s)
-             (if (state/has-value? s2)
-               (state/set-value s (state/value s2))
-               s))]
-     ;; see trace-merge!, below
-     (if (and clobber? (mutable-trace? tr1))
-       (do (trace-swap! tr1 s) tr1)
-       s))))
+                           (submerge (state/subtrace s1 key)
+                                     (state/subtrace s2 key)
+                                     submerge)
+                           (state/subtrace s2 key))])))]
+     (if (state/has-value? s)
+       (do (if (state/has-value? s2)
+             (assert (same-states? (state/value s) (state/value s2))
+                     ["incompatible trace states" s s2]))
+           s)
+       (if (state/has-value? s2)
+         (state/set-value s (state/value s2))
+         s)))))
 
 ;; see also: freeze
 
 ;; -----------------------------------------------------------------------------
 ;; Effectless versions of operators that are ordinarily effectful
+
+(defn ^:private trace-subtrace-maybe [tr key]
+  (if (trace-has-direct-subtrace? tr key)
+    (trace-direct-subtrace tr key)
+    (state/empty-state)))
 
 (defn trace-set-direct-subtrace [tr key sub]
   (assert (ok-key? key))
@@ -458,7 +454,6 @@
 ;; Side effects.
 
 (defn ^:private trace-set-direct-subtrace! [tr key sub]
-  (assert (ok-key? key))
   (trace-swap! tr
                (fn [state]
                  (trace-set-direct-subtrace state key sub))))
@@ -517,8 +512,17 @@
   ([tr adr val]
    (trace-set-value-at! tr adr val)))
 
+(defn trace-merge!-maybe [mutable tr]
+  (if (mutable-trace? mutable)
+    (do (trace-swap! mutable
+                     (fn [s1] 
+                       (trace-merge s1 tr trace-merge!-maybe)))
+        mutable)
+    (trace-merge mutable tr trace-merge!-maybe)))
+
 (defn trace-merge! [mutable tr]
-  (trace-merge mutable tr true))
+  (assert (mutable-trace? mutable) mutable)
+  (trace-merge!-maybe mutable tr))
 
 ;; -----------------------------------------------------------------------------
 ;; Zip and unzip are inverses, for valueless traces
