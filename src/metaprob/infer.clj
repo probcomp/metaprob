@@ -83,7 +83,7 @@
                        ;; The pattern [& x] matches anything
                        (and (eq i (sub count 2))
                             (eq (trace-get pattern i) "&"))
-                       (match-bind! (trace-subtrace pattern (add i 1))
+                       (match-bind! (trace-subtrace pattern (+ i 1))
                                     cursor
                                     env)
 
@@ -101,7 +101,7 @@
                        ;; Bind pattern to input, and continue
                        true
                        (block (match-bind! (trace-subtrace pattern i) (first cursor) env)
-                              (loup (add i 1) (rest cursor))))))
+                              (loup (+ i 1) (rest cursor))))))
              (loup 0 (to-list input)))
       (do (pprint pattern)
           (assert false ["bad pattern" pattern input])))
@@ -262,7 +262,7 @@
                               (walk (trace-subtrace exp i)
                                     env
                                     (extend-addr address i)))
-                            (trace-set! subscore (add (trace-get subscore) s))
+                            (trace-set! subscore (+ (trace-get subscore) s))
                             v)
                           (range (trace-count exp))))
                    (define new-addr
@@ -274,7 +274,7 @@
                                   (maybe-subtrace intervene new-addr)
                                   (maybe-subtrace target new-addr)
                                   (lookup output new-addr)))
-                   [val (add (trace-get subscore) score)])
+                   [val (+ (trace-get subscore) score)])
 
             "variable"
             [(env-lookup env (trace-get exp "name")) 0]
@@ -300,11 +300,11 @@
                (block (define [val score]
                         (walk (trace-subtrace exp "then") env
                               (extend-addr address "then")))
-                      [val (add pred-score score)])
+                      [val (+ pred-score score)])
                (block (define [val score]
                         (walk (trace-subtrace exp "else") env
                               (extend-addr address "else")))
-                      [val (add pred-score score)])))
+                      [val (+ pred-score score)])))
 
             ;; Sequence of expressions and definitions
             "block"
@@ -317,7 +317,7 @@
                               (walk (trace-subtrace exp i) new-env
                                     (extend-addr address i)))
                             (trace-set! subscore
-                                        (add (trace-get subscore) s))
+                                        (+ (trace-get subscore) s))
                             v)
                           (range (trace-count exp))))
                    (if (gt (length values) 0)
@@ -382,9 +382,9 @@
                              (if (and output suboutput)
                                (trace-set! output i suboutput))
                              (define [more-valu more-score]
-                               (re (rest l) (add i 1)))
+                               (re (rest l) (+ i 1)))
                              [(pair valu more-valu)
-                              (add subscore more-score)])
+                              (+ subscore more-score)])
                       [l 0])))
                 (if (tuple? sequ)
                   (to-tuple (re (to-list sequ) 0))
