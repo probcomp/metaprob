@@ -110,12 +110,14 @@
     (define candidates (joint-enumerate free-sites))
     (map (gen [candidate]
            (trace-merge! candidate target-trace)
-           ;; Returns [state score]
-           (infer :procedure proc                   ;was trace-choices
-                  :inputs inputs
-                  :intervention-trace intervention-trace
-                  :target-trace candidate
-                  :output-trace nil))
+           ;; Returns [state nil score]
+           (define [state _ score]
+             (infer :procedure proc                   ;was trace-choices
+                    :inputs inputs
+                    :intervention-trace intervention-trace
+                    :target-trace candidate
+                    :output-trace nil))
+           [state score])
          candidates)))
 
 ;; Takes a list of [state score] and returns a list of samples.

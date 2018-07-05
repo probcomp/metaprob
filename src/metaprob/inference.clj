@@ -14,14 +14,12 @@
 
 (define rejection-sampling
   (gen [model-procedure inputs target-trace log-bound]
-    (define candidate-trace (empty-trace))
-    (define
-      [value score]
+    (define [_ candidate-trace score]
       (infer :procedure model-procedure
              :inputs inputs
              :intervention-trace (empty-trace)
              :target-trace       target-trace
-             :output-trace       candidate-trace))
+             :output-trace?      true))
     (if (lt (log (uniform 0 1)) (sub score log-bound))
       candidate-trace
       (rejection-sampling
@@ -39,13 +37,12 @@
     	    (replicate N
 	      (gen []
                 (define candidate-trace (empty-trace))
-                (define [value score]
-                  (infer    ;; returns [value score]
-                   :procedure model-procedure
-                   :inputs inputs
-                   :intervention-trace nil
-                   :target-trace       target-trace
-                   :output-trace       candidate-trace))
+                (define [_ candidate-trace score]
+                  (infer :procedure model-procedure
+                         :inputs inputs
+                         :intervention-trace nil
+                         :target-trace       target-trace
+                         :output-trace? true))
                 [candidate-trace score])))
     (define scores
       (map (gen [p] (nth p 1)) particles))
@@ -74,13 +71,13 @@
     (define initial-value (trace-get trace target-address))
     (define initial-num-choices (length candidates))
     (trace-delete! trace target-address)
-    (define new-trace (empty-trace))
 
-    (define [_ forward-score] (infer :procedure model-procedure
-                                     :inputs inputs
-                                     :intervention-trace nil
-                                     :target-trace trace
-                                     :output-trace new-trace))
+    (define [_ new-trace forward-score]
+      (infer :procedure model-procedure
+             :inputs inputs
+             :intervention-trace nil
+             :target-trace trace
+             :output-trace? true))
     (define new-value (trace-get new-trace target-address))
 
     ;; the proposal is to move from trace to new-trace
@@ -103,12 +100,12 @@
     ;; remove the new value
     (trace-delete! new-trace target-address)
 
-    (define [_ reverse-score]
+    (define [_ _ reverse-score]
       (infer :procedure model-procedure
              :inputs   inputs
              :intervention-trace restoring-trace
              :target-trace new-trace
-             :output-trace (empty-trace)))
+             :output-trace? false))
     
     (trace-set! new-trace target-address new-value)
     (define log-acceptance-probability (sub (add forward-score (log new-num-choices))
@@ -129,11 +126,12 @@
 (define lightweight-single-site-MH-sampling
   (gen [model-procedure inputs target-trace N]
     (define state (empty-trace))
-    (infer :procedure model-procedure
-           :inputs inputs
-           :intervention-trace (empty-trace)
-           :target-trace target-trace
-           :output-trace state)
+    (define [_ state _]
+      (infer :procedure model-procedure
+             :inputs inputs
+             :intervention-trace (empty-trace)
+             :target-trace target-trace
+             :output-trace? true))
     (repeat N
             (gen []
               ;; VKM had keywords :procedure :inputs :trace :constraint-addresses

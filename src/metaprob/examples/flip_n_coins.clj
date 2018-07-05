@@ -25,9 +25,10 @@
            :output-trace trace-with-n-flips)
     (pprint trace-with-n-flips)
     ;; (*@\textit{=> ( ... )}@*)
-    (pprint (infer :procedure flip-n-coins
-                   :inputs [n]
-                   :target-trace trace-with-n-flips))
+    (infer :procedure flip-n-coins
+           :inputs [n]
+           :target-trace trace-with-n-flips)
+    (pprint trace-with-n-flips)
     ;;  => value:score:
     ))
 
@@ -48,10 +49,11 @@
 
     (define output (empty-trace))
     ;; run  the  program  subject  to  these  interventions
-    (pprint (infer :procedure flip-n-coins
-                   :inputs [n]
-                   :intervention-trace ensure-tricky-and-biased
-                   :output-trace output))
+    (infer :procedure flip-n-coins
+           :inputs [n]
+           :intervention-trace ensure-tricky-and-biased
+           :output-trace output)
+    (pprint output)
     (print "--output trace--")
     (pprint output)
     ;;  => (true true true false true true true true true true)

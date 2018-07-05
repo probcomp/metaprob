@@ -253,16 +253,6 @@
           [v score])))
     (walk exp env (addr))))
 
-(define inf
-  (gen [name model implementation]
-    (trace-as-procedure (mutable-trace "name" (add "inf-" (procedure-name implementation))
-                                       "model" model
-                                       "implementation" implementation)
-                        ;; When called from Clojure:
-                        (gen [& inputs]
-                          (nth (implementation inputs nil nil nil)
-                               0)))))
-
 (define apply
   (trace-as-procedure
    (inf "apply"

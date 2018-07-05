@@ -13,7 +13,7 @@
     (let [n 4
           trace-with-flips (builtin/empty-trace)]
       (builtin/print "trace-with-flips = ") (builtin/pprint trace-with-flips)
-      (let [[answer score]
+      (let [[answer _ score]
             (infer :procedure flip-n-coins :inputs (builtin/tuple n)
                    :output-trace trace-with-flips)]
         (builtin/print "trace-with-flips = ") (builtin/pprint trace-with-flips)
@@ -24,7 +24,7 @@
         (is (not (builtin/trace-has? trace-with-flips (datum-addr n))))
 
         ;; Compute score by re-running with target = previous output
-        (let [[answer score]
+        (let [[answer _ score]
               (infer :procedure flip-n-coins :inputs (builtin/tuple n)
                      :target-trace trace-with-flips)]
           (is (builtin/list? answer))
@@ -36,7 +36,7 @@
 
           ;; Run subject to interventions
           (let [output (builtin/empty-trace)
-                [answer score]
+                [answer _ score]
                 (infer :procedure flip-n-coins :inputs (builtin/tuple (+ n 8))
                        :intervention-trace ensure-tricky-and-biased
                        :output-trace output)]

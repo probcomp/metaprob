@@ -247,3 +247,19 @@
   (print x)
   (newline)
   (flush))
+
+;; -----------------------------------------------------------------------------
+;; Inference procedure
+
+;; This could go in prelude.clj, with some effort.
+
+(defn inf [name model implementation]
+  (assert (procedure? implementation) implementation)
+  (trace-as-procedure (mutable-trace "name" (str "inf-" name)
+                                     "model" model
+                                     "implementation" implementation)
+                      ;; When called from Clojure:
+                      (fn [& inputs]
+                        (let [inputs (if (= inputs nil) (list) inputs)]
+                          (nth (implementation inputs (trace) (trace) false)
+                               0)))))

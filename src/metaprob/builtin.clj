@@ -134,6 +134,9 @@
 (define-foreign-procedure pprint trace/metaprob-pprint)
 (define-foreign-procedure binned-histogram impl/binned-histogram)
 
+;; Special procedures
+(define-foreign-procedure inf impl/inf)
+
 ;; Deprecated
 (define-foreign-procedure eq clojure.core/=)
 (define-foreign-procedure gt clojure.core/>)

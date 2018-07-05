@@ -5,7 +5,7 @@
             [metaprob.syntax :refer :all :as syntax]
             [metaprob.builtin-impl :refer :all :as impl]
             [metaprob.builtin :as builtin]
-            [metaprob.compositional :refer :all :exclude [map replicate apply] :as infer]))
+            [metaprob.compositional :refer :all :exclude [map replicate apply] :as comp]))
 
 (def top (impl/make-top-level-env 'metaprob.compositional))
 
@@ -14,7 +14,7 @@
 (defn ez-call [prob-prog & inputs]
   (let [inputs (if (= inputs nil) '() inputs)
         [value score]
-        (infer/infer-apply prob-prog
+        (comp/infer-apply prob-prog
                            inputs
                            no-trace no-trace false)]
     value))
@@ -31,7 +31,7 @@
 
 (defn ez-eval [x]
   (let [[value output score]
-        (infer/infer-eval (from-clojure x)
+        (comp/infer-eval (from-clojure x)
                           top
                           no-trace
                           no-trace
@@ -91,7 +91,7 @@
   (testing "export a procedure"
     (let [x 5
           m1 (gen [] x)
-          m2 (infer/opaque "opaque-test" m1)]
+          m2 (comp/opaque "opaque-test" m1)]
       (is (= (m2) (m1))))))
 
 ;; Lift a generate method up to a infer method
@@ -101,7 +101,7 @@
     (let [m (gen [inputs i t o]
                       (define [x y] inputs)
                       (builtin/tuple (+ x 1) 19))
-          l (infer/inf "testing" nil m)]
+          l (builtin/inf "testing" nil m)]
       (is (= (l 17 "z") 18)))))
 
 
@@ -112,9 +112,9 @@
                                             [(+ (builtin/nth inputs 0) (builtin/nth inputs 1))
                                              (trace)
                                              50]))
-          lifted (infer/inf "lifted" nil qq)]
+          lifted (builtin/inf "lifted" nil qq)]
       (is (= (lifted 7 8) 15))
-      (let [[answer output score] (infer/infer-apply lifted [7 8] no-trace no-trace false)]
+      (let [[answer output score] (comp/infer-apply lifted [7 8] no-trace no-trace false)]
         (is (= answer 15))
         (is (= score 50))))))
 
@@ -145,25 +145,25 @@
 (deftest intervene-1
   (testing "simple intervention"
     (let [form (from-clojure '(block 17 19))
-          [value1 _] (infer/infer-eval form top no-trace no-trace false)]
+          [value1 _] (comp/infer-eval form top no-trace no-trace false)]
       (is (= value1 19))
       (let [intervene (builtin/empty-trace)]
         (builtin/trace-set! intervene 1 23)
-        (let [[value2 _] (infer/infer-eval form top intervene no-trace false)]
+        (let [[value2 _] (comp/infer-eval form top intervene no-trace false)]
           (is (= value2 23)))))))
 
 
 (deftest intervene-2
   (testing "output capture, then intervention"
     (let [form (from-clojure '(block (add 15 2) (sub 21 2)))
-          [value1 output _] (infer/infer-eval form top no-trace no-trace true)]
+          [value1 output _] (comp/infer-eval form top no-trace no-trace true)]
       (is (= value1 19))
       (let [intervene (builtin/empty-trace)
             addresses (builtin/addresses-of output)]
         ;; (builtin/pprint output)
         (doseq [a addresses]
           (builtin/trace-set! intervene a 23))
-        (let [[value2 _] (infer/infer-eval form top intervene no-trace false)]
+        (let [[value2 _] (comp/infer-eval form top intervene no-trace false)]
           (is (= value2 23)))))))
 
 (deftest apply-1
@@ -174,12 +174,12 @@
 
 ;; ------------------------------------------------------------------
 
-(def this-map infer/map-issue-20)
+(def this-map comp/map-issue-20)
 
 (deftest map-1
   (testing "map smoke test"
     (is (builtin/nth (this-map (gen [x] (builtin/add x 1))
-                                  (builtin/list 4 5 6))
+                               (builtin/list 4 5 6))
                      1)
         6)
     ;; These tests have to run after the call to map

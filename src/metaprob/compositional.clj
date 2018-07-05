@@ -278,24 +278,13 @@
 
 ;; -----------------------------------------------------------------------------
 
-(define inf
-  (gen [name model implementation]
-    (assert (procedure? implementation) implementation)
-    (trace-as-procedure (mutable-trace "name" (add "inf-" name)
-                                       "model" model
-                                       "implementation" implementation)
-                        ;; When called from Clojure:
-                        (gen [& inputs]
-                          (nth (implementation inputs (trace) (trace) false)
-                               0)))))
-
 ;; Experimental
 
 (define opaque
   (gen [name proc]
     (inf name
          proc   ;model (generative procedure)
-         (gen [inputs intervene target output]
+         (gen [inputs intervene target output?]
            ;; Ignore the traces.
            (infer-apply proc inputs (trace) (trace) false)))))
 
