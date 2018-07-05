@@ -6,9 +6,9 @@
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
-            [metaprob.infer :refer :all]
             [metaprob.distributions :refer :all]
-            [metaprob.inference :refer :all]))
+            [metaprob.inference :refer :all]
+            [metaprob.interpreters :refer :all]))
 
 (define quake-env (make-top-level-env 'metaprob.examples.earthquake))
 
@@ -95,11 +95,11 @@
   (gen [proc inputs intervention-trace target-trace]
     (print [(length (addresses-of intervention-trace)) "interventions"])
     (define one-run (empty-trace))
-    (infer-apply proc                   ;was trace-choices
-                 inputs
-                 intervention-trace
-                 nil
-                 one-run)
+    (infer :procedure proc                   ;was trace-choices
+           :inputs inputs
+           :intervention-trace intervention-trace
+           :target-trace nil
+           :output-trace one-run)
     (define all-sites (addresses-of one-run))
     (print [(length all-sites) "sites"])
     (define free-sites
@@ -111,11 +111,11 @@
     (map (gen [candidate]
            (trace-merge! candidate target-trace)
            ;; Returns [state score]
-           (infer-apply proc
-                        inputs
-                        intervention-trace
-                        candidate
-                        nil))
+           (infer :procedure proc                   ;was trace-choices
+                  :inputs inputs
+                  :intervention-trace intervention-trace
+                  :target-trace candidate
+                  :output-trace nil))
          candidates)))
 
 ;; Takes a list of [state score] and returns a list of samples.
@@ -144,11 +144,11 @@
                (gen []
                  (define output (empty-trace))
                  ;; Was trace_choices
-                 (infer-apply earthquake-bayesian-network
-                              []
-                              nil       ;No intervention
-                              nil       ;No target
-                              output)
+                 (infer :procedure earthquake-bayesian-network
+                        :inputs []
+                        :intervention-trace nil
+                        :target-trace nil
+                        :output-trace output)
                  output))))
 
 ;; Test intervention
@@ -160,11 +160,11 @@
 (define check-alarm-intervention
   (gen []
     (define output (empty-trace))
-    (infer-apply earthquake-bayesian-network
-                 []
-                 (empty-trace)
-                 nil                ;No target
-                 output)
+    (infer :procedure earthquake-bayesian-network
+           :inputs []
+           :intervention-trace (trace)
+           :target-trace nil
+           :output-trace output)
     (assert (trace-has? output alarm-address)
             "check validity of alarm intervention")))
 

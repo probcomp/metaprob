@@ -14,10 +14,12 @@
   (:require [metaprob.syntax :refer :all])
   (:require [metaprob.builtin :refer :all])
   (:require [metaprob.prelude :refer :all])
-  (:require [metaprob.infer :refer :all])
   (:require [metaprob.distributions :refer :all])
   (:require [metaprob.interpreters :refer :all])
   (:require [metaprob.inference :refer :all])
+
+  (:require [metaprob.infer :as infer])
+  (:require [metaprob.compositional :as comp])
 
   (:require [metaprob.examples.flip-n-coins :refer :all])
   (:require [metaprob.examples.earthquake :refer :all])

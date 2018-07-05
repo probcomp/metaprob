@@ -4,7 +4,6 @@
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
             [metaprob.distributions :refer :all]
-            [metaprob.infer :refer [map]]
             [metaprob.interpreters :refer :all]))
 
 ;; Define a probabilistic model for n flips of a coin

@@ -2,7 +2,7 @@
 (ns metaprob.examples.flip-n-coins-test
   (:require [clojure.test :refer :all]
             [metaprob.builtin :as builtin]
-            [metaprob.interpreters :refer :all]
+            [metaprob.interpreters :as interp :refer [infer]]
             [metaprob.examples.flip-n-coins :refer :all]))
 
 (defn datum-addr [n]

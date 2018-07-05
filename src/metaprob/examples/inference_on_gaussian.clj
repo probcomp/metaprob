@@ -7,7 +7,7 @@
   (:require [metaprob.syntax :refer :all])
   (:require [metaprob.builtin :refer :all])
   (:require [metaprob.prelude :refer :all])
-  (:require [metaprob.infer :refer :all])
+  (:require [metaprob.interpreters :refer :all])
   (:require [metaprob.inference :refer :all])
   (:require [metaprob.examples.gaussian :refer [gaussian score-gaussian two-variable-gaussian-model]]))
 
