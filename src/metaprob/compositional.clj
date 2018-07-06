@@ -51,7 +51,7 @@
                ;; 'Foreign' generative procedure
                (block (define value (generate-foreign proc inputs))
                       (define ivalue (if (trace-has? intervene) (trace-get intervene) value))
-                      [(if (trace-has? intervene) (trace-get intervene) value)
+                      [ivalue
                        (if output?
                          (trace :value ivalue)
                          (trace))

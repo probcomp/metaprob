@@ -13,14 +13,19 @@
     (inf name
          sampler                        ;model ?
          (gen [inputs intervene target output?]
-           (if (trace-has? intervene)
-             ;; Deterministic, so score is 0
-             [(trace-get intervene) (trace) 0]
-             (if (trace-has? target)
-               [(trace-get target)
-                (trace)
-                (scorer (trace-get target) inputs)]
-               [(apply sampler inputs) (trace) 0]))))))
+           (define [value score]
+             (if (trace-has? intervene)
+               ;; Deterministic, so score is 0
+               [(trace-get intervene) 0]
+               (if (trace-has? target)
+                 [(trace-get target)
+                  (scorer (trace-get target) inputs)]
+                 [(apply sampler inputs) 0])))
+           [value
+            (if output?
+              (trace-set (trace) value)
+              (trace))
+            score]))))
 
 ;; Code translated from class BernoulliOutputPSP(DiscretePSP):
 ;;
