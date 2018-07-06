@@ -35,7 +35,8 @@
          (log sigma))))
 
 (define gaussian
-  (hard-to-name "gaussian"
+  (make-inference-procedure-from-sampler-and-scorer
+			"gaussian"
                         generate-gaussian
                         score-gaussian))
 

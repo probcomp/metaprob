@@ -8,7 +8,7 @@
 ;; -----------------------------------------------------------------------------
 ;; Distributions (nondeterministic procedures)
 
-(define hard-to-name
+(define make-inference-procedure-from-sampler-and-scorer
   (gen [name sampler scorer]
     (inf name
          sampler                        ;model ?
@@ -28,7 +28,7 @@
 ;; true rather than false.
 
 (define flip
-  (hard-to-name "flip"
+  (make-inference-procedure-from-sampler-and-scorer "flip"
                 (gen [weight] (lt (sample-uniform) weight))
                 (gen [value inputs]
                   (define weight (nth inputs 0))
@@ -40,7 +40,7 @@
 ;; Uniform
 
 (define uniform
-  (hard-to-name
+  (make-inference-procedure-from-sampler-and-scorer
    "uniform"
    (gen [a b] (sample-uniform a b))
    (gen [x [a b]]
@@ -49,7 +49,7 @@
 ;; Categorical
 
 (define uniform-sample
-  (hard-to-name
+  (make-inference-procedure-from-sampler-and-scorer
    "uniform-sample"
    (gen [items]
      ;; items is a metaprob list (or tuple??)
@@ -63,7 +63,7 @@
 ;; This is just the one-argument form, so is simpler than what's in Venture.
 
 (define categorical
-  (hard-to-name
+  (make-inference-procedure-from-sampler-and-scorer
    "categorical"
    (gen [probabilities]
      ;; Returns an index i.
@@ -91,7 +91,7 @@
 ;; probabilities, unnormalized).
 
 (define log-categorical
-  (hard-to-name
+  (make-inference-procedure-from-sampler-and-scorer
    "log-categorical"
    (gen [scores]
      (define threshold (sample-uniform 0 1))
@@ -143,7 +143,7 @@
 ;; Please read the comments in lite/continuous.py in Venture
 
 ;(define beta
-;  (hard-to-name
+;  (make-inference-procedure-from-sampler-and-scorer
 ;   "beta"
 ;   (fn beta [a b]
 ;     ;; From kixi/stats/distribution.cljc :
