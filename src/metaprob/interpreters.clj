@@ -51,3 +51,17 @@
            output-trace)
        out)
      score]))
+
+;; Returns score only
+
+(defn get-score [proc & inputs]
+  (let [[sample target _]
+        (infer :procedure proc
+               :inputs inputs
+               :output-trace? true)]
+    (let [[_ _ score]
+          (infer :procedure proc
+                 :inputs inputs
+                 :target-trace target
+                 :output-trace? false)]
+      score)))

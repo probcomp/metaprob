@@ -5,23 +5,12 @@
             [metaprob.syntax :refer :all]
 
             [metaprob.builtin-impl :as impl]
-            [metaprob.interpreters :refer [infer]]
+            [metaprob.interpreters :refer [get-score]]
             [metaprob.distributions :refer :all]))
-
-(defn get-score [proc & inputs]
-  (let [sample (apply proc inputs)
-        results (infer :procedure proc
-                       :inputs inputs
-                       :target-trace (trace :value sample)
-                       :output-trace? false)]
-    (is (tuple? results) results)
-    (is (= (count results) 3) results)
-    (let [[_ _ score] results]
-      (is (number? score) score)
-      score)))
 
 (deftest score-0
   (testing "deterministic procedure score smoke tests"
+    (is (number? (get-score list)))
     (is (= (get-score list) 0))
     (is (= (get-score - 7) 0))
     (is (= (get-score (gen [] 17)) 0))
