@@ -10,6 +10,6 @@
 (deftest smoke-1
   (testing "smoke test"
     (let [n 3]
-      (is (= (builtin/length (interp/replicate n two-variable-gaussian-model))
+      (is (= (builtin/length (prelude/replicate n two-variable-gaussian-model))
              n)))))
 

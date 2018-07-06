@@ -3,7 +3,7 @@
   (:require [metaprob.syntax :refer :all])
   (:require [metaprob.builtin :refer :all])
   (:require [metaprob.prelude :refer :all])
-  (:require [metaprob.infer :refer :all]))
+  (:require [metaprob.interpreters :refer :all]))
 
 ;; -----------------------------------------------------------------------------
 ;; Distributions (nondeterministic procedures)
@@ -12,18 +12,15 @@
   (gen [name sampler scorer]
     (inf name
          sampler                        ;model ?
-         (gen [inputs intervene target output]
-           (define [value score]
-             (if (and intervene (trace-has? intervene))
-               ;; Deterministic, so score is 0
-               [(trace-get intervene) 0]
-               (if (and target (trace-has? target))
-                 [(trace-get target)
-                  (scorer (trace-get target) inputs)]
-                 [(apply sampler inputs) 0])))
-           (if output
-             (trace-set! output value))
-           [value score]))))
+         (gen [inputs intervene target output?]
+           (if (trace-has? intervene)
+             ;; Deterministic, so score is 0
+             [(trace-get intervene) (trace) 0]
+             (if (trace-has? target)
+               [(trace-get target)
+                (trace)
+                (scorer (trace-get target) inputs)]
+               [(apply sampler inputs) (trace) 0]))))))
 
 ;; Code translated from class BernoulliOutputPSP(DiscretePSP):
 ;;
@@ -46,10 +43,8 @@
   (hard-to-name
    "uniform"
    (gen [a b] (sample-uniform a b))
-   (gen [x inputs] ;; [x [a b]]
-     (define a (nth inputs 0))
-     (define b (nth inputs 1))
-     (sub 0.0 (log (sub b a))))))
+   (gen [x [a b]]
+     (- 0.0 (log (- b a))))))
 
 ;; Categorical
 

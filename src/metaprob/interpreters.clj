@@ -1,24 +1,22 @@
 (ns metaprob.interpreters
   (:refer-clojure :exclude [apply map replicate])
   (:require [metaprob.syntax :refer :all]
+            [metaprob.trace :refer :all]
+            [metaprob.sequence :refer :all]
+            [metaprob.builtin-impl :refer :all]
+            [metaprob.prelude :refer [maybe-subtrace maybe-set-subtrace]]
             [metaprob.builtin :as builtin]
             [metaprob.infer :as infer]
             [metaprob.compositional :as comp]))
 
-(defn null-interpreter [proc inputs intervene target output]
-  (clojure.core/apply proc inputs))
 
-(def ^:dynamic *interpreter* null-interpreter)
+;; 'user-friendly' tool.
 
-(def pure-interpreter comp/infer-apply)
+;; Choose either of these, or some other.
+(def default-interpreter infer/infer-apply)
+;; (def default-interpreter comp/infer-apply)
 
-(defn effectful-interpreter [proc inputs intervene target output?]
-  (let [output (if output? (builtin/empty-trace) nil)]
-    (let [[value score]
-          (infer/infer-apply proc inputs intervene target output)]
-      [value output score])))
-
-(def default-interpreter effectful-interpreter)
+(define null-trace (trace))
 
 ;; Returns [value ?output-trace? score]
 
@@ -26,23 +24,30 @@
                        target-trace output-trace
                        output-trace?
                        interpreter]}]
-  (let [output-trace? (if (= output-trace? nil)    ;Force it to be boolean
+  (let [inputs (if (= inputs nil) [] inputs)
+        intervention-trace (if (= intervention-trace nil)
+                             null-trace
+                             intervention-trace)
+        target-trace (if (= target-trace nil)
+                       null-trace
+                       target-trace)
+        output-trace? (if (= output-trace? nil)    ;Force it to be boolean
                         (not (= output-trace nil))
-                        output-trace?)
+                        output-trace?)  ;Supplied
+        interpreter (if (= interpreter nil)
+                      default-interpreter
+                      interpreter)
         [value out score]
-        (binding [*interpreter* (or interpreter default-interpreter)]
-          (*interpreter* procedure
-                         inputs
-                         intervention-trace
-                         target-trace
-                         output-trace?))]
-    (if (and output-trace? output-trace out)
-      (builtin/trace-merge! output-trace out))
-    [value out score]))
-
-(def opaque infer/opaque)
-(def apply infer/apply)
-
-(def map infer/map)
-(def replicate infer/replicate)
-
+        (binding [*ambient-interpreter* interpreter]
+          (infer-apply procedure
+                       inputs
+                       intervention-trace
+                       target-trace
+                       output-trace?))]
+    (assert (number? score) score)
+    [value
+     (if (and output-trace? output-trace out)
+       (do (trace-merge! output-trace out)
+           output-trace)
+       out)
+     score]))

@@ -3,7 +3,7 @@
 
 (ns metaprob.builtin
   (:refer-clojure :exclude
-                  [newline not + = boolean? > >= < <= - * /
+                  [newline not + = boolean? > >= < <= - * / number?
                    and or case cond
                    assert print apply
                    list list? first rest last nth range sort])
@@ -58,6 +58,7 @@
 (define-foreign-procedure normal impl/normal)
 (define-foreign-procedure floor impl/floor)
 (define-foreign-procedure round impl/round)
+(define-foreign-procedure number? clojure.core/number?)
 
 ;; Sample from uniform distribution, with RNG as hidden state
 (define-foreign-procedure sample-uniform impl/sample-uniform)
@@ -109,7 +110,7 @@
 
 ;; Tuples
 (define-foreign-procedure tuple sequence/tuple)
-(define-foreign-procedure tuple? sequence/metaprob-tuple?)
+(define-foreign-procedure tuple? sequence/tuple?)
 
 ;; Sequences
 (define-foreign-procedure length sequence/length)
@@ -136,6 +137,7 @@
 
 ;; Special procedures
 (define-foreign-procedure inf impl/inf)
+(define-foreign-procedure infer-apply impl/infer-apply)
 
 ;; Deprecated
 (define-foreign-procedure eq clojure.core/=)

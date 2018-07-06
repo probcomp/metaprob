@@ -57,7 +57,7 @@
   (testing "Convert metaprob tuple to metaprob list"
     (let [v [5 7 11 13]
           t v]  ;was: (seq-to-mutable-tuple v)
-      (is (sequence/metaprob-tuple? t))
+      (is (sequence/tuple? t))
       (let [l (to-list t)]
         (is (sequence/metaprob-pair? l))
         (let [v2 (vec (sequence/sequence-to-seq l))]
@@ -71,7 +71,7 @@
       (is (trace/mutable-trace? t))
       (is (= (sequence/length t) 4))
       (let [tup (to-tuple t)]
-        (is (sequence/metaprob-tuple? tup))
+        (is (sequence/tuple? tup))
         (is (= (sequence/length tup) 4))
         (let [s (sequence/sequence-to-seq tup)]
           (is (seq? s))

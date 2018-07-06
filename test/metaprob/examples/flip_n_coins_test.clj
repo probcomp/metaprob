@@ -20,6 +20,12 @@
         (is (builtin/list? answer))
         (let [a1 (builtin/nth answer 0)]
           (is (or (= a1 true) (= a1 false))))
+        (if (not (builtin/trace-has? trace-with-flips (datum-addr (- n 1))))
+          (do (print [(builtin/trace-has? trace-with-flips '(2))])
+              (print [(builtin/trace-has? trace-with-flips '(2 "datum"))])
+              (print [(builtin/trace-has? trace-with-flips '(2 "datum" "map"))])
+              (print [(builtin/trace-has? trace-with-flips '(2 "datum" "map" 3))])
+              (print [(builtin/trace-has? trace-with-flips '(2 "datum" "map" 3 "flip"))])))
         (is (builtin/trace-has? trace-with-flips (datum-addr (- n 1))))
         (is (not (builtin/trace-has? trace-with-flips (datum-addr n))))
 

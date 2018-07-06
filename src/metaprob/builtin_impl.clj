@@ -249,7 +249,7 @@
   (flush))
 
 ;; -----------------------------------------------------------------------------
-;; Inference procedure
+;; Interpreter-related
 
 ;; This could go in prelude.clj, with some effort.
 
@@ -263,3 +263,27 @@
                         (let [inputs (if (= inputs nil) (list) inputs)]
                           (nth (implementation inputs (trace) (trace) false)
                                0)))))
+
+(defn clojure-interpreter [proc inputs intervene target output?]
+  [(clojure.core/apply proc inputs) (trace) 0])
+
+(def ^:dynamic *ambient-interpreter* clojure-interpreter)
+
+(defn infer-apply [proc inputs intervention-trace
+                   target-trace output-trace?]
+  (if (and (foreign-procedure? proc)
+           (empty-trace? intervention-trace)
+           (empty-trace? target-trace)
+           (not output-trace?))
+    ;; Bypass inference when there is no need to use it.
+    [(generate-foreign proc inputs) (trace) 0]
+
+    (let [[value output score]
+          (*ambient-interpreter* proc inputs intervention-trace
+                                 target-trace output-trace?)]
+      (assert (number? score) ["bad score" score proc])
+      (assert (if output-trace?
+                (trace? output)
+                true)
+              ["bad output" output proc])
+      [value output score])))

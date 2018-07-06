@@ -49,7 +49,7 @@
               val)
             inputs)))
 
-(defn metaprob-tuple? [x]
+(defn tuple? [x]
   (and (trace? x)
        (let [state (trace-state x)]
          ;; [] always ends up getting represented as ()
@@ -114,7 +114,7 @@
 ;; used in: prelude.clj
 
 (defn to-tuple [x]
-  (if (metaprob-tuple? x)
+  (if (tuple? x)
     x
     (if (metaprob-list? x)
       (vec (sequence-to-seq x))
@@ -133,7 +133,7 @@
 (defn to-list [x]
   (cond (metaprob-list? x)
         x
-        (metaprob-tuple? x)
+        (tuple? x)
         (letfn [(scan [i]
                   (if (trace-has? x i)
                     ;; Cons always returns a clojure seq

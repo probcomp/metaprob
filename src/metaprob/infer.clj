@@ -9,45 +9,17 @@
   (:refer-clojure :only [declare ns])
   (:require [metaprob.syntax :refer :all]
             [clojure.pprint :as pp]
-            [metaprob.builtin :refer :all]
+            [metaprob.builtin :refer :all :exclude [infer-apply]]
             [metaprob.prelude :refer :all]
             [metaprob.frame :refer :all]))
 
-(declare map)
-
 ;; Similar to `lookup` but does not create locatives
 
-(define maybe-subtrace
+(define subtrace-maybe
   (gen [tr adr]
     (if (and tr (trace-has-subtrace? tr adr))
       (trace-subtrace tr adr)
       nil)))
-
-;; -----------------------------------------------------------------------------
-;; Utilities for interpreter
-
-;; This is used to compute the key under which to store the value that
-;; is the binding of a definition.
-
-(define name-for-definiens
-  (gen [pattern]
-    (if (eq (trace-get pattern) "variable")
-      (block (define name (trace-get pattern "name"))
-             (if (or (eq name "_")           ;Cf. from-clojure-definition in syntax.clj
-                     (eq name "pattern"))
-               "definiens"
-               (trace-get pattern "name")))
-      "definiens")))
-
-;; Get the key to use for storing the result of a procedure call.
-
-(define application-result-key
-  (gen [exp]
-    (define key (if (eq (trace-get exp) "variable")
-                  (trace-get exp "name")
-                  "call"))
-    (assert (ok-key? key) key)
-    key))
 
 ;; Extend an address.
 
@@ -65,7 +37,9 @@
 ;; Main entry point: a version of `apply` that respects interventions
 ;; and constraints, records choices, and computes scores.
 
-(define infer-apply
+;; Returns [value score]
+
+(define infer-apply-locally
   (gen [proc inputs intervene target output]
     (assert (or (list? inputs) (tuple? inputs))
             ["inputs neither list nor tuple" inputs])
@@ -73,9 +47,24 @@
                 (mutable-trace? output))
             output)
     (if (and (trace? proc) (trace-has? proc "implementation"))
-      ;; Proc is a special inference procedure returned by `inf`.
+      ;; Proc is a special inference procedure returned by `inf`, called
+      ;; using 'standard' protocol.
       ;; Return the value+score that the implementation computes.
-      ((trace-get proc "implementation") inputs intervene target output)
+      (block (define [value out score]
+               (generate-foreign (trace-get proc "implementation")
+                                 [inputs
+                                  (if (= intervene nil)
+                                    (trace)
+                                    intervene)
+                                  (if (= target nil)
+                                    (trace)
+                                    target)
+                                  (not (= output nil))]))
+             (if output
+               (do (if out
+                     (trace-merge! output out))
+                   (trace-set! output value)))
+             [value score])
       (if (and (foreign-procedure? proc)
                (not (or intervene target output)))
         [(generate-foreign proc inputs) 0]
@@ -177,11 +166,11 @@
                      (extend-addr address
                                   (application-result-key (trace-subtrace exp 0))))
                    (define [val score]
-                     (infer-apply (first values)
-                                  (rest values)
-                                  (maybe-subtrace intervene new-addr)
-                                  (maybe-subtrace target new-addr)
-                                  (lookup output new-addr)))
+                     (infer-apply-locally (first values)
+                                          (rest values)
+                                          (subtrace-maybe intervene new-addr)
+                                          (subtrace-maybe target new-addr)
+                                          (lookup output new-addr)))
                    [val (+ (trace-get subscore) score)])
 
             "variable"
@@ -253,58 +242,12 @@
           [v score])))
     (walk exp env (addr))))
 
-(define apply
-  (trace-as-procedure
-   (inf "apply"
-        nil
-        (gen [inputs intervene target output]
-          (infer-apply (first inputs) (rest inputs) intervene target output)))
-   ;; Kludge
-   (gen [proc inputs] (clojure.core/apply proc (to-immutable-list inputs)))))
+;; Variant using 'standard' interface
 
-
-;; map defined using inf (instead of with-address)
-
-(define map-issue-20
-  (inf "map"
-       nil
-       (gen [[fun sequ] intervene target output]
-         (block (define re
-                  (gen [l i]
-                    (if (pair? l)
-                      (block (define suboutput (if output (lookup output i) nil))
-                             (define [valu subscore]
-                               (infer-apply fun
-                                            [(first l)]
-                                            ;; advance traces by address i
-                                            (maybe-subtrace intervene i)
-                                            (maybe-subtrace target i)
-                                            suboutput))
-                             (if (and output suboutput)
-                               (trace-set! output i suboutput))
-                             (define [more-valu more-score]
-                               (re (rest l) (+ i 1)))
-                             [(pair valu more-valu)
-                              (+ subscore more-score)])
-                      [l 0])))
-                (if (tuple? sequ)
-                  (to-tuple (re (to-list sequ) 0))
-                  (re sequ 0))))))
-
-(define map map-issue-20)
-
-(define replicate
-  (gen [n f]
-    (map (gen [i] (f))
-         (range n))))
-
-
-;; Experimental
-
-(define opaque
-  (gen [name proc]
-    (inf name
-         nil
-         (gen [inputs intervene target output]
-           ;; Ignore the traces.
-           (infer-apply proc inputs nil nil nil)))))
+(define infer-apply
+  (gen [proc inputs intervene target output?]
+    (define output (if output? (empty-trace) nil))
+    (define [value score]
+      (infer-apply-locally proc inputs intervene target output))
+    (assert (number? score) score)
+    [value output score]))

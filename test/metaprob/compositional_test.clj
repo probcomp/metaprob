@@ -3,7 +3,7 @@
             [metaprob.trace :refer :all :as trace]
             [metaprob.sequence :refer [tuple]]
             [metaprob.syntax :refer :all :as syntax]
-            [metaprob.builtin-impl :refer :all :as impl]
+            [metaprob.builtin-impl :refer :all :as impl :exclude [infer-apply]]
             [metaprob.builtin :as builtin]
             [metaprob.compositional :refer :all :exclude [map replicate apply] :as comp]))
 
@@ -84,17 +84,8 @@
       (is (= (count result) 3))
       (is (= (first result) 8)))))
 
-;; Export a procedure i.e. use 'foreign' (clojure) version rather than
-;; trying to compile the 'native' version (source code)
-
-(deftest export-1
-  (testing "export a procedure"
-    (let [x 5
-          m1 (gen [] x)
-          m2 (comp/opaque "opaque-test" m1)]
-      (is (= (m2) (m1))))))
-
 ;; Lift a generate method up to a infer method
+;; TBD: Set *ambient-interpreter*!
 
 (deftest lift-1
   (testing "lift a generate method up to a infer method"
@@ -165,58 +156,6 @@
           (builtin/trace-set! intervene a 23))
         (let [[value2 _] (comp/infer-eval form top intervene no-trace false)]
           (is (= value2 23)))))))
-
-(deftest apply-1
-  (testing "apply smoke test"
-    (is (= (apply builtin/sub [3 2]) 1))
-    (is (= (apply builtin/sub (list 3 2)) 1))
-    (is (= (apply apply (list builtin/sub (list 3 2))) 1))))
-
-;; ------------------------------------------------------------------
-
-(def this-map comp/map-issue-20)
-
-(deftest map-1
-  (testing "map smoke test"
-    (is (builtin/nth (this-map (gen [x] (builtin/add x 1))
-                               (builtin/list 4 5 6))
-                     1)
-        6)
-    ;; These tests have to run after the call to map
-    (is (= (ns-resolve 'metaprob.prelude 'val) nil)
-        "namespacing sanity check 1")
-    (is (not (contains? (ns-publics 'metaprob.prelude) 'val))
-        "namespacing sanity check 2")))
-
-;; I'm sort of tired of this and don't anticipate problems, so
-;; not putting more work into tests at this time.
-
-
-(deftest map-1a
-  (testing "Map over a clojure list"
-    (let [start (builtin/list 6 7 8)
-          foo (this-map (fn [x] (+ x 1))
-                        start)]
-      (is (builtin/length foo) 3)
-      (is (= (builtin/nth foo 0) 7))
-      (is (= (builtin/nth foo 1) 8))
-      (is (= (builtin/nth foo 2) 9)))))
-
-(deftest map-2
-  (testing "Map over a metaprob list"
-    (is (= (builtin/first
-            (builtin/rest
-             (this-map (fn [x] (+ x 1))
-                       (builtin/pair 6 (builtin/pair 7 (builtin/pair 8 (builtin/empty-trace)))))))
-           8))))
-
-(deftest map-3
-  (testing "Map over a metaprob tuple"
-    (is (= (builtin/trace-get (this-map (fn [x] (+ x 1))
-                                        (builtin/tuple 6 7 8))
-                              1)
-           8))))
-
 
 ;; Self-application
 

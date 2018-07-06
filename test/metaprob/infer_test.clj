@@ -3,21 +3,19 @@
             [metaprob.trace :refer :all :as trace]
             [metaprob.sequence :refer [tuple]]
             [metaprob.syntax :refer :all :as syntax]
-            [metaprob.builtin-impl :refer :all :as impl]
+            [metaprob.builtin-impl :refer :all :as impl :exclude [infer-apply]]
             [metaprob.builtin :as builtin]
-            [metaprob.infer :refer :all :exclude [map replicate apply] :as infer]))
+            [metaprob.infer :refer :all :as infer]))
 
 (def top (impl/make-top-level-env 'metaprob.infer))
-
-(defn mk_nil [] (trace/empty-trace))
 
 (defn ez-call [prob-prog & inputs]
   (let [inputs (if (= inputs nil) '() inputs)
         [value score]
         (builtin/sequence-to-seq
-         (infer/infer-apply prob-prog
-                      inputs
-                      (mk_nil) (mk_nil) (mk_nil)))]
+         (infer/infer-apply-locally prob-prog
+                                    inputs
+                                    nil nil nil))]
     value))
 
 (deftest apply-1
@@ -35,9 +33,7 @@
         (builtin/sequence-to-seq
          (infer/infer-eval (from-clojure x)
                      top
-                     (mk_nil)
-                     (mk_nil)
-                     (mk_nil)))]
+                     nil nil nil))]
     value))
 
 (deftest smoke-1
@@ -86,16 +82,6 @@
       (is (= (count result) 3))
       (is (= (first result) 8)))))
 
-;; Export a procedure i.e. use 'foreign' (clojure) version rather than
-;; trying to compile the 'native' version (source code)
-
-(deftest export-1
-  (testing "export a procedure"
-    (let [x 5
-          m1 (gen [] x)
-          m2 (infer/opaque "opaque-test" m1)]
-      (is (= (m2) (m1))))))
-
 ;; Lift a generate method up to a infer method
 
 (deftest lift-1
@@ -109,12 +95,13 @@
 
 (deftest lift-and-call
   (testing "can we lift a procedure and then call it"
-    (let [qq (impl/make-foreign-procedure "qq" (fn [inputs i t o]
+    (let [qq (impl/make-foreign-procedure "qq" (fn [inputs i t o?]
                                              [(+ (builtin/nth inputs 0) (builtin/nth inputs 1))
+                                              (trace)
                                               50]))
           lifted (inf "lifted" nil qq)]
       (is (= (lifted 7 8) 15))
-      (let [[answer score] (infer/infer-apply lifted [7 8] nil nil nil)]
+      (let [[answer score] (infer/infer-apply-locally lifted [7 8] nil nil nil)]
         (is (= answer 15))
         (is (= score 50))))))
 
@@ -167,58 +154,6 @@
         (let [[value2 _] (infer/infer-eval form top intervene nil nil)]
           (is (= value2 23)))))))
 
-(deftest apply-1
-  (testing "apply smoke test"
-    (is (= (apply builtin/sub [3 2]) 1))
-    (is (= (apply builtin/sub (list 3 2)) 1))
-    (is (= (apply apply (list builtin/sub (list 3 2))) 1))))
-
-;; ------------------------------------------------------------------
-
-(def this-map infer/map-issue-20)
-
-(deftest map-1
-  (testing "map smoke test"
-    (is (builtin/nth (this-map (gen [x] (builtin/add x 1))
-                                  (builtin/list 4 5 6))
-                     1)
-        6)
-    ;; These tests have to run after the call to map
-    (is (= (ns-resolve 'metaprob.prelude 'val) nil)
-        "namespacing sanity check 1")
-    (is (not (contains? (ns-publics 'metaprob.prelude) 'val))
-        "namespacing sanity check 2")))
-
-;; I'm sort of tired of this and don't anticipate problems, so
-;; not putting more work into tests at this time.
-
-
-(deftest map-1a
-  (testing "Map over a clojure list"
-    (let [start (builtin/list 6 7 8)
-          foo (this-map (fn [x] (+ x 1))
-                        start)]
-      (is (builtin/length foo) 3)
-      (is (= (builtin/nth foo 0) 7))
-      (is (= (builtin/nth foo 1) 8))
-      (is (= (builtin/nth foo 2) 9)))))
-
-(deftest map-2
-  (testing "Map over a metaprob list"
-    (is (= (builtin/first
-            (builtin/rest
-             (this-map (fn [x] (+ x 1))
-                       (builtin/pair 6 (builtin/pair 7 (builtin/pair 8 (builtin/empty-trace)))))))
-           8))))
-
-(deftest map-3
-  (testing "Map over a metaprob tuple"
-    (is (= (builtin/trace-get (this-map (fn [x] (+ x 1))
-                                        (builtin/tuple 6 7 8))
-                              1)
-           8))))
-
-
 ;; Self-application
 
 ;; These have to be defined at top level because only top level defined
@@ -226,9 +161,9 @@
 
 (define apply-test
   (gen [thunk]
-    (define output (empty-trace))
+    (define output (mutable-trace))
     (define [val score]
-      (infer-apply thunk [] nil nil output))
+      (infer-apply-locally thunk [] nil nil output))
     output))
 
 (define tst1 (gen [] (builtin/add 2 (builtin/mul 3 5))))
@@ -237,8 +172,10 @@
 (deftest infer-apply-self-application
   (testing "apply infer-apply to program that calls infer-apply"
 
-    ;; 3
-    (is (> (count (addresses-of (apply-test tst1))) 2))
+    (binding [impl/*ambient-interpreter* infer/infer-apply]
 
-    ;; 271
-    (is (> (count (addresses-of (apply-test tst2))) 100))))
+      ;; 3
+      (is (> (count (addresses-of (apply-test tst1))) 2))
+
+      ;; 271
+      (is (> (count (addresses-of (apply-test tst2))) 100)))))
