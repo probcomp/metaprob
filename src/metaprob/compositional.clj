@@ -36,6 +36,7 @@
                (empty-trace? target)
                (not output?))
         ;; Bypass interpreter when there is no need to use it.
+        ;; -- This already gets done in builtin/infer-apply - remove this check.
         [(generate-foreign proc inputs) (trace) 0]
         (block
          ;; Proc is a generative procedure, either 'foreign' (opaque, compiled)
@@ -43,40 +44,39 @@
          ;; First call the procedure.  We can't skip the call when there
          ;; is an intervention, because the call might have side effects.
          (define [value output score]
-           (if (and (trace? proc)
-                    (trace-has? proc "generative-source")
-                    (trace-has? proc "environment"))
-             ;; 'Native' generative procedure
+           (if (native-procedure? proc)
+             ;; 'Native' generative procedure.  Intervention happens therein.
              (infer-apply-native proc inputs intervene target output?)
              (if (foreign-procedure? proc)
                ;; 'Foreign' generative procedure
                (block (define value (generate-foreign proc inputs))
+                      (define ivalue (if (trace-has? intervene) (trace-get intervene) value))
                       [(if (trace-has? intervene) (trace-get intervene) value)
-                       intervene
+                       (if output?
+                         (trace :value ivalue)
+                         (trace))
                        0])
                (block (pprint proc)
                       (error "infer-apply: not a procedure" proc)))))
          ;; Apply target trace to get modified value and score
-         (define [post-target-value score2]
-           (if (trace-has? target)
-             [(trace-get target)
-              (if (trace-has? intervene)
-                ;; Score goes infinitely bad if there is both an
-                ;; intervention and a constraint, and they differ
-                (if (same-trace-states? (trace-get target) value)
-                  score
-                  (do (print ["value mismatch!"
-                              (trace-get target)
-                              value])
-                      negative-infinity))
-                score)]
-             [value score]))
-         (assert (trace? output) ["lose" output? output])
-         [post-target-value
-          (if output?
-            (trace-set output post-target-value)
-            output)
-          score2])))))
+         (if (trace-has? target)
+           [(trace-get target)
+            ;; Note: Alexey's version only sets output for primitives.
+            ;; This might matter!
+            (if output?
+              (trace-set output (trace-get target))
+              output)
+            (if (trace-has? intervene)
+              ;; Score goes infinitely bad if there is both an
+              ;; intervention and a constraint, and they differ
+              (if (same-trace-states? (trace-get target) value)
+                score
+                (do (print ["value mismatch!"
+                            (trace-get target)
+                            value])
+                    negative-infinity))
+              score)]
+           [value output score]))))))
 
 ;; Invoke a 'native' generative procedure, i.e. one written in
 ;; metaprob, with inference mechanics (traces and scores).
@@ -200,6 +200,7 @@
                 v))
 
     [v
+     ;; Alexey's version doesn't do this - remove?
      (if (and output? (not (empty-trace? output)))
        (trace-set output v)
        output)

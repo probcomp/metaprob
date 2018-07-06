@@ -135,13 +135,15 @@
 
 (deftest intervene-1
   (testing "simple intervention"
-    (let [form (from-clojure '(block 17 19))
-          [value1 _] (comp/infer-eval form top no-trace no-trace false)]
+    (let [form (from-clojure '(block 17 (+ 19)))
+          [value1 output1 _] (comp/infer-eval form top no-trace no-trace true)
+          adr 1]
       (is (= value1 19))
-      (let [intervene (builtin/empty-trace)]
-        (builtin/trace-set! intervene 1 23)
-        (let [[value2 _] (comp/infer-eval form top intervene no-trace false)]
-          (is (= value2 23)))))))
+      (is (= (trace-get output1 adr) 19))
+      (let [intervene (trace-set (builtin/trace) 1 23)]
+        (let [[value2 output2 _] (comp/infer-eval form top intervene no-trace true)]
+          (is (= value2 23))
+          (is (= (trace-get output2 adr) 23)))))))
 
 
 (deftest intervene-2
@@ -154,8 +156,9 @@
         ;; (builtin/pprint output)
         (doseq [a addresses]
           (builtin/trace-set! intervene a 23))
-        (let [[value2 _] (comp/infer-eval form top intervene no-trace false)]
-          (is (= value2 23)))))))
+        (let [[value2 output2 _] (comp/infer-eval form top intervene no-trace true)]
+          (is (= value2 23))
+          (is (= (trace-get output2) 23)))))))
 
 ;; Self-application
 

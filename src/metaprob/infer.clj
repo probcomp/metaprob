@@ -74,9 +74,7 @@
          ;; First call the procedure.  We can't skip the call when there
          ;; is an intervention, because the call might have side effects.
          (define [value score]
-           (if (and (trace? proc)
-                    (trace-has? proc "generative-source")
-                    (trace-has? proc "environment"))
+           (if (native-procedure? proc)
              ;; 'Native' generative procedure
              (infer-apply-native proc inputs intervene target output)
              (if (foreign-procedure? proc)
