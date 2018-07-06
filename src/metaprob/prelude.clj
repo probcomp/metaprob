@@ -151,6 +151,11 @@
     (assert (ok-key? key) key)
     key))
 
+(define native-procedure?
+  (gen [thing]
+    (and (trace? thing)
+         (trace-has? thing "generative-source")
+         (trace-has? thing "environment"))))
 
 ;; -----------------------------------------------------------------------------
 ;; Inf-based utilities.
