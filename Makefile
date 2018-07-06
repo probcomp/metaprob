@@ -42,19 +42,21 @@ convert: src/metaprob/main.clj src/metaprob/to_clojure.clj .lein_classpath
 # To change number of samples, pass the number on the command line.
 # 2000 is a good number, but it takes hours to run.
 # 5 is good for smoke tests.  To get more, you can say e.g.
-#  make histograms COUNT=100
-COUNT=5
+#  make view COUNT=100
+COUNT=10
 exa: results/samples_from_the_prior.samples
 
-results/samples_from_the_prior.samples:
+SAMPLES=results/samples_from_the_gaussian_demo_prior.samples
+
+$(SAMPLES):
 	mkdir -p results
 	lein compile 
 	time lein run -m metaprob.examples.main $(COUNT)
 
-results/samples_from_the_prior.samples.png: results/samples_from_the_prior.samples
+$(SAMPLES).png: $(SAMPLES)
 	for f in results/*.samples; do bin/gnuplot-hist $$f; done
 
-view: results/samples_from_the_prior.samples.png
+view: $(SAMPLES).png
 	open results/*.png
 
 # suppress '.#foo.clj' somehow
