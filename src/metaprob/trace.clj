@@ -505,7 +505,8 @@
 (defn trace-delete!
   ([tr] (trace-clear! tr))
   ([tr adr]
-   (trace-swap! tr (fn [state] (trace-delete state adr)))))
+   ;; (trace-swap! tr (fn [state] (trace-delete state adr)))
+   (trace-clear! (trace-subtrace tr adr))))
 
 (defn trace-set!
   ([tr val] (trace-set-value! tr val))
