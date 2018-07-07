@@ -141,3 +141,68 @@
                state
                (addresses-of target-trace))))
     state))
+
+;; -----------------------------------------------------------------------------
+;; Utilities for checking that inference is giving acceptable sample sets.
+;; These are used in the test suites.
+
+(declare sillyplot)
+
+(define check-bins-against-pdf
+  (gen [bins pdf]
+    (define nsamples (* (apply + (map length bins)) 1.0))
+    (define abs (gen [x] (if (< x 0) (- 0 x) x)))
+    (define bin-p (map (gen [bin]
+                         ;; Probability that a sample is in this bin, as inferred from sample set
+                         (/ (length bin) nsamples))
+                       bins))
+    (define bin-q (map (gen [bin]
+                         ;; Estimated probability that a sample would be
+                         ;; in the bin if the sampler were operating
+                         ;; correctly.  Could use any pdf in the bin as
+                         ;; a density estimate; we use the average.
+                         (define bincount (length bin))
+                         (* (/ (apply + (map pdf bin)) bincount)
+                            ;; Estimate of bin width...
+                            (* (- (nth bin (- bincount 1))
+                                  (nth bin 0))
+                               ;; adustment for fencepost...
+                               (/ (+ bincount 1)
+                                  (* bincount 1.0)))))
+                       bins))
+    (define discrepancies (clojure.core/map (gen [p q] (abs (- p q))) bin-p bin-q))
+;    (if (< (length bins) 50)
+;      (block (sillyplot bin-p)
+;             ;; These are not adding up to 1, why not?
+;             (sillyplot bin-q)
+;             (sillyplot discrepancies)))
+    (apply + (rest (reverse (rest discrepancies))))))
+
+(define check-samples-against-pdf
+  (gen [samples pdf nbins]
+    (define samples (to-tuple (sort samples)))    ; = clojure (vec ...)
+    (define nsamples (* (length samples) 1.0))
+    (define binsize (/ nsamples nbins))      ;float
+    (define bins (map (gen [i]
+                        ;; Try to put same number of samples
+                        ;; in each bin.  This is not necessary.
+                        (define start (clojure.core/int (* i binsize)))
+                        (define end (clojure.core/int (* (+ i 1) binsize)))
+                        (clojure.core/subvec samples start end))
+                      (range nbins)))
+    (check-bins-against-pdf bins pdf)))
+
+(define sillyplot
+  (gen [l]
+    (clojure.core/print
+     (clojure.core/format "%s\n"
+                          (to-tuple (map (gen [p] (Math/round (* p 100))) l))))))
+
+
+(define assay
+  (gen [sampler nsamples pdf nbins]
+    (define badness (check-samples-against-pdf (map sampler (range nsamples))
+                                               pdf
+                                               nbins))
+    (clojure.core/print [nsamples nbins "badness" badness])
+    badness))
