@@ -502,11 +502,21 @@
 (defn ^:private trace-clear! [tr]
   (trace-swap! tr (fn [state] (state/clear-value state))))
 
+;; Needs review
+
 (defn trace-delete!
   ([tr] (trace-clear! tr))
   ([tr adr]
-   ;; (trace-swap! tr (fn [state] (trace-delete state adr)))
-   (trace-clear! (trace-subtrace tr adr))))
+   (let [adr (if (seq? adr) adr (list adr))]
+     (if (empty? adr)
+       (trace-clear! tr)
+       (let [[head & tail] adr]
+         ;; Keep following adr as long as the trace is mutable
+         (if (or (immutable-trace? tr)
+                 (mutable-trace? (trace-get tr head)))
+           (trace-delete! (trace-get tr head) tail)
+           (trace-swap! tr (fn [state]
+                             (trace-state (trace-delete state adr))))))))))
 
 (defn trace-set!
   ([tr val] (trace-set-value! tr val))
