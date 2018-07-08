@@ -149,6 +149,7 @@
       (let [intervene (builtin/empty-trace)
             addresses (builtin/addresses-of output)]
         ;; (builtin/pprint output)
+        ;; Set the output of every primitive call to be 23...
         (doseq [a addresses]
           (builtin/trace-set! intervene a 23))
         (let [[value2 _] (infer/infer-eval form top intervene nil nil)]
@@ -174,8 +175,8 @@
 
     (binding [impl/*ambient-interpreter* infer/infer-apply]
 
-      ;; 3
-      (is (> (count (addresses-of (apply-test tst1))) 2))
+      ;; 2
+      (is (>= (count (addresses-of (apply-test tst1))) 2))
 
       ;; 271
       (is (> (count (addresses-of (apply-test tst2))) 100)))))

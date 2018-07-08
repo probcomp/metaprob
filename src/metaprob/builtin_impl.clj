@@ -63,8 +63,8 @@
   (assert (proper-function? ifn) ["not procedure" name ifn])
   ifn)
 
-(defn foreign-procedure-name [ifn]
-  (str ifn))
+;; -----------------------------------------------------------------------------
+;; Misc
 
 ;; Like to-immutable, but recursive.
 ;; DEPRECATED, DO NOT USE.
@@ -97,6 +97,9 @@
    (if name
      (str name "-" (trace-name proc-parse-tree))
      (trace-name proc-parse-tree))))
+
+(defn foreign-procedure-name [ifn]
+  (str ifn))
 
 ;; Mainly for foreign procedures.
 

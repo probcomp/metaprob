@@ -63,3 +63,10 @@
                    2))
 
             ))))))
+
+(deftest output-trace-1
+  (testing "ensure that extraneous values not present in output trace"
+    (let [[answer output score]
+          (infer :procedure flip-n-coins :inputs (builtin/tuple 4) :output-trace? true)]
+      (is (not (builtin/trace-has? output '(2 "datum" "map" 3)))))))
+

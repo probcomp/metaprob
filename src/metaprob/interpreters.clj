@@ -31,9 +31,8 @@
         target-trace (if (= target-trace nil)
                        null-trace
                        target-trace)
-        output-trace? (if (= output-trace? nil)    ;Force it to be boolean
-                        (not (= output-trace nil))
-                        output-trace?)  ;Supplied
+        output-trace? (or output-trace?
+                          (not (= output-trace nil)))
         interpreter (if (= interpreter nil)
                       default-interpreter
                       interpreter)

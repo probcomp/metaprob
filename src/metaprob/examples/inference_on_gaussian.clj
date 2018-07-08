@@ -67,13 +67,17 @@
     (trace-set! tt (addr 1 "y" "gaussian") 3.0)
     tt))
 
+(define gaussian-sample-value
+  (gen [output-trace]
+    (trace-get output-trace (addr 0 "x" "gaussian"))))
+
 (define rejection-assay
   (gen [number-of-runs]
     (replicate
      number-of-runs
      (gen []
        (print "rejection sample") ;Progress meter
-       (trace-get 
+       (gaussian-sample-value 
         (rejection-sampling two-variable-gaussian-model  ; :model-procedure 
                             []  ; :inputs 
                             target-trace
@@ -84,7 +88,7 @@
     (replicate
      number-of-runs
      (gen []
-       (trace-get
+       (gaussian-sample-value
         (importance-resampling two-variable-gaussian-model  ; :model-procedure 
                                []  ; :inputs 
                                target-trace
@@ -95,7 +99,7 @@
     (replicate
      number-of-runs
      (gen []
-       (trace-get
+       (gaussian-sample-value
         (lightweight-single-site-MH-sampling two-variable-gaussian-model
                                              []
                                              target-trace

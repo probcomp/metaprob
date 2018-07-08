@@ -36,12 +36,11 @@
     (define particles
     	    (replicate N
 	      (gen []
-                (define candidate-trace (empty-trace))
                 (define [_ candidate-trace score]
                   (infer :procedure model-procedure
                          :inputs inputs
                          :intervention-trace nil
-                         :target-trace       target-trace
+                         :target-trace target-trace
                          :output-trace? true))
                 [candidate-trace score])))
     (define scores
