@@ -13,7 +13,7 @@
 (def rest-marker "rest")
 
 (defn state? [val]
-  (or (seq? val)
+  (or (seq? val)                        ;Strings are not seqs
       (vector? val)
       (map? val)))
 
@@ -96,6 +96,7 @@
   (map-to-state (dissoc (state-to-map state) :value)))
 
 (defn set-subtrace [state key sub]
+  ;; sub is a trace but not necessarily a sub
   (if (= sub '())
     state
     (map-to-state (assoc (state-to-map state) key sub))))

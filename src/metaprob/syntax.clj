@@ -6,7 +6,6 @@
             [metaprob.builtin-impl :as impl]))
 
 (def set-value state/set-value)
-(def set-subtrace state/set-subtrace)
 
 
 ;; This module is intended for import by metaprob code, and defines

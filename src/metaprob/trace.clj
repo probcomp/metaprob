@@ -144,8 +144,11 @@
 ;; But now that the child is legitimate, it's OK to link it in.
 
 (defn ^:private trace-swap! [tr swapper] ;tr is an cell
-  (swap! (trace-cell tr) swapper)
-  "value of trace-swap!")
+  (let [cell (trace-cell tr)]
+    (swap! cell swapper)
+    (assert (state/state? (deref cell))
+            ["stored non-state into cell" (deref cell)])
+    "value of trace-swap!"))
 
 ;; -----------------------------------------------------------------------------
 ;; Utilities implementing the trace-as-procedure trace type
@@ -289,9 +292,9 @@
 
 (defn canonical-trace-state
   ([state-or-map]
+   ;; TBD: check types of subtraces, at least, and maybe check ok-key? etc.
    (if (map? state-or-map)
      (state/map-to-state state-or-map)
-     ;; TBD: check type, at least, and maybe check ok-key? etc.
      state-or-map))
   ([state-or-map val]
    (assert (ok-value? val))
@@ -454,12 +457,13 @@
 ;; Side effects.
 
 (defn ^:private trace-set-direct-subtrace! [tr key sub]
+  (assert (mutable-trace? sub) sub)
   (trace-swap! tr
                (fn [state]
                  (trace-set-direct-subtrace state key sub))))
 
 (defn trace-set-subtrace! [tr adr sub]
-  (assert (trace? sub))
+  (assert (mutable-trace? sub) sub)
   (if (seq? adr)
     (loop [tr tr adr adr]
       (let [[head & tail] adr]
@@ -470,12 +474,15 @@
                        (let [novo (make-mutable-trace)]
                          (trace-set-direct-subtrace! tr head novo)
                          novo))]
-            (recur more tail)))))
+            (if (mutable-trace? more)
+              (recur more tail)
+              (trace-swap! tr (fn [state]
+                                (trace-set-subtrace state adr val))))))))
     (trace-set-direct-subtrace! tr adr sub)))
 
 (defn ^:private trace-set-value! [tr val]
-  (assert (ok-value? val) val)
-  (assert (mutable-trace? tr) tr)            ;REMOVE
+  (assert (mutable-trace? tr) tr)
+  (assert (ok-value? val) val)            ;REMOVE
   (trace-swap! tr
                (fn [state]
                  (state/set-value state val))))
@@ -492,7 +499,10 @@
                        (let [novo (make-mutable-trace)]
                          (trace-set-direct-subtrace! tr head novo)
                          novo))]
-            (recur more tail)))))))
+            (if (mutable-trace? more)
+              (recur more tail)
+              (trace-swap! tr (fn [state]
+                                (trace-set-value-at state adr val))))))))))
 
 (defn trace-set!
   ([tr val] (trace-set-value! tr val))
@@ -512,11 +522,14 @@
        (trace-clear! tr)
        (let [[head & tail] adr]
          ;; Keep following adr as long as the trace is mutable
-         (if (or (immutable-trace? tr)
-                 (mutable-trace? (trace-get tr head)))
-           (trace-delete! (trace-get tr head) tail)
-           (trace-swap! tr (fn [state]
-                             (trace-state (trace-delete state adr))))))))))
+         (if (trace-has-direct-subtrace? tr head)
+           (if (or (immutable-trace? tr)
+                   (mutable-trace? (trace-get tr head)))
+             (trace-delete! (trace-get tr head) tail)
+             (trace-swap! tr (fn [state]
+                               (trace-state (trace-delete state adr)))))
+           ;; Did not delete, it wasn't there in the first place
+           ))))))
 
 (defn trace-set!
   ([tr val] (trace-set-value! tr val))
@@ -562,19 +575,22 @@
 
 (defn kv-pairs-to-map [kvps]
   (if (empty? kvps)
-    {}
+    (state/empty-state)
     (do (assert (not (empty? (rest kvps))) "odd number of args to trace")
         (let [key (first kvps)
               val (first (rest kvps))
               more (kv-pairs-to-map (rest (rest kvps)))]
           (if (= key :value)
             (do (assert (ok-value? val))
-                (assoc more key val))
+                (trace-set-value more val))
             (do (assert (ok-key? key))
-                (if (splice? val)
-                  (assoc more key (get val :subtrace))
-                  (do (assert (ok-value? val))
-                      (assoc more key {:value val})))))))))
+                (trace-set-direct-subtrace
+                 more
+                 key
+                 (if (splice? val)
+                   (get val :subtrace)
+                   (do (assert (ok-value? val))
+                       (trace-set-value (state/empty-state) val))))))))))
 
 (defn ** [tr]
   (assert (trace? tr) "**: expected a trace")

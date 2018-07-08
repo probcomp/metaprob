@@ -3,6 +3,8 @@
 (ns metaprob.examples.main
   (:require [metaprob.examples.inference-on-gaussian :as ginf]
             [metaprob.examples.earthquake :as quake]
+            [metaprob.examples.long-test :refer [small-nsamples]]
+            [clojure.test :refer :all]
             ;[criterium.core :as crit]
             )
   ;; (:gen-class)
@@ -32,13 +34,13 @@
 (def mh-count 20)
 
 (defn -main [& args]
-  (print (format "args=%s\n" args))
   (letfn [(combine [arg dict]
             (case arg
-              "rejection" (assoc dict :rejection true :any true)
-              "importance" (assoc dict :importance true :any true)
-              "mh" (assoc dict :mh true :any true)
-              "quake-rejection" (assoc dict :quake true :any true)
+              "test" (assoc dict :test true)
+              "rejection" (assoc dict :rejection true)
+              "importance" (assoc dict :importance true)
+              "mh" (assoc dict :mh true)
+              "quake-rejection" (assoc dict :quake true)
               (let [matches (re-seq #"^\d+$" arg)]
                 (if matches
                   (assoc dict :count (Integer. (first matches)))
@@ -49,12 +51,18 @@
               {}
               (combine (first args)
                        (reduc (rest args)))))]
-    (let [dict (reduc args)
-          all? (not (get dict :any))]
+    (let [dict (if (empty? args)
+                 (list :rejection :importance :mh :quake-rejection)
+                 (reduc args))]
+
+      (print (format "dict=%s\n" dict))
+
+      (when (get dict :test)
+        (run-tests 'metaprob.examples.long-test))
 
       (let [quake-number-of-samples (or (get dict :count)
-                                             quake-number-of-samples)]
-        (when (or all? (get dict :quake))
+                                        quake-number-of-samples)]
+        (when (get dict :quake)
           (print "---- earthquake bayesnet ----\n")
           ;; (quake/demo-earthquake) - doesn't work yet
           (quake/earthquake-histogram "bayesnet samples from rejection sampling"
@@ -62,28 +70,27 @@
 
       (let [gaussian-number-of-samples (or (get dict :count)
                                            gaussian-number-of-samples)]
-        (print (format "dict=%s all=%s\n" dict all?))
+        (when (or (get dict :rejection) (get dict :importance) (get dict :mh))
+          (print "---- Prior ----\n")
+          (ginf/gaussian-histogram
+           "samples from the gaussian demo prior"
+           (instrument ginf/gaussian-prior-samples gaussian-number-of-samples)))
 
-        (print "---- Prior ----\n")
-        (ginf/gaussian-histogram
-         "samples from the gaussian demo prior"
-         (instrument ginf/gaussian-prior-samples gaussian-number-of-samples))
-
-        (when (or all? (get dict :rejection))
+        (when (get dict :rejection)
           ;; Rejection sampling is very slow - 20 seconds per
           (print "---- Rejection ----\n")
           (ginf/gaussian-histogram
            "samples from the gaussian demo target"   
            (instrument ginf/rejection-assay gaussian-number-of-samples)))
 
-        (when (or all? (get dict :importance))
+        (when (get dict :importance)
           ;; Importance sampling is very fast
           (print "---- Importance ----\n")
           (ginf/gaussian-histogram
            (format "importance sampling gaussian demo with %s particles" n-particles)
            (instrument ginf/importance-assay n-particles gaussian-number-of-samples)))
 
-        (when (or all? (get dict :mh))
+        (when (get dict :mh)
           ;; MH is fast
           (print "---- MH ----\n")
           (ginf/gaussian-histogram

@@ -171,12 +171,7 @@
                                   (* bincount 1.0)))))
                        bins))
     (define discrepancies (clojure.core/map (gen [p q] (abs (- p q))) bin-p bin-q))
-;    (if (< (length bins) 50)
-;      (block (sillyplot bin-p)
-;             ;; These are not adding up to 1, why not?
-;             (sillyplot bin-q)
-;             (sillyplot discrepancies)))
-    (apply + (rest (reverse (rest discrepancies))))))
+    [(apply + (rest (reverse (rest discrepancies)))) bin-p bin-q]))
 
 (define check-samples-against-pdf
   (gen [samples pdf nbins]
@@ -192,6 +187,32 @@
                       (range nbins)))
     (check-bins-against-pdf bins pdf)))
 
+(define assay
+  (gen [tag sampler nsamples pdf nbins threshold]
+    (define [badness bin-p bin-q]
+      (check-samples-against-pdf (map sampler (range nsamples))
+                                 pdf
+                                 nbins))
+    ;; Diagnostic output.
+    (if (and (or (> badness threshold)
+                 (< badness (/ threshold 2)))
+             (< nbins 50))
+      (block (clojure.core/print
+              (clojure.core/format "%s. n: %s bins: %s badness: %s threshold: %s\n"
+                                   tag nsamples nbins badness threshold))
+             (sillyplot bin-p)
+             (sillyplot bin-q)))
+    (< badness threshold)))
+
+(define badness
+  (gen [sampler nsamples pdf nbins]
+    (define [badness bin-p bin-q]
+      (check-samples-against-pdf (map sampler (range nsamples))
+                                 pdf
+                                 nbins))
+    badness))
+
+
 (define sillyplot
   (gen [l]
     (clojure.core/print
@@ -199,10 +220,3 @@
                           (to-tuple (map (gen [p] (Math/round (* p 100))) l))))))
 
 
-(define assay
-  (gen [sampler nsamples pdf nbins]
-    (define badness (check-samples-against-pdf (map sampler (range nsamples))
-                                               pdf
-                                               nbins))
-    (clojure.core/print [nsamples nbins "badness" badness])
-    badness))
