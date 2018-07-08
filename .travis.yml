@@ -1,5 +1,5 @@
 # Tests should run
 language: clojure
 script:
-        lein test
-        lein run -m metaprob.examples.main test
+- lein test
+- lein run -m metaprob.examples.main test
