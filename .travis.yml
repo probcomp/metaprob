@@ -2,4 +2,4 @@
 language: clojure
 script:
         lein test
-        time lein run -m metaprob.examples.main test
+        lein run -m metaprob.examples.main test
