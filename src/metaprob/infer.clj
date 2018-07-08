@@ -46,7 +46,8 @@
     (assert (or (eq output nil)
                 (mutable-trace? output))
             output)
-    (if (and (trace? proc) (trace-has? proc "implementation"))
+    (define impl (and (trace? proc) (trace-has? proc "implementation")))
+    (if impl
       ;; Proc is a special inference procedure returned by `inf`, called
       ;; using 'standard' protocol.  So we need to adapt the inputs 
       ;; going in, and the results coming out, to implement the change
@@ -55,15 +56,10 @@
       (block (define [value out score]
                ;; Maybe not the right thing here.  Really we're
                ;; calling the interpreter at the next outer level.
-               (generate-foreign (trace-get proc "implementation")
-                                 [inputs
-                                  (if (= intervene nil)
-                                    (trace)
-                                    intervene)
-                                  (if (= target nil)
-                                    (trace)
-                                    target)
-                                  (not (= output nil))]))
+               (impl inputs
+                     (if (= intervene nil) (trace) intervene)
+                     (if (= target nil) (trace) target)
+                     (not (= output nil))))
              (if (and output out)
                (trace-merge! output out))
              [value score])

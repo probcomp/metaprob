@@ -61,11 +61,6 @@
          ;; Apply target trace to get modified value and score
          (if (trace-has? target)
            [(trace-get target)
-            ;; Note: Alexey's version only sets output for primitives.
-            ;; This might matter!
-            (if output?
-              (trace-set output (trace-get target))
-              output)
             (if (trace-has? intervene)
               ;; Score goes infinitely bad if there is both an
               ;; intervention and a constraint, and they differ
