@@ -34,7 +34,10 @@
     (get (state-to-map state) :value)
     (cond (seq? state) (first state)
           (vector? state) (assert false "no value")
-          (map? state) (get state :value)
+          (map? state)
+          (let [value (get state :value :no-value)]
+            (assert (not (= value :no-value)) ["state has no value" state])
+            value)
           true (assert false ["not a state" state]))))
 
 (defn has-subtrace? [state key]
