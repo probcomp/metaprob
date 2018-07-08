@@ -61,15 +61,14 @@
   (gen [number-of-runs]
     (replicate number-of-runs two-variable-gaussian-model)))
 
-(define make-target-trace
-  (gen []
+(define target-trace
+  (block
     (define tt (empty-trace))
     (trace-set! tt (addr 1 "y" "gaussian") 3.0)
     tt))
 
 (define rejection-assay
   (gen [number-of-runs]
-    (define target-trace (make-target-trace))
     (replicate
      number-of-runs
      (gen []
@@ -82,7 +81,6 @@
 
 (define importance-assay
   (gen [n-particles number-of-runs]
-    (define target-trace (make-target-trace))
     (replicate
      number-of-runs
      (gen []
@@ -94,7 +92,6 @@
 
 (define MH-assay
   (gen [count number-of-runs]
-    (define target-trace (make-target-trace))
     (replicate
      number-of-runs
      (gen []

@@ -3,7 +3,7 @@
 (ns metaprob.examples.main
   (:require [metaprob.examples.inference-on-gaussian :as ginf]
             [metaprob.examples.earthquake :as quake]
-            [metaprob.examples.long-test :refer [small-nsamples]]
+            [metaprob.examples.long-test]
             [clojure.test :refer :all]
             ;[criterium.core :as crit]
             )

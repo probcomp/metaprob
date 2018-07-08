@@ -512,9 +512,15 @@
 (defn ^:private trace-clear! [tr]
   (trace-swap! tr (fn [state] (state/clear-value state))))
 
+ (defn trace-delete!
+   ([tr] (trace-clear! tr))
+   ([tr adr]
+    ;; (trace-swap! tr (fn [state] (trace-delete state adr)))
+    (trace-clear! (trace-subtrace tr adr))))
+
 ;; Needs review
 
-(defn trace-delete!
+(defn trace-delete!-loser
   ([tr] (trace-clear! tr))
   ([tr adr]
    (let [adr (if (seq? adr) adr (list adr))]
@@ -525,7 +531,7 @@
          (if (trace-has-direct-subtrace? tr head)
            (if (or (immutable-trace? tr)
                    (mutable-trace? (trace-get tr head)))
-             (trace-delete! (trace-get tr head) tail)
+             (trace-delete!-loser (trace-get tr head) tail)
              (trace-swap! tr (fn [state]
                                (trace-state (trace-delete state adr)))))
            ;; Did not delete, it wasn't there in the first place
