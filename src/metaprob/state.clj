@@ -150,4 +150,5 @@
           (vec (for [i (range n)] (get (get m i) :value)))
 
           true (do (assert (map? m) ["expected a map" m])
+                   (doseq [entry m] true)    ;Don't be lazy!
                    m))))
