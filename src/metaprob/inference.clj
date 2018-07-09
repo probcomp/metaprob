@@ -36,12 +36,13 @@
     (define particles
     	    (replicate N
 	      (gen []
-                (define [_ candidate-trace score]
+                (define candidate-trace (mutable-trace))
+                (define [_ _ score]
                   (infer :procedure model-procedure
                          :inputs inputs
                          :intervention-trace nil
                          :target-trace target-trace
-                         :output-trace? true))
+                         :output-trace candidate-trace))
                 [candidate-trace score])))
     (define scores
       (map (gen [p] (nth p 1)) particles))
@@ -71,12 +72,13 @@
     (define initial-num-choices (length candidates))
     (trace-delete! trace target-address)
 
+    (define new-trace (mutable-trace))
     (define [_ new-trace forward-score]
       (infer :procedure model-procedure
              :inputs inputs
              :intervention-trace nil
              :target-trace trace
-             :output-trace? true))
+             :output-trace new-trace))
     (define new-value (trace-get new-trace target-address))
 
     ;; the proposal is to move from trace to new-trace
@@ -125,19 +127,19 @@
 (define lightweight-single-site-MH-sampling
   (gen [model-procedure inputs target-trace N]
     (define state (empty-trace))
-    (define [_ state _]
+    (define [_ _ _]
       (infer :procedure model-procedure
              :inputs inputs
              :intervention-trace (empty-trace)
              :target-trace target-trace
-             :output-trace? true))
+             :output-trace state))
     (repeat N
             (gen []
               ;; VKM had keywords :procedure :inputs :trace :constraint-addresses
               (single-site-metropolis-hastings-step
                model-procedure
                (tuple)
-               state
+               (to-mutable state)
                (addresses-of target-trace))))
     state))
 

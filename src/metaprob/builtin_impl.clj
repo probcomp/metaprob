@@ -284,7 +284,11 @@
     (let [[value output score]
           (*ambient-interpreter* proc inputs intervention-trace
                                  target-trace output-trace?)]
-      (assert (number? score) ["bad score" score proc])
+      (assert (number? score) ["bad score"
+                               score proc
+                               (if (trace? *ambient-interpreter*)
+                                 (trace-state *ambient-interpreter*)
+                                 *ambient-interpreter*)])
       (assert (if output-trace?
                 (trace? output)
                 true)

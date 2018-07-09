@@ -42,7 +42,7 @@
   (testing "check rejection sampling"
     (let [n-particles 20
           sampler (fn [i]
-                    (trace-get 
+                    (gaussian-sample-value 
                      (rejection-sampling two-variable-gaussian-model  ; :model-procedure 
                                          []  ; :inputs 
                                          target-trace  ; :target-trace 
@@ -54,7 +54,7 @@
   (testing "check importance sampling"
     (let [n-particles 20
           sampler (fn [i]
-                    (trace-get
+                    (gaussian-sample-value
                      (importance-resampling two-variable-gaussian-model
                                             []
                                             target-trace
@@ -66,7 +66,7 @@
   (testing "check M-H sampling"
     (let [steps-per-sample 50
           sampler (fn [i]
-                    (trace-get
+                    (gaussian-sample-value
                      (lightweight-single-site-MH-sampling two-variable-gaussian-model
                                                           []
                                                           target-trace

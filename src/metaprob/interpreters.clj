@@ -13,12 +13,12 @@
 ;; 'user-friendly' tool.
 
 ;; Choose either of these, or some other.
-(def default-interpreter infer/infer-apply)
-;; (def default-interpreter comp/infer-apply)
+;; (def default-interpreter infer/infer-apply)
+(def default-interpreter comp/infer-apply)
 
 (define null-trace (trace))
 
-;; Returns [value ?output-trace? score]
+;; Returns [value output-trace score]
 
 (defn infer [& {:keys [procedure inputs intervention-trace
                        target-trace output-trace
@@ -47,6 +47,7 @@
     [value
      (if (and output-trace? output-trace out)
        (do (trace-merge! output-trace out)
+           (trace-thaw! output-trace)
            output-trace)
        out)
      score]))

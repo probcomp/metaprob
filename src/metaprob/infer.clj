@@ -46,14 +46,15 @@
     (assert (or (eq output nil)
                 (mutable-trace? output))
             output)
-    (define impl (and (trace? proc) (trace-has? proc "implementation")))
-    (if impl
+    (if (and (trace? proc) (trace-has? proc "implementation"))
       ;; Proc is a special inference procedure returned by `inf`, called
       ;; using 'standard' protocol.  So we need to adapt the inputs 
       ;; going in, and the results coming out, to implement the change
       ;; of protocol.
       ;; Return the value+score that the implementation computes.
-      (block (define [value out score]
+      (block (define impl (trace-get proc "implementation"))
+             (assert (procedure? impl) ["what" impl])
+             (define [value out score]
                ;; Maybe not the right thing here.  Really we're
                ;; calling the interpreter at the next outer level.
                (impl inputs

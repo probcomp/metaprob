@@ -13,7 +13,7 @@
 
 (defn ez-call [prob-prog & inputs]
   (let [inputs (if (= inputs nil) '() inputs)
-        [value score]
+        [value _ score]
         (comp/infer-apply prob-prog
                            inputs
                            no-trace no-trace false)]
@@ -139,11 +139,9 @@
           [value1 output1 _] (comp/infer-eval form top no-trace no-trace true)
           adr 1]
       (is (= value1 19))
-      (is (= (trace-get output1 adr) 19))
       (let [intervene (trace-set (builtin/trace) 1 23)]
         (let [[value2 output2 _] (comp/infer-eval form top intervene no-trace true)]
-          (is (= value2 23))
-          (is (= (trace-get output2 adr) 23)))))))
+          (is (= value2 23)))))))
 
 
 (deftest intervene-2
@@ -157,8 +155,7 @@
         (doseq [a addresses]
           (builtin/trace-set! intervene a 23))
         (let [[value2 output2 _] (comp/infer-eval form top intervene no-trace true)]
-          (is (= value2 23))
-          (is (= (trace-get output2) 23)))))))
+          (is (= value2 23)))))))
 
 ;; Self-application
 
@@ -177,8 +174,8 @@
 (deftest infer-apply-self-application
   (testing "apply infer-apply to program that calls infer-apply"
 
-    ;; 3
-    (is (> (count (addresses-of (apply-test tst1))) 2))
+    ;; 2
+    (is (> (count (addresses-of (apply-test tst1))) 1))
 
     ;; 271
     (is (> (count (addresses-of (apply-test tst2))) 100))))
