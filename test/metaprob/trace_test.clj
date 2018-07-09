@@ -302,3 +302,18 @@
       (is (= (trace-get tr '(9 3)) 33))
       )))
 
+(deftest thaw!-1
+  (testing "thaw1!"
+    (let [tr (mutable-trace "a" (** (trace "immutable" 7 :value 31))
+                            "b" (** (mutable-trace "mutable" 9 :value 33)))]
+      (is (immutable-trace? (trace-subtrace tr "a")))
+      (is (mutable-trace? (trace-subtrace tr "b")))
+      (trace-thaw! tr)
+
+      (is (mutable-trace? (trace-subtrace tr "a")))
+      (is (= (trace-get tr '("a")) 31))
+      (is (= (trace-get tr '("a" "immutable")) 7))
+
+      (is (mutable-trace? (trace-subtrace tr "b")))
+      (is (= (trace-get tr '("b")) 33))
+      (is (= (trace-get tr '("b" "mutable")) 9)))))
