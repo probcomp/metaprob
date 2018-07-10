@@ -13,7 +13,16 @@
 ;; real tests take too long and make 'lein test' take too long.
 ;; For method tests, we use a longer-running procedure.
 
+;; VKM requested 1000 samples on 2018-07-06.
 (def nsamples 1000)
+
+;; VKM requested 1000 IS particles (!)
+(def n-particles 1000)
+
+;; VKM requested 50 MH steps per sample
+(def n-mh-steps 50)
+
+;; JAR's choice (this makes for 40 samples per bin)
 (def nbins 25)
 
 ;; This is to see whether the test harness itself is basically working:
@@ -52,8 +61,7 @@
 
 (deftest check-importance
   (testing "check importance sampling"
-    (let [n-particles 20
-          sampler (fn [i]
+    (let [sampler (fn [i]
                     (gaussian-sample-value
                      (importance-resampling two-variable-gaussian-model
                                             []
@@ -64,12 +72,11 @@
 
 (deftest check-MH
   (testing "check M-H sampling"
-    (let [steps-per-sample 50
-          sampler (fn [i]
+    (let [sampler (fn [i]
                     (gaussian-sample-value
                      (lightweight-single-site-MH-sampling two-variable-gaussian-model
                                                           []
                                                           target-trace
-                                                          steps-per-sample)))
+                                                          n-mh-steps)))
           pdf target-density]
       (is (assay "m" sampler nsamples pdf nbins 0.2)))))
