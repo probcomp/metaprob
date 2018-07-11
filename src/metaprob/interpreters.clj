@@ -55,7 +55,7 @@
 ;; Returns score only
 
 (defn get-score [proc & inputs]
-  (let [[sample target _]
+  (let [[_ target _]
         (infer :procedure proc
                :inputs inputs
                :output-trace? true)]

@@ -59,6 +59,7 @@
 (define-foreign-procedure floor impl/floor)
 (define-foreign-procedure round impl/round)
 (define-foreign-procedure number? clojure.core/number?)
+(define-foreign-procedure expt impl/expt)
 
 ;; Sample from uniform distribution, with RNG as hidden state
 (define-foreign-procedure sample-uniform impl/sample-uniform)

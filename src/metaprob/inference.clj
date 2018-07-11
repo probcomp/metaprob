@@ -172,7 +172,13 @@
                                   (* bincount 1.0)))))
                        bins))
     (define discrepancies (clojure.core/map (gen [p q] (abs (- p q))) bin-p bin-q))
-    [(apply + (rest (reverse (rest discrepancies)))) bin-p bin-q]))
+    ;; Trim off first and last bins, since their pdf estimate is 
+    ;; likely to be way off
+    (define trimmed (rest (reverse (rest discrepancies))))
+    (define normalization (/ (length discrepancies) (* (length trimmed) 1.0)))
+    [(* normalization (apply + trimmed))
+     bin-p
+     bin-q]))
 
 (define check-samples-against-pdf
   (gen [samples pdf nbins]
@@ -195,15 +201,14 @@
                                  pdf
                                  nbins))
     ;; Diagnostic output.
-    (if (and (or (> badness threshold)
-                 (< badness (/ threshold 2)))
-             (< nbins 50))
+    (if (or (> badness threshold)
+            (< badness (/ threshold 2)))
       (block (clojure.core/print
               (clojure.core/format "%s. n: %s bins: %s badness: %s threshold: %s\n"
                                    tag nsamples nbins badness threshold))
              (sillyplot bin-p)
              (sillyplot bin-q)))
-    (< badness threshold)))
+    (< badness (* threshold 1.5))))
 
 (define badness
   (gen [sampler nsamples pdf nbins]
@@ -216,8 +221,14 @@
 
 (define sillyplot
   (gen [l]
+    (define nbins (length l))
+    (define trimmed (if (> nbins 50)
+                      ;; Take middle so that it fits on one line
+                      (clojure.core/take
+                       (clojure.core/drop l (/ (- nbins 50) 2))
+                       50)
+                      l))
     (clojure.core/print
      (clojure.core/format "%s\n"
-                          (to-tuple (map (gen [p] (Math/round (* p 100))) l))))))
-
-
+                          (to-tuple (map (gen [p] (Math/round (* p 100)))
+                                         trimmed))))))

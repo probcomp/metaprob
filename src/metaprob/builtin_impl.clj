@@ -176,6 +176,7 @@
 ;; Mathematical
 
 (defn exp [x] (java.lang.Math/exp x))
+(defn expt [x y] (java.lang.Math/pow x y))
 (defn sqrt [x] (java.lang.Math/sqrt x))
 
 (defn add
