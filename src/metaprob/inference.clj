@@ -196,19 +196,22 @@
 
 (define assay
   (gen [tag sampler nsamples pdf nbins threshold]
-    (define [badness bin-p bin-q]
-      (check-samples-against-pdf (map sampler (range nsamples))
-                                 pdf
-                                 nbins))
-    ;; Diagnostic output.
-    (if (or (> badness threshold)
-            (< badness (/ threshold 2)))
-      (block (clojure.core/print
-              (clojure.core/format "%s. n: %s bins: %s badness: %s threshold: %s\n"
-                                   tag nsamples nbins badness threshold))
-             (sillyplot bin-p)
-             (sillyplot bin-q)))
-    (< badness (* threshold 1.5))))
+    (report-on-elapsed-time
+     tag
+     (gen []
+       (define [badness bin-p bin-q]
+         (check-samples-against-pdf (map sampler (range nsamples))
+                                    pdf
+                                    nbins))
+       ;; Diagnostic output.
+       (if (or (> badness threshold)
+               (< badness (/ threshold 2)))
+         (block (clojure.core/print
+                 (clojure.core/format "%s. n: %s bins: %s badness: %s threshold: %s\n"
+                                      tag nsamples nbins badness threshold))
+                (sillyplot bin-p)
+                (sillyplot bin-q)))
+       (< badness (* threshold 1.5))))))
 
 (define badness
   (gen [sampler nsamples pdf nbins]
