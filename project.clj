@@ -7,6 +7,9 @@
   :jvm-opts ["-Xss50M"]
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [kixi/stats "0.4.0"]
-                 [criterium "0.4.4"]]
+                 [criterium "0.4.4"]
+                 [org.apache.commons/commons-math3 "3.6.1"]
+		 [incanter "1.9.3"]
+		 [org.clojure/numeric-tower "0.0.4"]]
   ;; :aot [metaprob.basic-trace]
   )
