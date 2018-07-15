@@ -34,13 +34,13 @@
     (define particles
     	    (replicate N
 	      (gen []
-                (define candidate-trace (empty-trace))
-                (define [_ candidate-trace score]
+                (define candidate-trace (mutable-trace))
+                (define [_ _ score]
                   (infer :procedure model-procedure
                          :inputs inputs
                          :intervention-trace nil
-                         :target-trace       target-trace
-                         :output-trace? true))
+                         :target-trace target-trace
+                         :output-trace candidate-trace))
                 [candidate-trace score])))
     (define scores
       (map (gen [p] (nth p 1)) particles))
@@ -70,12 +70,13 @@
     (define initial-num-choices (length candidates))
     (trace-delete! trace target-address)
 
+    (define new-trace (mutable-trace))
     (define [_ new-trace forward-score]
       (infer :procedure model-procedure
              :inputs inputs
              :intervention-trace nil
              :target-trace trace
-             :output-trace? true))
+             :output-trace new-trace))
     (define new-value (trace-get new-trace target-address))
 
     ;; the proposal is to move from trace to new-trace
@@ -124,19 +125,19 @@
 (define lightweight-single-site-MH-sampling
   (gen [model-procedure inputs target-trace N]
     (define state (empty-trace))
-    (define [_ state _]
+    (define [_ _ _]
       (infer :procedure model-procedure
              :inputs inputs
              :intervention-trace (empty-trace)
              :target-trace target-trace
-             :output-trace? true))
+             :output-trace state))
     (repeat N
             (gen []
               ;; VKM had keywords :procedure :inputs :trace :constraint-addresses
               (single-site-metropolis-hastings-step
                model-procedure
                (tuple)
-               state
+               (to-mutable state)
                (addresses-of target-trace))))
     state))
 
@@ -169,7 +170,13 @@
                                   (* bincount 1.0)))))
                        bins))
     (define discrepancies (clojure.core/map (gen [p q] (abs (- p q))) bin-p bin-q))
-    [(apply + (rest (reverse (rest discrepancies)))) bin-p bin-q]))
+    ;; Trim off first and last bins, since their pdf estimate is 
+    ;; likely to be way off
+    (define trimmed (rest (reverse (rest discrepancies))))
+    (define normalization (/ (length discrepancies) (* (length trimmed) 1.0)))
+    [(* normalization (apply + trimmed))
+     bin-p
+     bin-q]))
 
 (define check-samples-against-pdf
   (gen [samples pdf nbins]
@@ -187,20 +194,22 @@
 
 (define assay
   (gen [tag sampler nsamples pdf nbins threshold]
-    (define [badness bin-p bin-q]
-      (check-samples-against-pdf (map sampler (range nsamples))
-                                 pdf
-                                 nbins))
-    ;; Diagnostic output.
-    (if (and (or (> badness threshold)
-                 (< badness (/ threshold 2)))
-             (< nbins 50))
-      (block (clojure.core/print
-              (clojure.core/format "%s. n: %s bins: %s badness: %s threshold: %s\n"
-                                   tag nsamples nbins badness threshold))
-             (sillyplot bin-p)
-             (sillyplot bin-q)))
-    (< badness threshold)))
+    (report-on-elapsed-time
+     tag
+     (gen []
+       (define [badness bin-p bin-q]
+         (check-samples-against-pdf (map sampler (range nsamples))
+                                    pdf
+                                    nbins))
+       ;; Diagnostic output.
+       (if (or (> badness threshold)
+               (< badness (/ threshold 2)))
+         (block (clojure.core/print
+                 (clojure.core/format "%s. n: %s bins: %s badness: %s threshold: %s\n"
+                                      tag nsamples nbins badness threshold))
+                (sillyplot bin-p)
+                (sillyplot bin-q)))
+       (< badness (* threshold 1.5))))))
 
 (define badness
   (gen [sampler nsamples pdf nbins]
@@ -213,8 +222,14 @@
 
 (define sillyplot
   (gen [l]
+    (define nbins (length l))
+    (define trimmed (if (> nbins 50)
+                      ;; Take middle so that it fits on one line
+                      (clojure.core/take
+                       (clojure.core/drop l (/ (- nbins 50) 2))
+                       50)
+                      l))
     (clojure.core/print
      (clojure.core/format "%s\n"
-                          (to-tuple (map (gen [p] (Math/round (* p 100))) l))))))
-
-
+                          (to-tuple (map (gen [p] (Math/round (* p 100)))
+                                         trimmed))))))

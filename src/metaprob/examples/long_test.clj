@@ -13,8 +13,22 @@
 ;; real tests take too long and make 'lein test' take too long.
 ;; For method tests, we use a longer-running procedure.
 
-(def nsamples 1000)
-(def nbins 25)
+;; VKM requested 1000 samples on 2018-07-06.
+;; 1000 is not quite enough to get convergence to within 10%.
+(def nsamples 1500)
+
+;; VKM requested 1000 IS particles (!)
+(def n-particles 1000)
+
+;; VKM requested 50 MH steps per sample
+(def n-mh-steps 50)
+
+;; JAR's choice (20 bins makes for 50 samples per bin; the more samples
+;; per bin, the more accurate the estimate)
+(def nbins 15)
+
+;; What VKM requested 2018-07-06
+(def threshold 0.1)
 
 ;; This is to see whether the test harness itself is basically working:
 
@@ -22,7 +36,7 @@
   (testing "check check"
     (let [sampler (fn [i] (uniform 0 1))
           pdf (fn [x] 1)]
-      (is (assay "0" sampler nsamples pdf nbins 0.5)))))
+      (is (assay "0" sampler nsamples pdf nbins threshold)))))
 
 ;; Compare sampling from Gaussian prior to exact PDF of prior:
 
@@ -30,46 +44,44 @@
   (testing "check sampling from gaussian prior"
     (let [sampler (fn [i] (gaussian 0 1))
           pdf prior-density]
-      (is (assay "p" sampler nsamples pdf nbins 0.15)))))
+      (is (assay "p" sampler nsamples pdf nbins threshold)))))
 
 (deftest check-prior-failure
   (testing "check sampling from 'wrong' gaussian prior"
     (let [sampler (fn [i] (gaussian 0.5 1.2)) ;wrong gaussian!!
           pdf prior-density]
-      (is (> (badness sampler nsamples pdf nbins) 0.1)))))
+      (is (> (badness sampler nsamples pdf nbins) threshold)))))
 
 (deftest check-rejection
   (testing "check rejection sampling"
     (let [n-particles 20
           sampler (fn [i]
-                    (trace-get 
+                    (gaussian-sample-value 
                      (rejection-sampling two-variable-gaussian-model  ; :model-procedure 
                                          []  ; :inputs 
                                          target-trace  ; :target-trace 
                                          0.5)))
           pdf target-density]
-      (is (assay "r" sampler nsamples pdf nbins 0.15)))))
+      (is (assay "r" sampler nsamples pdf nbins threshold)))))
 
 (deftest check-importance
   (testing "check importance sampling"
-    (let [n-particles 20
-          sampler (fn [i]
-                    (trace-get
+    (let [sampler (fn [i]
+                    (gaussian-sample-value
                      (importance-resampling two-variable-gaussian-model
                                             []
                                             target-trace
                                             n-particles)))
           pdf target-density]
-      (is (assay "i" sampler nsamples pdf nbins 0.2)))))
+      (is (assay "i" sampler nsamples pdf nbins threshold)))))
 
 (deftest check-MH
   (testing "check M-H sampling"
-    (let [steps-per-sample 50
-          sampler (fn [i]
-                    (trace-get
+    (let [sampler (fn [i]
+                    (gaussian-sample-value
                      (lightweight-single-site-MH-sampling two-variable-gaussian-model
                                                           []
                                                           target-trace
-                                                          steps-per-sample)))
+                                                          n-mh-steps)))
           pdf target-density]
-      (is (assay "m" sampler nsamples pdf nbins 0.2)))))
+      (is (assay "m" sampler nsamples pdf nbins threshold)))))

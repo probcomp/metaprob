@@ -10,7 +10,8 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare infer-apply-native infer-apply infer-eval infer-eval-sequence)
+(declare infer-apply-native infer-apply-foreign
+         infer-apply infer-eval infer-eval-sequence)
 
 ;; Main entry point: an `apply` that respects interventions
 ;; and constraints, records choices made, and computes scores.
@@ -24,48 +25,42 @@
     (assert (trace? intervene) ["bad intervene" intervene])
     (assert (trace? target) ["target" target])
     (assert (boolean? output?) output?)
+
     (if (and (trace? proc) (trace-has? proc "implementation"))
       ;; Proc is a special inference procedure returned by `inf`.
-      ;; Return the value+score that the implementation computes.
-      
+      ;; Return the value+output+score that the implementation computes.
       (do (define imp (trace-get proc "implementation"))
-          (assert (procedure? imp) ["what" imp])
           (imp inputs intervene target output?))
       (if (and (foreign-procedure? proc)
                (empty-trace? intervene)
                (empty-trace? target)
                (not output?))
-        ;; Bypass interpreter when there is no need to use it.
-        ;; -- This already gets done in builtin/infer-apply - remove this check.
-        [(generate-foreign proc inputs) (trace) 0]
+        ;; Bypass interpreter when there is no need to use it.  Was once
+        ;; necessary in order for map and apply to work properly; it might
+        ;; be possible to remove this check now that we have
+        ;; *ambient-interpreter*.
+        (infer-apply-foreign proc inputs intervene output?)
         (block
          ;; Proc is a generative procedure, either 'foreign' (opaque, compiled)
          ;; or 'native' (interpreted).
          ;; First call the procedure.  We can't skip the call when there
          ;; is an intervention, because the call might have side effects.
          (define [value output score]
-           (if (native-procedure? proc)
-             ;; 'Native' generative procedure.  Intervention happens therein.
-             (infer-apply-native proc inputs intervene target output?)
-             (if (foreign-procedure? proc)
-               ;; 'Foreign' generative procedure
-               (block (define value (generate-foreign proc inputs))
-                      (define ivalue (if (trace-has? intervene) (trace-get intervene) value))
-                      [ivalue
-                       (if output?
-                         (trace :value ivalue)
-                         (trace))
-                       0])
-               (block (pprint proc)
-                      (error "infer-apply: not a procedure" proc)))))
+           (cond (native-procedure? proc)
+                 ;; 'Native' generative procedure.  Intervention happens therein.
+                 (infer-apply-native proc inputs intervene target output?)
+
+                 (foreign-procedure? proc)
+                 (infer-apply-foreign proc inputs intervene output?)
+
+                 true
+                 (block (pprint proc)
+                        (error "infer-apply: not a procedure" proc))))
+         (assert (number? score) ["bogus score" proc score])
          ;; Apply target trace to get modified value and score
          (if (trace-has? target)
            [(trace-get target)
-            ;; Note: Alexey's version only sets output for primitives.
-            ;; This might matter!
-            (if output?
-              (trace-set output (trace-get target))
-              output)
+            output
             (if (trace-has? intervene)
               ;; Score goes infinitely bad if there is both an
               ;; intervention and a constraint, and they differ
@@ -77,6 +72,20 @@
                     negative-infinity))
               score)]
            [value output score]))))))
+
+;; Invoke a 'foreign' generative procedure, i.e. one written in
+;; clojure (or Java)
+
+(define infer-apply-foreign
+  (gen [proc inputs intervene output?]
+    ;; 'Foreign' generative procedure
+    (define value (generate-foreign proc inputs))
+    (define ivalue (if (trace-has? intervene) (trace-get intervene) value))
+    [ivalue
+     (if output?
+       (trace-set (trace) ivalue)
+       (trace))
+     0]))
 
 ;; Invoke a 'native' generative procedure, i.e. one written in
 ;; metaprob, with inference mechanics (traces and scores).
@@ -138,7 +147,7 @@
                               output?))
                [result
                 (if output?
-                  (trace-set-subtrace output result-key suboutput)
+                  (maybe-set-subtrace output result-key suboutput)
                   output)
                 (+ subscore score)])
 
@@ -199,12 +208,7 @@
                 (trace-get intervene)
                 v))
 
-    [v
-     ;; Alexey's version doesn't do this - remove?
-     (if (and output? (not (empty-trace? output)))
-       (trace-set output v)
-       output)
-     score]))
+    [v output score]))
 
 (define z (gen [n v]
   (assert (tuple? v) ["tuple" v])

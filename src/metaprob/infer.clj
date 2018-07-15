@@ -48,25 +48,26 @@
             output)
     (if (and (trace? proc) (trace-has? proc "implementation"))
       ;; Proc is a special inference procedure returned by `inf`, called
-      ;; using 'standard' protocol.
+      ;; using 'standard' protocol.  So we need to adapt the inputs 
+      ;; going in, and the results coming out, to implement the change
+      ;; of protocol.
       ;; Return the value+score that the implementation computes.
-      (block (define [value out score]
-               (generate-foreign (trace-get proc "implementation")
-                                 [inputs
-                                  (if (= intervene nil)
-                                    (trace)
-                                    intervene)
-                                  (if (= target nil)
-                                    (trace)
-                                    target)
-                                  (not (= output nil))]))
-             (if output
-               (do (if out
-                     (trace-merge! output out))
-                   (trace-set! output value)))
+      (block (define impl (trace-get proc "implementation"))
+             (assert (procedure? impl) ["what" impl])
+             (define [value out score]
+               ;; Maybe not the right thing here.  Really we're
+               ;; calling the interpreter at the next outer level.
+               (impl inputs
+                     (if (= intervene nil) (trace) intervene)
+                     (if (= target nil) (trace) target)
+                     (not (= output nil))))
+             (if (and output out)
+               (trace-merge! output out))
              [value score])
       (if (and (foreign-procedure? proc)
                (not (or intervene target output)))
+        ;; Bypass interpreter when there is no need to use it.
+        ;; -- This already gets done in builtin/infer-apply - remove this check.
         [(generate-foreign proc inputs) 0]
         (block
          ;; Proc is a generative procedure, either 'foreign' (opaque, compiled)
@@ -78,8 +79,19 @@
              ;; 'Native' generative procedure
              (infer-apply-native proc inputs intervene target output)
              (if (foreign-procedure? proc)
-               ;; 'Foreign' generative procedure
-               [(generate-foreign proc inputs) 0]
+               ;; 'Foreign' generative procedure - store result in
+               ;; output trace
+
+               (block (define value (generate-foreign proc inputs))    ;Side effects
+                      ;; For native procedures, interventions are handled in eval
+                      (define ivalue
+                        (if (and intervene (trace-has? intervene))
+                          (trace-get intervene)
+                          value))
+                      (if output
+                        (trace-set! output ivalue))
+                      [ivalue 0])
+
                (block (pprint proc)
                       (error "infer-apply: not a procedure" proc)))))
          ;; Apply intervention trace to get modified value
@@ -89,24 +101,22 @@
              (trace-get intervene)
              value))
          ;; Apply target trace to get modified value and score
-         (define [post-target-value score2]
-           (if (and target (trace-has? target))
-             [(trace-get target)
-              (if intervention?
-                ;; Score goes infinitely bad if there is both an
-                ;; intervention and a constraint, and they differ
-                (if (same-trace-states? (trace-get target) post-intervention-value)
-                  score
-                  (do (print ["value mismatch!"
-                              (trace-get target)
-                              post-intervention-value])
-                      negative-infinity))
-                score)]
-             [post-intervention-value score]))
-         ;; Store value in output trace
-         (if output
-           (trace-set! output post-target-value))
-         [post-target-value score2])))))
+         (if (and target (trace-has? target))
+           (block (if output
+                    (trace-set! output (trace-get target)))
+                  [(trace-get target)
+                   (if intervention?
+                     ;; Score goes infinitely bad if there is both an
+                     ;; intervention and a constraint, and they differ
+                     (if (same-trace-states? (trace-get target) post-intervention-value)
+                       score
+                       (do (print ["value mismatch!"
+                                   (trace-get target)
+                                   post-intervention-value])
+                           negative-infinity))
+                     score)])
+           ;; Else
+           [post-intervention-value score]))))))
 
 ;; Invoke a 'native' generative procedure, i.e. one written in
 ;; metaprob, with inference mechanics (traces and scores).
@@ -235,6 +245,8 @@
 
             (block (pprint exp)
                    (error "Not a code expression"))))
+
+        ;; Compare above code for foreign generative call
         (if (and intervene (trace-has? intervene address))
           [(trace-get intervene address) score]
           [v score])))
@@ -246,6 +258,9 @@
   (gen [proc inputs intervene target output?]
     (define output (if output? (empty-trace) nil))
     (define [value score]
-      (infer-apply-locally proc inputs intervene target output))
+      (infer-apply-locally proc inputs
+                           (if (empty-trace? intervene) nil intervene)
+                           (if (empty-trace? target) nil target)
+                           output))
     (assert (number? score) score)
     [value output score]))

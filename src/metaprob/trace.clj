@@ -349,9 +349,9 @@
   (if (mutable-trace? x)
     x
     (if (trace? x)
-      (make-mutable-trace x)
+      (make-cell (trace-state x))
       ;; somewhat DWIMmish.
-      (make-mutable-trace (state/empty-state) x))))
+      (make-cell (state/set-value (state/empty-state) x)))))
 
 ;; Recursive copy, mutable result... hmm... maybe should copy mutability as well?
 ;; see earthquake example...
@@ -553,6 +553,24 @@
 (defn trace-merge! [mutable tr]
   (assert (mutable-trace? mutable) mutable)
   (trace-merge!-maybe mutable tr))
+
+;; -----------------------------------------------------------------------------
+;; Thaw - convert partially immutable to fully immutable, by
+;; introducing new cells as needed.
+
+(defn trace-thaw! [tr]
+  (assert (mutable-trace? tr))
+  (trace-swap! tr
+               (fn [state]
+                 (state/map-to-state
+                  (into {} (map (fn [[key sub]]
+                                  (if (= key :value)
+                                    [key sub]
+                                    (let [new-sub (to-mutable sub)]
+                                      (trace-thaw! new-sub)    ;Idempotent
+                                      [key new-sub])))
+                                (state/state-to-map state))))))
+  tr)
 
 ;; -----------------------------------------------------------------------------
 ;; Zip and unzip are inverses, for valueless traces

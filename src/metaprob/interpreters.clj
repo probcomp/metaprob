@@ -13,12 +13,12 @@
 ;; 'user-friendly' tool.
 
 ;; Choose either of these, or some other.
-(def default-interpreter infer/infer-apply)
-;; (def default-interpreter comp/infer-apply)
+;; (def default-interpreter infer/infer-apply)
+(def default-interpreter comp/infer-apply)
 
 (define null-trace (trace))
 
-;; Returns [value ?output-trace? score]
+;; Returns [value output-trace score]
 
 (defn infer [& {:keys [procedure inputs intervention-trace
                        target-trace output-trace
@@ -31,9 +31,8 @@
         target-trace (if (= target-trace nil)
                        null-trace
                        target-trace)
-        output-trace? (if (= output-trace? nil)    ;Force it to be boolean
-                        (not (= output-trace nil))
-                        output-trace?)  ;Supplied
+        output-trace? (or output-trace?
+                          (not (= output-trace nil)))
         interpreter (if (= interpreter nil)
                       default-interpreter
                       interpreter)
@@ -48,6 +47,7 @@
     [value
      (if (and output-trace? output-trace out)
        (do (trace-merge! output-trace out)
+           (trace-thaw! output-trace)
            output-trace)
        out)
      score]))
@@ -55,7 +55,7 @@
 ;; Returns score only
 
 (defn get-score [proc & inputs]
-  (let [[sample target _]
+  (let [[_ target _]
         (infer :procedure proc
                :inputs inputs
                :output-trace? true)]

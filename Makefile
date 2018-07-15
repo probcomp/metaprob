@@ -9,6 +9,13 @@ lein:
 	mv lein ~/bin
 	lein
 
+# Incudes long-running tests
+test:
+	lein test
+	time lein run -m metaprob.examples.main test
+# 'test' is a directory name
+.PHONY: test
+
 # Create directory of .trace files from .vnts files
 # NOTE: This must run with the metaprob virtualenv active!
 parse: ../metaprob/pythenv.sh python/transcribe.py

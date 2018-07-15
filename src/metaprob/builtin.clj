@@ -59,6 +59,7 @@
 (define-foreign-procedure floor impl/floor)
 (define-foreign-procedure round impl/round)
 (define-foreign-procedure number? clojure.core/number?)
+(define-foreign-procedure expt impl/expt)
 
 ;; Sample from uniform distribution, with RNG as hidden state
 (define-foreign-procedure sample-uniform impl/sample-uniform)
@@ -90,6 +91,7 @@
 (define-foreign-procedure trace-delete! trace/trace-delete!)
 (define-foreign-procedure trace-set-subtrace! trace/trace-set-subtrace!)
 (define-foreign-procedure trace-merge! trace/trace-merge!)
+(define-foreign-procedure trace-thaw! trace/trace-thaw!)
 
 (define-foreign-procedure trace-set trace/trace-set)
 (define-foreign-procedure trace-set-subtrace trace/trace-set-subtrace)
@@ -165,3 +167,13 @@
 (defmacro or [& forms] `(clojure.core/or ~@forms))
 (defmacro cond [& forms] `(clojure.core/cond ~@forms))
 (defmacro case [& forms] `(clojure.core/case ~@forms))
+
+;--- kludge. based on clojure time macro.
+
+(defn report-on-elapsed-time [tag thunk]
+  (let [start (. System (nanoTime))
+        ret (thunk)
+        t (java.lang.Math/round (/ (double (- (. System (nanoTime)) start)) 1000000000.0))]
+    (if (> t 1)
+      (print (str tag ": elapsed time " t " sec\n")))
+    ret))

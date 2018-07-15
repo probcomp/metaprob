@@ -34,7 +34,10 @@
     (get (state-to-map state) :value)
     (cond (seq? state) (first state)
           (vector? state) (assert false "no value")
-          (map? state) (get state :value)
+          (map? state)
+          (let [value (get state :value :no-value)]
+            (assert (not (= value :no-value)) ["state has no value" state])
+            value)
           true (assert false ["not a state" state]))))
 
 (defn has-subtrace? [state key]
@@ -147,4 +150,5 @@
           (vec (for [i (range n)] (get (get m i) :value)))
 
           true (do (assert (map? m) ["expected a map" m])
+                   (doseq [entry m] true)    ;Don't be lazy!
                    m))))
