@@ -4,6 +4,7 @@
   (:require [metaprob.builtin :refer :all])
   (:require [metaprob.prelude :refer :all])
   (:require [metaprob.interpreters :refer :all]))
+  (:require [incanter.stats])
 
 ;; -----------------------------------------------------------------------------
 ;; Distributions (nondeterministic procedures)
@@ -43,7 +44,6 @@
                   
 
 ;; Uniform
-
 (define uniform
   (make-inference-procedure-from-sampler-and-scorer
    "uniform"
@@ -51,6 +51,29 @@
    (gen [x [a b]]
      (- 0.0 (log (- b a))))))
 
+;; Poisson
+(define poisson
+  (make-inference-procedure-from-sampler-and-scorer
+   "poisson distribution, using Knuth's algorithm, suitable for small(er) values of lambda"
+   (gen [lambda]
+        (assert (< lambda 30) "This implementation is unsuitable for large values of lambda (arbitrarily thresholded at 30, based on a heuristic from John Cook at https://www.johndcook.com/blog/2010/06/14/generating-poisson-random-values/")
+
+        (define poisson-helper (gen [k p L]
+                                    (if (> p L)
+                                      (poisson-helper (+ k 1)
+                                                      (* p (java.lang.Math/random)))
+                                      (- k 1))))
+                                    
+        (define L (java.lang.Math/exp (* -1 lambda)))
+        (poisson-helper 1 (java.lang.Math/random) L)
+        )
+      (gen [lambda k]
+        (assert (< lambda 30) "This implementation (somewhat arbitrarily) assumes lambda is less than 30.")
+        (+ (* k (java.lang.Math/log lambda))
+           (* -1 lambda)
+           (* -1 (org.apache.commons.math3.special.Gamma/logGamma (+ k 1)))))
+   ))
+   
 ;; Categorical
 
 (define uniform-sample
