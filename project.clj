@@ -10,6 +10,6 @@
                  [criterium "0.4.4"]
                  [org.apache.commons/commons-math3 "3.6.1"]
 		 [incanter "1.9.3"]
-		 [org.clojure/numeric-tower "0.0.4"]]
+		 [org.clojure/math.numeric-tower "0.0.4"]]
   ;; :aot [metaprob.basic-trace]
   )
