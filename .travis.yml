@@ -2,4 +2,4 @@
 language: clojure
 script:
 - lein test
-- lein travis_wait run -m metaprob.examples.main test
+- travis_wait lein run -m metaprob.examples.main test

@@ -5,7 +5,7 @@ The system is not yet packaged up for easy installation.
 ## Install Java
 
 You will need Java in order to run Leiningen, Clojure, and Metaprob.
-Peronsally I (JAR) use JRE version 1.8.0_05 (OpenJDK I think?).  You need the
+Personally I (JAR) use JRE version 1.8.0_05 (OpenJDK I think?).  You need the
 full Java development environment, not just the JVM.
 
 ## Clone the metaprob-clojure repository

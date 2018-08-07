@@ -1,6 +1,6 @@
 # Metaprob implemented in Clojure
 
-Metaprob is provided as a small set of Clojure 'modules' defining
+Metaprob is provided as a set of Clojure 'modules' defining
 functions and macros.
 
 One of the functions is a Metaprob interpreter that facilitates
