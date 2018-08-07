@@ -1,13 +1,19 @@
-# Metaprob reference manual
+# Metaprob-in-Clojure language reference manual
 
-Well not really but here are some notes.
+Well not really, but here are some notes.
 
-You'll need some familiarity with Clojure in order to get going with
-Metaprob.  That's beyond the current scope.
+From here on I will simply say 'Metaprob' instead of 'Metaprob-in-Clojure'.
+
+Metaprob is really just Clojure with some macros and functions and
+some namespace trickery.  You'll need some familiarity with Clojure in
+order to use Metaprob.  Introducing Clojure is beyond the current
+scope, so find some independent way to get started with Clojure.
 
 You may want to create a project (a set of files depending on metaprob
 and on one another).  This is done with `lein` which has its own
-documentation.
+documentation.  (There are other project tools besides `lein`.  I talk
+about `lein` only because it's the only one I'm familiar with.)
+
 
 ## Metaprob values
 
@@ -21,16 +27,30 @@ A Metaprob value is either a scalar or a trace.  A scalar is one of:
 
 All Metaprob-native compound data is represented using the so-called
 "trace" data type.  A trace is a tree structure in which each node has
-a labeled set of children that are all traces.  Labels are strings or
-numbers.  In addition to, or instead of, children, a node may also
-have a value.
+a labeled set of children, and all the children are traces.  Labels
+are strings or numbers.  In addition to, or instead of, children, a
+node may also have a value.
 
-A trace can be either mutable or immutable.  Most primitives that
-create traces return mutable traces.
+A trace can be either mutable or immutable.  The language is in
+transition between using mostly mutable traces to using mostly
+immutable traces.  Most operators are generic and work with either
+mutable or immutable traces, but you are likely to encounter some
+inconsistencies.
 
-Trees should not contain cycles, although this is not enforced.
+A change to a mutable subtrace of a trace t will be visible via t,
+since structure is shared between traces.
+
+Traces should not contain cycles, i.e. a trace should not be a
+descendant of itself, although this is not enforced.
 
 See below for operations on traces.
+
+A 'foreign procedure' or 'foreign generative procedure' is just a
+'real' Clojure function, i.e. one that is not a seq, vector, map, etc.
+Through use of the Clojure `meta` operator, some functions are also
+made to look like traces.
+
+Also see below for operators on procedures.
 
 
 ## The Clojure namespaces that implement Metaprob
@@ -98,42 +118,57 @@ In lieu of a manual, you might look at
 of exports from the `builtin` module, and the source code for the
 other modules.
 
-### Traces
+### Addresses
 
-The following are basic operations suggested for a summary figure
-(forthcoming, eventually):
+A child of a trace is given by a key; each child of a trace has a
+different key.  An 'address' is either a single key or a sequence of
+keys specifying, for a given trace t, the descendent of t obtained by
+following the path given by the key sequence.  An address that is a
+key or a singleton specifies that child of a given trace, while longer
+addresses specify deeper descendants, and an empty address specifies
+the trace itself.
 
-* `(empty-trace)` - create a new mutable trace, initially empty
-* `(trace-set t "a" x)` - store x as the value at t's "a" child
-* `(trace-set t (addr "a" "b") x)` - store x as the value at "b" child of "a" child of t.
-  Repeated assignments overwrite.
-* `(trace-subtrace t "a")`  - get the "a" subtrace (child trace) of t.
-  t has a reference to the subtrace, not a copy, so changes to the subtrace are visible via t.
-* `(trace-get t)`  - get the value at t
-* `(trace-has? t)`  - is there a value at t?
-* `(addresses-of t)`  - list of addresses, relative to t, that have values
-* `(trace :value 1 "z" 2 "a" (** subtrace) "c" (** (trace "d" 8)))` - construct a trace.  See figure 7
-
-An address (or path) is a sequence of keys giving a route from the
-root of a trace to some child or descendant subtrace.  An address may
-be either a single key or a list of keys.
+The following syntax is used for address formation:
 
 * `(addr k0 k1 ...)`  - an address
-* `(addresses-of t)`  - addresses of all subtraces of t that have values
 
-There are a number of additional operations on traces, including:
+### Traces
 
-* `(lookup t a)`  - subtrace of t at address a
-* `(trace-delete t)`
+In the following, 'A' is an address.
+
+* `(trace-get t)`  - get the value at t
+* `(trace-get t A)`  - get the value of the A subtrace of t
+* `(trace-has? t)`  - is there a value at t?
+* `(trace-has? t A)`  - does t's A subtrace have a value?
+* `(trace-subtrace t A)`  - get the subtrace of t at A
+* `(trace-has-subtrace? t A)`
+* `(trace? x)`  - true if x is a trace
+
+* `(trace-set t A x)` - return a new trace that's the same as t except at address A, where one will find the value x
+* `(trace-set! t A x)` - store value x at address A under t.  t must be a mutable trace.
+* `(trace-set-subtrace t A u)` - a trace like t, in which u is at address A.
+* `(trace-set-subtrace! t A u)` - store trace u at address A under t.  u becomes a descendant of t.  t must be a mutable trace.
+* `(empty-trace)` - create a new mutable trace, initially empty (use `(trace)` to get an immutable empty trace)
+* `(trace :value 1 "z" 2 "a" (** subtrace) "c" (** (trace "d" 8)))` - construct an immutable trace.  The `**` marker indicates that something is to be made a subtrace, not the value of the subtrace.
+* `(mutable-trace)` - new mutable trace, initially empty
+* `(mutable-trace ...)` - like `(trace ...)` but returns a mutable trace
+
 * `(trace-keys t)`  - list of keys for children
-* `(trace-subtrace t a)`   - child or other descendant trace at address a (which may be a key)
-* `(trace-has-subtrace? t a)`
+* `(trace-count t)`  - number of direct children
+* `(addresses-of t)`  - the list of addresses, relative to t, of every descendant subtrace that has a value
 
-Lists and tuples are special cases of traces.  A nonempty list is a
-trace with a value and a `"rest"` child that is a list.  A tuple is a
-trace with no value and simple child traces labeled 0, 1, ....  (By
-'simple' I mean a trace that has a value and no children.)  There are
-many procedures for working with these.
+* `(trace-merge t1 t2)`  - return a trace that is the merge of t1 and t2 (union of respective children, recursively)
+* `(trace-delete! t A)`  - t must be mutable - remove the value at A
+* `(lookup t a)`  - subtrace of t at address a - deprecated
+
+### Lists and tuples
+
+Lists and tuples (collectively: sequences, not to be confused with
+Clojure seqs) are special cases of traces.  A nonempty list is a trace
+with a value and a `"rest"` child that is a list.  A tuple is a trace
+with no value and simple child traces labeled 0, 1, ....  (By 'simple'
+I mean a trace that has a value and no children.)  There are many
+procedures for working with these.
 
 * `(list x0 x1 ...)`
 * `(tuple x0 x1 ...)` or `[x0 x1 ...]`
@@ -160,8 +195,8 @@ immutable lists are sequences, immutable tuples are vectors, and other
 immutable traces are maps.  There are a few procedures for controlling
 mutability:
 
-* `(make-mutable t)`  - if t is immutable, returns a nonrecursive mutable copy of t, otherwise returns t
-* `(make-immutable t)`  - if t is mutable, returns a nonrecursive immutable copy of t, otherwise returns t
+* `(to-mutable t)`  - if t is immutable, returns a nonrecursive mutable copy of t, otherwise returns t
+* `(to-immutable t)`  - if t is mutable, returns a nonrecursive immutable copy of t, otherwise returns t
 
 ### Procedures
 
@@ -170,7 +205,8 @@ programs that control probabilistic inference.
 
 Metaprob has three basic kinds of procedure:
 
-1. 'Native' generative procedure.  These are procedures that can be
+1. 'Native' generative procedure.  These are procedures that are
+   written in Metaprob and can therefore be
    processed by the meta-circular interpreter (see `infer` namespace).
    Native generative procedures are the values of `gen` expressions.
 1. 'Foreign' generative procedure.  These are procedures, usually
@@ -181,6 +217,8 @@ Metaprob has three basic kinds of procedure:
    distributions.
    Special inference procedures are created using the `inf` combinator.
 
+* `(infer-apply p arg ...)` - after a dispatch, this typically invokes 
+  the interpreter (or a configured interpreter, if there is more than one).
 * `(inf name p)` - promotes a generative procedure p to a procedure
   performing inference according to p.  p must be a procedure of four
   arguments: input, intervention trace, target trace, output trace,

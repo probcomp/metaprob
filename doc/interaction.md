@@ -1,13 +1,20 @@
-# Interacting with metaprob-clojure
+# Using metaprob-in-clojure
 
-There are many ways to work with Metaprob; they are the same as the
-many ways one works with Clojure.
+This page is about the mechanics of using Metaprob-in-Clojure.  For
+information about the 'language' see [language.md](language.md).  For
+information on probabilistic programming examples see [examples.md](examples.md).
+
+There are many ways to work with Metaprob-in-Clojure.  They are the
+same as the ways one works with Clojure.  Generally you alternate
+writing functions with exploration (including testing).
 
  * From a read-eval-print loop (REPL)
- * From the shell
- * From tests
- * Using files
-
+     * direct from the shell (command line)
+     * under emacs
+ * From files
+     * putting code in files
+     * writing tests and trying them out
+     * via main programs
 
 ## Using the Clojure REPL
 
@@ -151,17 +158,24 @@ to restart clojure (C-c C-q followed by killing the `lein repl
 :headless` process).  It may also be helpful in such situations to
 remove the `target` directory, which caches `.class` files.
 
+There are many other circumstances that require a complete Clojure restart.
+
 This is a pain in the butt because it can take a minute or so to kill
 any running clojure under emacs, restart the REPL, connect to the new
-REPL, and reload the project.
+REPL, and reload the project.  Therefore other alternative interaction
+modes (see below) may sometimes be preferable.
 
 
-## The REPL and files
+## Using files
+
+### Files/modules in their own namespace
 
 Clojure talks about files and modules, but I'm not clear on the
-difference.  I think they are in 1-1 correspondence.
+difference.  I think they are in 1-1 correspondence.  Each file has
+its own "namespace", thus another 1-1 correspondence.
 
-The top of a typical metaprob file would look something like:
+The top of a typical metaprob file, say `myproject/myfile.clj`, would
+look something like:
 
     (ns myproject.myfile
       (:refer-clojure :only [ns declare])
@@ -183,21 +197,21 @@ evaluate expressions from inside files using emacs, or I use the test
 system, or the user environment or `metaprob.examples.all`.  Your
 mileage may vary.
 
-## Running code noninteractively from the shell using the `-main` feature
-
-Rather than use the REPL or the test system I sometimes just put code
-in the `-main` function in some file e.g. `main.clj` and invoke it
-directly from the shell:
-
-    $ lein run -m metaprob.examples.main
-
-Any command line arguments become arguments to the `-main` function.
-
-
-## Testing
+### Unit tests
 
 There is documentation on the test system and it should be consulted,
 as it doesn't make sense to repeat all that information here.
+
+Basically `test` tree in a given project directory is parallel to the
+`src` tree.  Each `.clj` file in `test/` contains unit tests for the
+corresponding file in `src/`.
+
+It is possible to do most or all development and testing using unit
+tests instead of the REPL.  The disadvantages of tests compared to the REPL are
+
+    * tests are not so good for exploration (what does this do?  what
+      is in this data structure?)
+    * it takes 3-5 seconds to start tests going, whereas the REPL has no delay
 
 You can run tests either from the shell or from inside Clojure.  From
 the Clojure REPL:
@@ -205,15 +219,6 @@ the Clojure REPL:
     (require '[clojure.test :refer :all])
 
     (run-tests 'metaprob.trace-test)    ;single module
-
-Because of the constant need to restart emacs to fix weird problems
-that are hard to figure out, sometimes I lose patience with REPL-based
-debugging and work exclusively from the shell, by writing and
-debugging tests (in concert with writing and debugging the main code).
-This is nice because all files are freshly loaded every time, so you
-assured of a clean environment.  The downside is an overhead of maybe
-3-5 seconds for every time you want to run a test, and slogging
-through long backtraces to figure out what went wrong.
 
 From the shell: tests for all modules in the project:
 
@@ -223,18 +228,22 @@ Just one module at a time:
 
     lein test metaprob.trace-test
 
-Don't forget the `-test` in the module names!  I have spent a long
-time being confused, first because I hadn't realized the `-test` was
-needed, and later because I just forgot it.
+Don't forget the `-test` in the module names, and `_test` in the file
+names!  I have spent a lot of time being confused, first because I
+hadn't realized the `-test` was needed, and later because I just
+forgot it.  No error is reported when you get this wrong.
 
-Tests are all in the `test/metaprob/` directory.  The tests for
-`src/metaprob/x.clj` are in `test/metaprob/x_test.clj`.
+I like for tests that reside in the test system to run quickly so that
+I can run `lein test` frequently and not have to wait a long time.
+It's good to run all the tests frequently, and if this were a slow
+operation I would be put off, and would run them less often.
 
-I like for tests that reside in the test system to run quickly.  It's
-good to run all the tests frequently, and if this were a slow
-operation I would be put off and would run them less often.
+### Running code noninteractively from the shell using the `-main` feature
 
------
+Rather than use the REPL or the test system I sometimes just put code
+in the `-main` function in some file e.g. `main.clj` (could be any
+file name) and invoke it directly from the shell:
 
-From here you might want to look at [the examples](examples.md) or
-[the language reference](language.md).
+    $ lein run -m metaprob.examples.main
+
+Any command line arguments become arguments to the `-main` function.

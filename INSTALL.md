@@ -4,40 +4,47 @@ The system is not yet packaged up for easy installation.
 
 ## Install Java
 
-You will need Java to run Leiningen and Clojure.  I (JAR) use OpenJDK
-version 8.  You need the full Java development environment, not just the JVM.
-
-## Install Leiningen and Clojure
-
-It is not necessary to separately install Clojure if Leiningen is
-installed.  Just install Leiningen, and let it take care of installing
-the right version of Clojure.
-
-Instructions for installing Leiningen are [here](https://leiningen.org/#install), 
-but for a quick install try the short script in the Makefile: `make lein`.
-This script assumes that `~/bin` is on your `PATH`, and it will put the `lein` command there.
-
-Leiningen keeps some state in the `~/.lein` directory.
-
-I interact with Clojure either using a REPL under emacs, or from the
-shell using the `lein` command.  Tests (meaning just about any kind
-computation that one situates inside a test file) can be run either
-from the REPL or from the shell.  To run particular Clojure code
-directly from the shell, you can put that code in the `-main` function
-in `main.clj`.  These options are described below.
+You will need Java in order to run Leiningen, Clojure, and Metaprob.
+Peronsally I (JAR) use JRE version 1.8.0_05 (OpenJDK I think?).  You need the
+full Java development environment, not just the JVM.
 
 ## Clone the metaprob-clojure repository
 
-There is no particular installation procedure for metaprob-clojure.
-Just set the working directory to the root of a clone of the
-metaprob-clojure repository.
+Clone this repository from github, and set the working directory to
+the root of the clone:
+
+    git clone git@github.com:probcomp/metaprob-clojure.git
+    cd metaprob-clojure
+
+## Install Leiningen and Clojure
+
+For a quick Leiningen installation, do `make`, followed by some
+command that will put the `lein` command on your `PATH`, e.g.
+
+    make
+    ln -sf $PWD/bin/lein ~/bin/
+
+Leiningen keeps some state in the `~/.lein` directory.
+
+Full instructions for installing Leiningen are
+[here](https://leiningen.org/#install).
+
+If Leiningen is installed, it is not necessary to separately install
+Clojure, because Leiningen will install it.  If you are not using
+Leiningen, be sure you are running Clojure 1.9 or later.
 
 ## Emacs setup
 
-It is possible to use metaprob-clojure exclusively from the shell, but
-running a REPL under emacs can be more pleasant.  (or less.)  So this
-setup is optional.  What I suggest here is not necessarily right or
-best; it's just stuff I got off the Internet.  I am not an expert.
+It is possible to use metaprob-in-clojure exclusively from the shell,
+but running a REPL is better in a better supervised environment where
+you have a transcript, can search, can get to source code easily, and
+so on.  There may be all sorts of Clojure support for `vim` and
+`eclipse` support; I don't know.  Clojure support under emacs is
+pretty good, in case you know emacs or are willing to learn.
+
+Following is some information on setting up emacs for Clojure.  What I
+suggest here is not necessarily right or best; it's just stuff I got
+off the Internet.  I am not an expert.
 
 Put the following in your `.emacs` file:
 
@@ -65,5 +72,10 @@ but it seems to be harmless:
 
 ## Gnuplot
 
-Gnuplot must be installed in order for plotting to work.  You're on
-your own for that.
+Gnuplot must be installed in order for plotting to work.  If you want
+to make plots and do not already have gnuplot, you are on your own
+because I don't remember how I installed it.
+
+-----
+
+NEXT: [Using metaprob-in-clojure](doc/interaction.md)

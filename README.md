@@ -9,6 +9,6 @@ probabilistic inference.
 Documentation:
 
   * [Installation instructions](INSTALL.md)
-  * [Interaction guide](doc/interaction.md)
+  * [Using metaprob-in-clojure](doc/interaction.md)
   * [Language reference](doc/language.md)
   * [Probabilistic inference examples](doc/examples.md)
