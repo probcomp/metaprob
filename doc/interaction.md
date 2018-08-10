@@ -85,7 +85,8 @@ it.
 
 To get started quickly, you can just switch to the examples namespace,
 after which you won't have to think about namespaces until you want to
-create new Clojure/Metaprob modules.  Enter the following at the REPL:
+create new Clojure/Metaprob modules.  Enter the following at the REPL
+to load Metaprob:
 
     (require 'metaprob.examples.all)
     (in-ns 'metaprob.examples.all)
@@ -231,17 +232,22 @@ tests instead of the REPL.  The disadvantages of tests compared to the REPL are
     * it takes 3-5 seconds to start tests going, whereas the REPL has no delay
 
 You can run tests either from the shell or from inside Clojure.  From
-the Clojure REPL:
+the Clojure REPL: Run tests for all modules in the project:
 
+    (require 'metaprob.examples.all)
     (require '[clojure.test :refer :all])
+    (run-all-tests)
 
-    (run-tests 'metaprob.trace-test)    ;single module
+Single module test: the two `require`s above, plus:
 
-From the shell: tests for all modules in the project:
+    (require 'metaprob.trace-test)
+    (run-tests 'metaprob.trace-test)
+
+Or, from the shell: Run tests for all modules in the project:
 
     lein test
 
-Just one module at a time:
+Single module test:
 
     lein test metaprob.trace-test
 
