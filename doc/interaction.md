@@ -1,20 +1,20 @@
 # Using metaprob-in-clojure
 
 This page is about the mechanics of using Metaprob-in-Clojure.  For
-information about the 'language' see [language.md](language.md).  For
+information about the Metaprob 'language' see [language.md](language.md).  For
 information on probabilistic programming examples see [examples.md](examples.md).
 
 There are many ways to work with Metaprob-in-Clojure.  They are the
 same as the ways one works with Clojure.  Generally you alternate
 writing functions with exploration (including testing).
 
- * From a read-eval-print loop (REPL)
-     * direct from the shell (command line)
-     * under emacs
+ * From a Clojure read-eval-print loop (REPL)
+     * running Clojure direct from the shell (command line)
+     * running Clojure under emacs
  * From files
      * putting code in files
      * writing tests and trying them out
-     * via main programs
+     * running code via 'main' programs
 
 ## Using the Clojure REPL
 
@@ -87,11 +87,15 @@ To get started quickly, you can just switch to the examples namespace,
 after which you won't have to think about namespaces until you want to
 create new Clojure/Metaprob modules.  Enter the following at the REPL:
 
+    (require 'metaprob.examples.all)
     (in-ns 'metaprob.examples.all)
 
-The `metaprob.examples.all` namespace imports all of the Metaprob namespaces,
-meaning all bindings are directly available and you don't have to
-worry about the Clojure namespace system.
+The `metaprob.examples.all` namespace imports all of the Metaprob
+namespaces, meaning that all Metaprob bindings are directly available
+and you don't have to worry about the Clojure namespace system after
+this point.  (This is fine for experimentation, but for more durable
+programming I recommend convnetional use of the Clojure namespace
+system, requiring only those namespaces you use.)
 
 You can then evaluate metaprob expressions directly, run examples, and so on:
 
@@ -151,6 +155,8 @@ and invoke it with
 (I guess this `require` could be put in project.clj or
 .lein/profiles.clj so that it happens every time you start Clojure?
 Need to look into this.)
+
+See [this stack overflow discussion](https://stackoverflow.com/questions/7658981/how-to-reload-a-clojure-file-in-repl).
 
 Often during development, if the namespaces or `deftype` types
 (`basic_trace.clj`) change in some incompatible way, I find it necessary

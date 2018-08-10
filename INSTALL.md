@@ -4,9 +4,13 @@ The system is not yet packaged up for easy installation.
 
 ## Install Java
 
-You will need Java in order to run Leiningen, Clojure, and Metaprob.
-Personally I (JAR) use JRE version 1.8.0_05 (OpenJDK I think?).  You need the
-full Java development environment, not just the JVM.
+You will need Java 1.8 or later in order to run Leiningen, Clojure,
+and Metaprob.  Personally I (JAR) use JRE version 1.8.0_05.  You need
+the full Java development environment (JDK), not just the JVM.
+
+Check you local Java version with
+
+    java -version
 
 ## Clone the metaprob-clojure repository
 
@@ -18,10 +22,14 @@ the root of the clone:
 
 ## Install Leiningen and Clojure
 
-For a quick Leiningen installation, do `make`, followed by some
-command that will put the `lein` command on your `PATH`, e.g.
+For a quick Leiningen installation, just do `make`:
 
     make
+
+This creates `bin/lein` which can be used as a shell command.  If you
+want to be able to say just `lein`, you'll need to put it in your
+PATH.  E.g. if you have a `~/bin` directory in your PATH, try this:
+
     ln -sf $PWD/bin/lein ~/bin/
 
 Leiningen keeps some state in the `~/.lein` directory.
@@ -29,22 +37,27 @@ Leiningen keeps some state in the `~/.lein` directory.
 Full instructions for installing Leiningen are
 [here](https://leiningen.org/#install).
 
+The `make` that you run for this purpose also creates a file
+`.lein_classpath`, which is used to speed up Java invocation in some
+cases.
+
 If Leiningen is installed, it is not necessary to separately install
 Clojure, because Leiningen will install it.  If you are not using
 Leiningen, be sure you are running Clojure 1.9 or later.
 
 ## Emacs setup
 
-It is possible to use metaprob-in-clojure exclusively from the shell,
-but running a REPL is better in a better supervised environment where
-you have a transcript, can search, can get to source code easily, and
-so on.  There may be all sorts of Clojure support for `vim` and
-`eclipse` support; I don't know.  Clojure support under emacs is
-pretty good, in case you know emacs or are willing to learn.
+It is possible to use Metaprob-in-clojure exclusively from the shell,
+but running a REPL is better in a supervised environment where you
+have a transcript, can search, can get to source code easily, and so
+on.  This observation is independent of your choice of text editor.
+There may be Clojure support for `vim` and `eclipse` support; I
+don't know.  Clojure support under emacs is pretty good, in case you
+know emacs or are willing to learn.
 
 Following is some information on setting up emacs for Clojure.  What I
 suggest here is not necessarily right or best; it's just stuff I got
-off the Internet.  I am not an expert.
+off the Internet.
 
 Put the following in your `.emacs` file:
 
@@ -62,7 +75,7 @@ Put the following in your `.emacs` file:
       (unless (package-installed-p p)
         (package-install p)))
 
-Here is my `~/.lein/profiles.clj`; I'm not sure why it is as it is,
+Here is my `~/.lein/profiles.clj`.  I'm not sure why it is as it is,
 but it seems to be harmless:
 
     ; Sample profile: https://gist.github.com/jamesmacaulay/5603176
