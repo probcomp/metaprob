@@ -291,5 +291,6 @@ output tracing.
 * `(flip w)`  - returns true with probability w, false otherwise
 * `(uniform a b)`  - floating point number drawn from [a,b]
 * `(uniform-sample items)`  - one of the members of items (a list)
-* `(log-categorical scores)`  - returns 0, 1, ... with probabilities proportional to scores
+* `(categorical probabilities)`  - returns 0, 1, ... with probability of i equal to probabilities[i]
+* `(log-categorical scores)`  - returns 0, 1, ... with probability of i proportional to exp(score[i])
 

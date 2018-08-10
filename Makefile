@@ -1,6 +1,6 @@
 
 all: bin/lein .lein_classpath
-	@which -s java || echo "Java seems to be missing"
+	@echo "Good to go!"
 
 # This target is referenced in README.md
 bin/lein:

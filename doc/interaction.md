@@ -1,20 +1,20 @@
 # Using metaprob-in-clojure
 
-This page is about the mechanics of using Metaprob-in-Clojure.  For
-information about the 'language' see [language.md](language.md).  For
+This page is about the mechanics of using metaprob-in-clojure.  For
+information about the Metaprob 'language' see [language.md](language.md).  For
 information on probabilistic programming examples see [examples.md](examples.md).
 
-There are many ways to work with Metaprob-in-Clojure.  They are the
+There are many ways to work with metaprob-in-clojure.  They are the
 same as the ways one works with Clojure.  Generally you alternate
 writing functions with exploration (including testing).
 
- * From a read-eval-print loop (REPL)
-     * direct from the shell (command line)
-     * under emacs
+ * From a Clojure read-eval-print loop (REPL)
+     * running Clojure direct from the shell (command line)
+     * running Clojure under emacs
  * From files
      * putting code in files
      * writing tests and trying them out
-     * via main programs
+     * running code via 'main' programs
 
 ## Using the Clojure REPL
 
@@ -27,7 +27,7 @@ curve is steep if you haven't used emacs before.
 
 To get an interactive read-eval-print loop at the shell:
 
-    $ lein repl
+    $ bin/lein repl
 
 This should be done with the working directory set to the directory
 that contains `project.clj`, which in this setup would normally be the
@@ -47,7 +47,7 @@ connection.  At a shell, in its own terminal window or tab (not
 necessarily in emacs), go to the directory that contains
 `project.clj`, and do:
 
-    $ lein repl :headless
+    $ bin/lein repl :headless
 
 This takes a few seconds, then prints a TCP port number (it's different
 every time).  In emacs, do:
@@ -56,7 +56,7 @@ every time).  In emacs, do:
     localhost
     {port} C-j
 
-where `{port}` is the port number you saw when you did `lein repl
+where `{port}` is the port number you saw when you did `bin/lein repl
 :headless`, M-x is meta-x, and C-j is control-J or linefeed.
 
 (Of course the fact that the Clojure connection goes over TCP/IP means
@@ -87,22 +87,37 @@ To get started quickly, you can just switch to the examples namespace,
 after which you won't have to think about namespaces until you want to
 create new Clojure/Metaprob modules.  Enter the following at the REPL:
 
+    (require 'metaprob.examples.all)
     (in-ns 'metaprob.examples.all)
 
-The `metaprob.examples.all` namespace imports all of the Metaprob namespaces,
-meaning all bindings are directly available and you don't have to
-worry about the Clojure namespace system.
+The `metaprob.examples.all` namespace imports all of the Metaprob
+namespaces, meaning that all Metaprob bindings are directly available
+and you don't have to worry about the Clojure namespace system after
+this point.  (This is fine for experimentation, but for more durable
+programming I recommend convnetional use of the Clojure namespace
+system, requiring only those namespaces you use.)
 
 You can then evaluate metaprob expressions directly, run examples, and so on:
 
     (define x (trace "foo" 17))
     (trace-get x "foo")
-    (metaprob-pprint x)
+    (pprint x)
+
+### Creating namespaces for use with metaprob 
+
+Metaprob has some name conflicts with Clojure, so some care is
+necessary when preparing files containing Metaprob cod.  The method is
+described in [language.md](language.md).
+
 
 ### Interaction in other namespaces
 
-The `user` namespace starts out knowing nothing about the metaprob
-namespaces.  For any kind of access you need to use `require`.
+It is possible to user metaprob functions and macros from any Clojure
+namespace, if Metaprob namespaces are made accessible using `require`.
+
+For example, the default Clojure namespace, `user`, starts out
+knowing nothing about the metaprob namespaces.  For any kind of access
+from `user`, you need to use `require`.  E.g.
 
     > (require '[metaprob.builtin])
 
@@ -152,9 +167,11 @@ and invoke it with
 .lein/profiles.clj so that it happens every time you start Clojure?
 Need to look into this.)
 
+See [this stack overflow discussion](https://stackoverflow.com/questions/7658981/how-to-reload-a-clojure-file-in-repl).
+
 Often during development, if the namespaces or `deftype` types
 (`basic_trace.clj`) change in some incompatible way, I find it necessary
-to restart clojure (C-c C-q followed by killing the `lein repl
+to restart clojure (C-c C-q followed by killing the `bin/lein repl
 :headless` process).  It may also be helpful in such situations to
 remove the `target` directory, which caches `.class` files.
 
