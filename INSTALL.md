@@ -20,6 +20,11 @@ the root of the clone:
     git clone git@github.com:probcomp/metaprob-clojure.git
     cd metaprob-clojure
 
+Use `https` if the above method (ssh) doesn't work:
+
+    git clone https://github.com/probcomp/metaprob-clojure.git
+    cd metaprob-clojure
+
 ## Install Leiningen and Clojure
 
 For a quick Leiningen installation, just do `make`:
@@ -47,7 +52,7 @@ Leiningen, be sure you are running Clojure 1.9 or later.
 
 ## Emacs setup
 
-It is possible to use Metaprob-in-clojure exclusively from the shell,
+It is possible to use metaprob-in-clojure exclusively from the shell,
 but running a REPL is better in a supervised environment where you
 have a transcript, can search, can get to source code easily, and so
 on.  This observation is independent of your choice of text editor.
