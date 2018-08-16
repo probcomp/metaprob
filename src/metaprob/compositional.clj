@@ -131,7 +131,7 @@
       ;; Dispatch on type of expression
       (case (trace-get exp)
 
-        ;; Application of a procedure to arguments (call)
+        ;; Application of a procedure to inputs (call)
         "application"
         (block (define [values output score]
                  (infer-eval-sequence exp env intervene target output?))
