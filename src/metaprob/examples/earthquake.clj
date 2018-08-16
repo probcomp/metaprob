@@ -116,7 +116,7 @@
                     :inputs inputs
                     :intervention-trace intervention-trace
                     :target-trace candidate
-                    :output-trace nil))
+                    :output-trace? false))
            [state score])
          candidates)))
 

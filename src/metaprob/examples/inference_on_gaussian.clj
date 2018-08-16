@@ -62,6 +62,7 @@
     (replicate number-of-runs two-variable-gaussian-model)))
 
 (define target-trace
+  ;; (trace 1 (** (trace "y" (** (trace "gaussian" 3.0)))))
   (block
     (define tt (empty-trace))
     (trace-set! tt (addr 1 "y" "gaussian") 3.0)

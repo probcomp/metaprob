@@ -31,8 +31,9 @@
         target-trace (if (= target-trace nil)
                        null-trace
                        target-trace)
-        output-trace? (or output-trace?
-                          (not (= output-trace nil)))
+        output-trace? (if (= output-trace? nil)
+                        (not (= output-trace nil))
+                        output-trace?)
         interpreter (if (= interpreter nil)
                       default-interpreter
                       interpreter)

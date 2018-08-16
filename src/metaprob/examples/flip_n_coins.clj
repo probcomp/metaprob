@@ -27,8 +27,8 @@
     ;; (*@\textit{=> ( ... )}@*)
     (infer :procedure flip-n-coins
            :inputs [n]
-           :target-trace trace-with-n-flips)
-    (pprint trace-with-n-flips)
+           :target-trace trace-with-n-flips
+           :output-trace? false)
     ;;  => value:score:
     ))
 
