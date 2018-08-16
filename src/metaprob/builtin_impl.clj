@@ -268,7 +268,12 @@
                           (nth (implementation inputs (trace) (trace) false)
                                0)))))
 
-(defn clojure-interpreter [proc inputs intervene target output?]
+(defn clojure-interpreter [proc inputs
+                           intervention-trace target-trace output-trace?]
+  (assert (foreign-procedure? proc))
+  (assert (empty-trace? intervention-trace))
+  (assert (empty-trace? target-trace))
+  (assert (not output-trace?))
   [(clojure.core/apply proc inputs) (trace) 0])
 
 (def ^:dynamic *ambient-interpreter* clojure-interpreter)
