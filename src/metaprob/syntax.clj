@@ -1,5 +1,6 @@
 (ns metaprob.syntax
-  (:require [clojure.string]
+  (:require [clojure.string :as string]
+            [clojure.set :as set]
             [metaprob.state :as state]
             [metaprob.trace :refer :all]
             [metaprob.sequence :refer :all]
@@ -19,8 +20,8 @@
   (letfn [(var-for-pattern [pat]
             (if (symbol? pat)
               pat
-              (symbol (clojure.string/join "|"
-                                           (map var-for-pattern pat)))))
+              (symbol (string/join "|"
+                                   (map var-for-pattern pat)))))
 
           ;; Insert name into function expression, if any
 
@@ -55,18 +56,44 @@
 
 ;; Run time
 
-(defn make-generator [fun name exp-trace env]
+;; This is incredibly crude, but it doesn't much matter if there are a
+;; few junk names in the result, since they'll get filtered out
+
+(defn free-vars-approximately [form]
+  (cond (symbol? form)
+        #{form}
+
+        (or (vector? form)
+            (seq? form))
+        (apply set/union
+               (map (fn [subform]
+                      (free-vars-approximately subform))
+                    form))
+
+        (map? form)
+        (apply set/union
+               (map (fn [keyform valform]
+                      (free-vars-approximately (set/union keyform valform)))
+                    form))
+
+        true
+        #{}))
+
+;; This can fail with forward references to recursive functions
+
+(defn make-generative [fun name exp-trace top-env names values]
   (let [proc-name (impl/trace-name exp-trace name)]               ;original metaprob
     (assert (= (trace-get exp-trace) "gen"))
-    (trace-as-procedure (if (top-level-environment? env)
-                          (trace "name" proc-name
-                                 "generative-source" (** exp-trace)
-                                 "environment" env
-                                 :value "prob prog")
-                          (do ;(print "*** throwing away env *** ")
-                              ;(print (get env :names))
-                              (trace "name" proc-name
-                                     :value "prob prog")))
+    (trace-as-procedure (trace "name" proc-name
+                               "generative-source" (** exp-trace)
+                               "environment"
+                               (if (empty? names)
+                                 top-env
+                                 (into {"*parent*" top-env}
+                                       (map (fn [name value] [name {:value value}])
+                                            names
+                                            values)))
+                               :value "prob prog")
                         ;; When called from clojure:
                         fun)))
 
@@ -84,15 +111,18 @@
         fn-exp `(fn ~@(if name `(~name) `())
                   ~params
                   ~fn-body)
-        exp-trace (from-clojure `(~'gen ~params ~@body))]
-    `(make-generator ~fn-exp
-                     '~name
-                     '~exp-trace
-                     ~(if (empty? &env)
-                        `(impl/make-top-level-env *ns*)
-                        (let [names (vec (keys &env))]
-                          `{:names '~names
-                            :values ~names})))))
+        exp-trace (from-clojure `(~'gen ~params ~@body))
+        names (vec (set/intersection (free-vars-approximately fn-exp)
+                                     (set (keys &env))))]
+    ;;(if (not (empty? names))
+    ;;  (impl/metaprob-print ["the names are:" names]))
+    `(make-generative ~fn-exp
+                      '~name
+                      '~exp-trace
+                      (impl/make-top-level-env *ns*)
+                      ;; Or: {name val name val ... "*parent*" top-env}  ?
+                      '~names
+                      ~names)))
 
 (defmacro gen
   "like fn, but for metaprob procedures"
