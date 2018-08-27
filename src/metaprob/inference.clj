@@ -1,5 +1,3 @@
-;; 4.
-
 (ns metaprob.inference
   (:refer-clojure :only [ns declare])
   (:require [metaprob.syntax :refer :all]

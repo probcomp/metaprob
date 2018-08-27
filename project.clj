@@ -7,6 +7,13 @@
   :jvm-opts ["-Xss50M"]
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [kixi/stats "0.4.0"]
-                 [criterium "0.4.4"]]
+                 [criterium "0.4.4"]
+                 [org.apache.commons/commons-math3 "3.6.1"]
+		 [incanter "1.5.7"]
+		 [org.clojure/math.numeric-tower "0.0.4"]
+		 [org.clojure/math.combinatorics "0.1.4"]]
+
+  :plugins [[lein-jupyter "0.1.16"]]
+
   ;; :aot [metaprob.basic-trace]
   )
