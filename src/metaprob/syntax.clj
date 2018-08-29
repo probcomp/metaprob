@@ -89,8 +89,8 @@
                                "environment"
                                (if (empty? names)
                                  top-env
-                                 (into {"*parent*" top-env}
-                                       (map (fn [name value] [name {:value value}])
+                                 (into {"*parent*" {:value top-env}}
+                                       (map (fn [name value] [(str name) {:value value}])
                                             names
                                             values)))
                                :value "prob prog")
