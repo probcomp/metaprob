@@ -29,8 +29,9 @@
     (if (and (trace? proc) (trace-has? proc "implementation"))
       ;; Proc is a special inference procedure returned by `inf`.
       ;; Return the value+output+score that the implementation computes.
-      (do (define imp (trace-get proc "implementation"))
-          (imp inputs intervene target output?))
+      (block
+        (define imp (trace-get proc "implementation"))
+        (imp inputs intervene target output?))
       (if (and (foreign-procedure? proc)
                (empty-trace? intervene)
                (empty-trace? target)
@@ -66,7 +67,7 @@
               ;; intervention and a constraint, and they differ
               (if (same-trace-states? (trace-get target) value)
                 score
-                (do (print ["value mismatch!"
+                (block (print ["value mismatch!"
                             (trace-get target)
                             value])
                     negative-infinity))
