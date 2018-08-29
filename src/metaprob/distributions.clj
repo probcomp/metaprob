@@ -27,19 +27,6 @@
               (trace))
             score]))))
 
-;; Code translated from class BernoulliOutputPSP(DiscretePSP):
-;;
-;; The larger the weight, the more likely it is that the sample is
-;; true rather than false.
-
-(define flip
-  (make-inference-procedure-from-sampler-and-scorer "flip"
-                (gen [weight] (lt (sample-uniform) weight))
-                (gen [value inputs]
-                  (define weight (nth inputs 0))
-                  (if value
-                    (log weight)
-                    (log1p (sub 0 weight))))))
                   
 
 ;; Uniform
@@ -58,11 +45,25 @@
    "uniform-sample"
    (gen [items]
      ;; items is a metaprob list (or tuple??)
-     (define n (sample-uniform 0 (length items)))
+     (define n (uniform 0 (length items)))
      (nth items (floor n)))
    (gen [item [items]]
      (sub (log (length (clojure.core/filter (gen [x] (= x item)) items)))
         (log (length items))))))
+
+;; Code translated from class BernoulliOutputPSP(DiscretePSP):
+;;
+;; The larger the weight, the more likely it is that the sample is
+;; true rather than false.
+(define flip
+  (make-inference-procedure-from-sampler-and-scorer
+    "flip"
+    (gen [weight] (lt (uniform 0 1) weight))
+    (gen [value inputs]
+      (define weight (nth inputs 0))
+      (if value
+        (log weight)
+        (log1p (sub 0 weight))))))
 
 ;; Cf. CategoricalOutputPSP from discrete.py in Venturecxx
 ;; This is just the one-argument form, so is simpler than what's in Venture.
@@ -75,7 +76,7 @@
      ;; Assume that probabilities add to 1.
      ;; return simulateCategorical(vals[0], args.np_prng(),
      ;;   [VentureInteger(i) for i in range(len(vals[0]))])
-     (define threshold (sample-uniform 0 1))
+     (define threshold (uniform 0 1))
      ;; iterate over probabilities, accumulate running sum, stop when cumu prob > threshold.
      (define scan (gen [i probs running-prob]
                     (if (empty-trace? probs)
@@ -99,7 +100,7 @@
   (make-inference-procedure-from-sampler-and-scorer
    "log-categorical"
    (gen [scores]
-     (define threshold (sample-uniform 0 1))
+     (define threshold (uniform 0 1))
      ;; iterate over probabilities, accumulate running sum, stop when cumu prob > threshold.
      (define scan (gen [i probs running-prob]
                     (define p (+ (first probs) running-prob))
