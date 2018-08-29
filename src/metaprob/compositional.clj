@@ -83,9 +83,7 @@
     (define value (generate-foreign proc inputs))
     (define ivalue (if (trace-has? intervene) (trace-get intervene) value))
     [ivalue
-     (if output?
-       (trace-set (trace) ivalue)
-       (trace))
+     (trace)
      0]))
 
 ;; Invoke a 'native' generative procedure, i.e. one written in
