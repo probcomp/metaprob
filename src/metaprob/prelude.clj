@@ -173,7 +173,8 @@
    (inf "apply"
         clojure.core/apply   ;model (generative procedure)
         (gen [inputs intervene target output?]
-          (infer-apply (first inputs) (rest inputs) intervene target output?)))
+          ; TODO: allow apply to be n-ary, with last argument a collection
+          (infer-apply (first inputs) (first (rest inputs)) intervene target output?)))
    ;; Kludge
    (gen [proc inputs]
      (clojure.core/apply proc (to-immutable-list inputs)))))

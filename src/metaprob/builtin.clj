@@ -162,6 +162,7 @@
 (def positive-infinity Double/POSITIVE_INFINITY)
 (def negative-infinity Double/NEGATIVE_INFINITY)
 (define-foreign-procedure same-trace-states? trace/same-trace-states?)
+(define-foreign-procedure same-states? trace/same-states?)
 
 (defmacro and [& forms] `(clojure.core/and ~@forms))
 (defmacro or [& forms] `(clojure.core/or ~@forms))

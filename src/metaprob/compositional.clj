@@ -29,67 +29,48 @@
     (if (and (trace? proc) (trace-has? proc "implementation"))
       ;; Proc is a special inference procedure returned by `inf`.
       ;; Return the value+output+score that the implementation computes.
-      (do (define imp (trace-get proc "implementation"))
-          (imp inputs intervene target output?))
-      (if (and (foreign-procedure? proc)
-               (empty-trace? intervene)
-               (empty-trace? target)
-               (not output?))
+      (block
+        (define imp (trace-get proc "implementation"))
+        (imp inputs intervene target output?))
+
+      (cond
         ;; Bypass interpreter when there is no need to use it.  Was once
         ;; necessary in order for map and apply to work properly; it might
         ;; be possible to remove this check now that we have
         ;; *ambient-interpreter*.
-        (infer-apply-foreign proc inputs intervene output?)
-        (block
-         ;; Proc is a generative procedure, either 'foreign' (opaque, compiled)
-         ;; or 'native' (interpreted).
-         ;; First call the procedure.  We can't skip the call when there
-         ;; is an intervention, because the call might have side effects.
-         (define [value output score]
-           (cond (native-procedure? proc)
-                 ;; 'Native' generative procedure.  Intervention happens therein.
-                 (infer-apply-native proc inputs intervene target output?)
+        (and (foreign-procedure? proc)
+             (empty-trace? intervene)
+             (empty-trace? target)
+             (not output?))
+        (infer-apply-foreign proc inputs intervene target output?)
 
-                 (foreign-procedure? proc)
-                 (infer-apply-foreign proc inputs intervene output?)
+        ;; Native (interpreted) generative procedure.
+        (native-procedure? proc)
+        (infer-apply-native proc inputs intervene target output?)
 
-                 true
-                 (block (pprint proc)
-                        (error "infer-apply: not a procedure" proc))))
-         (assert (number? score) ["bogus score" proc score])
-         ;; Apply target trace to get modified value and score
-         (if (trace-has? target)
-           [(trace-get target)
-            output
-            (if (trace-has? intervene)
-              ;; Score goes infinitely bad if there is both an
-              ;; intervention and a constraint, and they differ
-              (if (same-trace-states? (trace-get target) value)
-                score
-                (do (print ["value mismatch!"
-                            (trace-get target)
-                            value])
-                    negative-infinity))
-              score)]
-           [value output score]))))))
+        ;; Foreign (opaque, compiled) procedure.
+        (foreign-procedure? proc)
+        (infer-apply-foreign proc inputs intervene target output?)
+
+        ;; Otherwise, this is not a procedure we can interpret.
+        true
+        (block (pprint proc)
+               (error "infer-apply: not a procedure" proc))))))
 
 ;; Invoke a 'foreign' generative procedure, i.e. one written in
 ;; clojure (or Java)
 
 (define infer-apply-foreign
-  (gen [proc inputs intervene output?]
+  (gen [proc inputs intervene target output?]
     ;; 'Foreign' generative procedure
     (define value (generate-foreign proc inputs))
     (define ivalue (if (trace-has? intervene) (trace-get intervene) value))
-    [ivalue
-     (if output?
-       (trace-set (trace) ivalue)
-       (trace))
-     0]))
+    (if (and (trace-has? target) (not (same-states? (trace-get target) ivalue)))
+      [(trace-get target) (trace-set (trace) (trace-get target)) negative-infinity]
+      [ivalue (trace) 0])))
 
 ;; Invoke a 'native' generative procedure, i.e. one written in
 ;; metaprob, with inference mechanics (traces and scores).
-
 (define infer-apply-native
   (gen [proc inputs intervene target output?]
     (define source (trace-subtrace proc "generative-source"))
@@ -204,11 +185,28 @@
 
     (assert (trace? output) output)
 
-    (define v (if (trace-has? intervene)
-                (trace-get intervene)
-                v))
+    (define ivalue (if (trace-has? intervene) (trace-get intervene) v))
+    (define tvalue (if (trace-has? target) (trace-get target) v))
 
-    [v output score]))
+    (cond
+      ; intervention with no disagreeing target
+      (and (trace-has? intervene)
+           (or (not (trace-has? target))
+               (same-states? ivalue tvalue)))
+      [ivalue
+       (if (empty-trace? output) output (trace-set (trace) ivalue))
+       0]
+
+      ; target and value (from intervention or execution) disagree
+      (and (trace-has? target)
+           (not (same-states? ivalue tvalue)))
+      [tvalue
+       (trace-set output tvalue)
+       negative-infinity]
+
+      ; in all other cases, the existing values work fine:
+      true
+      [v output score])))
 
 (define z (gen [n v]
   (assert (tuple? v) ["tuple" v])
