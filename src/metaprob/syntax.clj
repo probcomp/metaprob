@@ -90,7 +90,7 @@
                                (if (empty? names)
                                  top-env
                                  (into {"*parent*" {:value top-env}}
-                                       (map (fn [name value] [(str name) {:value value}])
+                                       (map (fn [name value] [name {:value value}])
                                             names
                                             values)))
                                :value "prob prog")
@@ -121,7 +121,7 @@
                       '~exp-trace
                       (impl/make-top-level-env *ns*)
                       ;; Or: {name val name val ... "*parent*" top-env}  ?
-                      '~names
+                      '~(seq (map str names))
                       ~names)))
 
 (defmacro gen
