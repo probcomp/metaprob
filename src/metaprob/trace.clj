@@ -359,7 +359,7 @@
 (defn trace-copy [x]
   (if (trace? x)
     (let [keys (trace-keys x)
-          result (into {} (for [key keys] [key (trace-copy (trace-get x key))]))]
+          result (into {} (for [key keys] [key (trace-copy (trace-direct-subtrace x key))]))]
       (if (trace-has-value? x)
         (make-mutable-trace (state/set-value result (trace-get x)))
         (make-mutable-trace result)))
