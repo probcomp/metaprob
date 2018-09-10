@@ -361,7 +361,7 @@
     (let [keys (trace-keys x)
           result (into {} (for [key keys] [key (trace-copy (trace-direct-subtrace x key))]))]
       (if (trace-has-value? x)
-        (make-mutable-trace (state/set-value result (trace-get x)))
+        (make-mutable-trace result (trace-get x))
         (make-mutable-trace result)))
     x))
 
@@ -608,13 +608,14 @@
             (do (assert (ok-value? val))
                 (trace-set-value more val))
             (do (assert (ok-key? key))
+                (state/state-to-map
                 (trace-set-direct-subtrace
                  more
                  key
                  (if (splice? val)
                    (get val :subtrace)
                    (do (assert (ok-value? val))
-                       (trace-set-value (state/empty-state) val))))))))))
+                       (trace-set-value (state/empty-state) val)))))))))))
 
 (defn ** [tr]
   (assert (trace? tr) "**: expected a trace")
