@@ -60,6 +60,8 @@ exa: results/samples_from_the_prior.samples
 
 SAMPLES=results/samples_from_the_gaussian_demo_prior.samples
 
+make-samples: $(SAMPLES)
+
 $(SAMPLES):
 	mkdir -p results
 	bin/lein compile 

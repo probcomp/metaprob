@@ -18,7 +18,6 @@
   (:require [metaprob.interpreters :refer :all])
   (:require [metaprob.inference :refer :all])
 
-  (:require [metaprob.infer :as infer])
   (:require [metaprob.compositional :as comp])
 
   (:require [metaprob.examples.flip-n-coins :refer :all])

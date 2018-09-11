@@ -6,7 +6,6 @@
             [metaprob.builtin-impl :refer :all]
             [metaprob.prelude :refer [maybe-subtrace maybe-set-subtrace]]
             [metaprob.builtin :as builtin]
-            [metaprob.infer :as infer]
             [metaprob.compositional :as comp]))
 
 
