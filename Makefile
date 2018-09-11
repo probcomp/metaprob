@@ -56,15 +56,12 @@ convert: src/metaprob/main.clj src/metaprob/to_clojure.clj .lein_classpath
 # 5 is good for smoke tests.  To get more, you can say e.g.
 #  make view COUNT=100
 COUNT=10
-exa: results/samples_from_the_prior.samples
+exa: results/samples_from_the_gaussian_demo_prior.samples
 
 SAMPLES=results/samples_from_the_gaussian_demo_prior.samples
 
-make-samples: $(SAMPLES)
-
 $(SAMPLES):
 	mkdir -p results
-	bin/lein compile 
 	time bin/lein run -m metaprob.examples.main $(COUNT)
 
 $(SAMPLES).png: $(SAMPLES)

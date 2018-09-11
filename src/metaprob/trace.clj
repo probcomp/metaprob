@@ -67,8 +67,7 @@
 
 (declare trace-set-direct-subtrace!
          trace-has-direct-subtrace?
-         trace-direct-subtrace
-         snap-link-if-any!)
+         trace-direct-subtrace)
 
 ;; Coerce trace to something we can use (its state)
 
@@ -77,32 +76,11 @@
     (if met
       (trace-state met)
       (if (cell? tr)
-        (let [contents (snap-link-if-any! tr)]
-          (if (and (map? contents)
-                   (contains? contents :parent-trace))
-            (do (print ["failing locative" (get contents :key)])
-                (state/empty-state))
-            (trace-state contents)))
+        ;; It may be possible to simplify this to just (deref tr)
+        (trace-state (deref tr))
         (if (state/state? tr)
           tr
           (assert false ["trace-state wta" tr]))))))
-
-;; Returns new contents of cell
-
-(defn snap-link-if-any! [cell]
-  (swap! cell
-         (fn [d]
-           (if (and (map? d)
-                    (contains? d :parent-trace))
-             (let [parent (get d :parent-trace) key (get d :key)]
-               (if (trace-has-direct-subtrace? parent key)
-                 (do (print ["forwarding" key])
-                     ;; I think maybe this case does not occur:
-                     (trace-direct-subtrace parent key))
-                 (do (trace-set-direct-subtrace! parent key cell)
-                     (state/empty-state))))
-             ;; A proper trace (cell, meta or state) - leave unchanged
-             d))))
 
 ;; Coerce trace to something we can update (an cell whose contents is
 ;; a state).
@@ -115,22 +93,12 @@
     (if met
       (trace-cell met)
       (if (cell? tr)
-        (let [d (snap-link-if-any! tr)]
+        (let [d (deref tr)]
           (if (state/state? d)
             tr                          ;Success - cell containing a state
             (trace-cell d)))
         (assert false
                 ["expected a mutable trace" tr])))))
-
-;; Create a cell referring to future subtrace of a trace
-
-(defn ^:private make-locative [parent key]
-  (assert (ok-key? key) key)
-  (if (trace-has-direct-subtrace? parent key)
-    (let [sub (trace-direct-subtrace parent key)]
-      (assert (mutable-trace? sub) [sub key])
-      sub)
-    (make-cell {:parent-trace parent :key key})))
 
 ;; Fetch and store the state of an cell.
 ;; Need to deal with locatives; a bit of a kludge.
@@ -255,26 +223,6 @@
 (defn empty-trace? [x]
   (and (trace? x)
        (empty? (trace-state x))))
-
-;; Special hack for output trace management - phase out.
-;; The result is always going to be mutated, so should be a cell.
-
-(defn lookup [tr adr]                  ; e[e]
-  (if (= tr nil)
-    nil
-    (let [adr0 adr                                               ;REMOVE
-          sub
-          (if (seq? adr)
-            ;; adr is a seq of keys
-            (loop [tr tr adr adr]
-              (if (empty? adr)
-                tr
-                (recur (make-locative tr (first adr))
-                       (rest adr))))
-            ;; adr is a key
-            (make-locative tr adr))]
-      (assert (mutable-trace? sub) ["lookup result" adr sub])
-      sub)))
 
 ;; Returns a clojure seq of the numbered subtraces of the trace tr.
 ;; Used in: to-clojure and related

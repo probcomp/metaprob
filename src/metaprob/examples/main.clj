@@ -51,9 +51,17 @@
               {}
               (combine (first args)
                        (reduc (rest args)))))]
-    (let [dict (if (empty? args)
-                 (list :rejection :importance :mh :quake-rejection)
-                 (reduc args))]
+    ;; If nothing is requested, do everything.  This is ugly code, feel free to rewrite
+    (let [dict (reduc args)
+          dict (if (not (or (get dict :rejection)
+                            (get dict :importance)
+                            (get dict :mh)
+                            (get dict :quake-rejection)))
+                 {:rejection true
+                  :importance true
+                  :mh true
+                  :quake-rejection true}
+                 dict)]
 
       (print (format "dict=%s\n" dict))
 
