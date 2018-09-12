@@ -24,3 +24,14 @@
      (display/hiccup-html
        [:div {:style (format "height: %d; width: %d" (+ h 50) (+ w 100))} [:svg {:id id :width (+ w 100) :height h}]
         [:script code]]))))
+
+(defn histogram
+  ([data] (histogram data 20))
+  ([data bins]
+    (histogram data (apply min data) (apply max data) bins))
+  ([data min max bins]
+    (let [id (str "svg" (java.util.UUID/randomUUID))
+          code (format "drawHistogram(\"%s\", %s, %d, %d, %d);" id, (json/write-str data), (int (Math/floor min)), (int (Math/ceil max)), bins)]
+      (display/hiccup-html
+        [:div {:style (format "height: 500; width: 960")} [:svg {:id id :width 960 :height 500}]
+         [:script code]]))))
