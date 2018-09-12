@@ -56,11 +56,13 @@
           dict (if (not (or (get dict :rejection)
                             (get dict :importance)
                             (get dict :mh)
-                            (get dict :quake-rejection)))
-                 {:rejection true
-                  :importance true
-                  :mh true
-                  :quake-rejection true}
+                            (get dict :quake-rejection)
+                            (get dict :test)))
+                 (into dict
+                       {:rejection true
+                        :importance true
+                        :mh true
+                        :quake-rejection true})
                  dict)]
 
       (print (format "dict=%s\n" dict))

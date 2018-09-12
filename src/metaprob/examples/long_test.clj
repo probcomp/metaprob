@@ -30,6 +30,14 @@
 ;; What VKM requested 2018-07-06
 (def threshold 0.1)
 
+;; Travis kills the process if it's silent for 10 minutes
+(defn tell-travis [message]
+  (if (< (uniform 0 1) 0.01)    ; We could count, but using RNG is easier to program
+    (binding [*out* *err*]
+      (println message)
+      (flush))))
+
+
 ;; This is to see whether the test harness itself is basically working:
 
 (deftest check-check
@@ -42,13 +50,17 @@
 
 (deftest check-prior
   (testing "check sampling from gaussian prior"
-    (let [sampler (fn [i] (gaussian 0 1))
+    (let [sampler (fn [i] 
+                    (tell-travis "Prior")
+                    (gaussian 0 1))
           pdf prior-density]
       (is (assay "p" sampler nsamples pdf nbins threshold)))))
 
 (deftest check-prior-failure
   (testing "check sampling from 'wrong' gaussian prior"
-    (let [sampler (fn [i] (gaussian 0.5 1.2)) ;wrong gaussian!!
+    (let [sampler (fn [i] 
+                    (tell-travis "Wrong prior")
+                    (gaussian 0.5 1.2)) ;wrong gaussian!!
           pdf prior-density]
       (is (> (badness sampler nsamples pdf nbins) threshold)))))
 
@@ -56,6 +68,7 @@
   (testing "check rejection sampling"
     (let [n-particles 20
           sampler (fn [i]
+                    (tell-travis "Rejection")
                     (gaussian-sample-value 
                      (rejection-sampling two-variable-gaussian-model  ; :model-procedure 
                                          []  ; :inputs 
@@ -67,6 +80,7 @@
 (deftest check-importance
   (testing "check importance sampling"
     (let [sampler (fn [i]
+                    (tell-travis "Importance")
                     (gaussian-sample-value
                      (importance-resampling two-variable-gaussian-model
                                             []
@@ -78,6 +92,7 @@
 (deftest check-MH
   (testing "check M-H sampling"
     (let [sampler (fn [i]
+                    (tell-travis "M-H")
                     (gaussian-sample-value
                      (lightweight-single-site-MH-sampling two-variable-gaussian-model
                                                           []
