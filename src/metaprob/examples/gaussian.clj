@@ -8,7 +8,7 @@
             [metaprob.distributions :refer :all]))
 
 ;; sampling from a Gaussian with user-specified mean
-;; and variance, by rescaling one output from the Box-Muller
+;; and standard deviation, by rescaling one output from the Box-Muller
 ;; algorithm for sampling from a Gaussian with zero mean
 ;; and unit variance
 
