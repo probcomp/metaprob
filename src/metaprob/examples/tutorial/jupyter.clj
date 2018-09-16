@@ -7,7 +7,7 @@
 (defn enable-trace-plots []
   (display/hiccup-html
     [:div [:em "Trace visualization has been enabled."]
-     [:script {:src "https://cdn.plot.ly/plotly-latest.min.js"}]
+     [:script (slurp "src/metaprob/examples/tutorial/plotly-latest.min.js")]
      [:script (slurp "src/metaprob/examples/tutorial/plot-trace.js")]]))
 
 (defn trace-as-json
