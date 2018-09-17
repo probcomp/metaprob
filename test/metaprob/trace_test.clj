@@ -204,39 +204,6 @@
         (trace-set! tr adr 19)
         (is (= (trace-get tr adr) 19))))))
 
-;; ---- locative tests
-
-(deftest lookup-1
-  (testing "locative smoke test")
-  (let [tr1 (empty-trace)
-        tr2 (lookup tr1 "foo")]
-    (trace-set! tr2 17)
-    (is (trace-get tr2) 17)
-    (is (trace-get tr1 "foo") 17)))
-
-(deftest lookup-2
-  (testing "harder locative smoke test")
-  (let [tr1 (empty-trace)
-        tr2 (lookup tr1 "foo")
-        tr3 (lookup tr2 "bar")]
-    (trace-set! tr3 17)
-    (is (trace-get tr3) 17)
-    (is (trace-get tr2 "bar") 17)
-    (is (trace-get tr1 '("foo" "bar")) 17)))
-
-(deftest lookup-2a
-  (testing "harder locative smoke test, different order")
-  (let [tr1 (empty-trace)
-        tr2 (lookup tr1 "foo")
-        tr3 (lookup tr2 "bar")]
-    (trace-set! tr2 13)
-    (trace-set! tr3 17)
-    (is (trace-get tr3) 17)
-    (is (trace-get tr2 "bar") 17)
-    (is (trace-get tr1 '("foo" "bar")) 17)
-    (is (trace-get tr2) 13)
-    (is (trace-get tr1 "foo") 13)))
-
 (deftest same-1
   (testing "object comparison smoke test"
     (is (same-states? 7 7))
