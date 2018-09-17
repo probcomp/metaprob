@@ -30,9 +30,7 @@
 (defn ok-key? [val]
   (or (number? val)
       (string? val)
-      (boolean? val)
-      ;;(= val nil)
-      ))      ; needed?
+      (boolean? val)))
 
 ;; Generic traces and their subtypes
 

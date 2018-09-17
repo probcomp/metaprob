@@ -95,7 +95,7 @@
 
 ;; Constructors
 
-(defn empty-state [] {})    ; 'lein test' passes with () and {} as well
+(defn empty-state [] {})    ; 'lein test' passes with () and [] here as well
 
 (defn set-value [state val]
   (map-to-state (assoc (state-to-map state) :value val)))
