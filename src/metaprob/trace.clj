@@ -31,7 +31,8 @@
   (or (number? val)
       (string? val)
       (boolean? val)
-      (= val nil)))      ; needed?
+      ;;(= val nil)
+      ))      ; needed?
 
 ;; Generic traces and their subtypes
 
@@ -59,6 +60,7 @@
   (or (ok-key? val)
       (trace? val)
       (keyword? val)
+      (= val nil)
       (top-level-environment? val)
       (proper-function? val)))
 
