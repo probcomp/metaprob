@@ -1,14 +1,14 @@
-(ns metaprob.examples.tutorial.jupyter
+(ns metaprob.tutorial.jupyter
   (:require
     [clojupyter.misc.display :as display]
     [clojure.data.json :as json]
     [metaprob.builtin :as builtin]))
 
-(defn enable-trace-plots []
+(defn enable-inline-viz []
   (display/hiccup-html
-    [:div [:em "Trace visualization has been enabled."]
-     [:script (slurp "src/metaprob/examples/tutorial/plotly-latest.min.js")]
-     [:script (slurp "src/metaprob/examples/tutorial/plot-trace.js")]]))
+    [:div [:em "Inline visualization functions have been enabled."]
+     [:script (slurp "src/metaprob/tutorial/plotly-latest.min.js")]
+     [:script (slurp "src/metaprob/tutorial/plot-trace.js")]]))
 
 (defn trace-as-json
   [tr]
@@ -44,6 +44,24 @@
   (let [id (str "plotly" (java.util.UUID/randomUUID))
          code (format "Plotly.newPlot(%s, %s, %s, %s)" (json/write-str id) (json/write-str data) (json/write-str layout) (json/write-str options))]
      (display/hiccup-html [:div [:div {:id id}] [:script code]])))
+
+
+(defn plotly-chart-2
+  [options]
+  (let [id (str "plotly" (java.util.UUID/randomUUID))
+        code (format "Plotly.plot(%s, %s)" (json/write-str id) (json/write-str options))]
+    (display/hiccup-html [:div [:div {:id id}] [:script code]])))
+
+(defn plotly-chart-animated
+  [initial-data datas layout options]
+  (let [id (str "plotly" (java.util.UUID/randomUUID))
+        code (format "Plotly.newPlot(%s, %s, %s, %s); plotlyAnimate(%s, %s)"
+                     (json/write-str id) (json/write-str initial-data)
+                     (json/write-str layout) (json/write-str options)
+                     (json/write-str id) (json/write-str datas))]
+    (display/hiccup-html [:div [:div {:id id}] [:script code]])))
+
+
 
 (defn bar-chart
   [title labels data]
@@ -86,8 +104,9 @@
   (plotly-chart [(curve-trace density x-range),
                  {:x data :name "samples" :type "histogram"}]
                 {:title title,
-                 :yaxis {:title "y"},
-                 :yaxis2 {:overlaying "y" :zeroline false :showgrid false :anchor "y" :title "density" :side "right"}}
+                 :xaxis {:title "x"}
+                 :yaxis {:title "count"},
+                 :yaxis2 {:overlaying "y" :rangemode "tozero" :zeroline false :showgrid false :anchor "y" :title "density" :side "right"}}
                 {:displayModeBar false}))
 
 ; Produce a Plotly trace (not a Metaprob trace!)
@@ -110,7 +129,12 @@
   {:x (map first data-points),
    :y (map second data-points),
    :mode "markers", :type "scatter", :hoverinfo "none",
+   :id "samples",
    :marker {:color color :symbol marker-symbol}})
+(defn little-scatter-trace [data-points]
+  {:x (map first data-points)
+   :id "samples"
+   :y (map second data-points)})
 
 (defn default-scatter-plot
   [title data]
@@ -131,14 +155,63 @@
                  :height 500}
                 {:displayModeBar false}))
 
+(defn scatter-with-contours-animated
+  [title data density [x-range y-range]]
+  (let
+    [
+     init-data [(contour-trace density [x-range y-range]) (scatter-trace (first data) "cross" "black")]
+     slider-steps
+     (vec (map (fn [i] {:method "animate" :label (str i) :args [[i] {:mode "immediate" :transition {:duration 50}}]}) (range (count data))))
+     layout {:xaxis {:range x-range :title "x" :zeroline false}
+             :yaxis {:range y-range :title "y" :zeroline false}
+             :width 500
+             :height 500
+             :sliders [{:currentvalue {:visible true :prefix "Iter:" :xanchor "left"} :steps slider-steps}]
+             :title title}
+     config {:displayModeBar false}
+     frames (vec (map-indexed (fn [i d] {:name (str i) :data [{} (little-scatter-trace d)]}) data))
+     options {:data init-data :layout layout :config config :frames frames}
+     ]
+    (plotly-chart-2 options)))
+
+(defn mh-animation
+  [title data [x-range y-range]]
+  (let
+     [
+      init-data [(scatter-trace [(first data)] "cross" "black")]
+      frames (vec (reverse (map-indexed (fn [i x] {:name (str i) :data [x]}) (reduce
+                    (fn [l next]
+                      (if (and (= (((first l) :y) 0) (next 1))
+                               (= (((first l) :x) 0) (next 0)))
+                        (cons
+                          {:x [(next 0)] :y [(next 1)] :marker {:color "red"}}
+                          (cons {:x [(next 0)] :y [(next 1)] :marker {:color "white"}}
+                            l))
+                        (cons {:x [(next 0)] :y [(next 1)] :marker {:color "black"}}
+                        l)))
+                    (list {:x [((first data) 0)] :y [((first data) 1)] :marker {:color "black"}})
+                    (rest data)))))
+      layout {:xaxis {:range x-range :title "x"}
+              :yaxis {:range y-range :title "y"}
+              :width 500 :height 500
+              :title title
+              :updatemenus
+                     [{ :type "buttons" :xanchor "left" :yanchor "top" :pad {:t 50}
+                       :x 0 :y 0
+                       :buttons [{:method "animate" :args [nil {:mode "immediate" :transition {:duration 600} :frame {:duration 500 :redraw false}}]
+                                  :label "Play"}] }]}
+      config {:displayModeBar false}
+      ]
+     (plotly-chart-2 {:data init-data :frames frames :layout layout :config config})))
+
 (defn scatter-with-contours
   [title data density [x-range y-range]]
-     ; generate contour data
-     (plotly-chart [(contour-trace density [x-range y-range]),
-                    (scatter-trace data "cross" "white")]
-                   {:xaxis {:range x-range :title "x"}
-                    :yaxis {:range y-range :title "y"}
-                    :width 500
-                    :height 500
-                    :title title}
-                   {:displayModeBar false}))
+  ; generate contour data
+  (plotly-chart [(contour-trace density [x-range y-range]),
+                 (scatter-trace data "cross" "white")]
+                {:xaxis {:range x-range :title "x"}
+                 :yaxis {:range y-range :title "y"}
+                 :width 500
+                 :height 500
+                 :title title}
+                {:displayModeBar false}))

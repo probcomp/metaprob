@@ -17218,54 +17218,54 @@ var drawTrace = function(svgId, trace, w, h) {
 }
 
 
-function drawHistogram(svgId, data, min, max, n_bins) {
-    var formatCount = d3.format(",.0f");
-
-    var svg = d3.select("#"+svgId),
-        margin = {top: 10, right: 30, bottom: 30, left: 30},
-        width = +svg.attr("width") - margin.left - margin.right,
-        height = +svg.attr("height") - margin.top - margin.bottom,
-        g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-    var x = d3.scaleLinear()
-        .domain([min, max])
-        .rangeRound([0, width]);
-
-    var bins = d3.histogram()
-        .domain(x.domain())
-        .thresholds(x.ticks(n_bins))
-        (data);
-
-    var y = d3.scaleLinear()
-        .domain([0, d3.max(bins, function(d) { return d.length; })])
-        .range([height, 0]);
-
-    var bar = g.selectAll(".bar")
-        .data(bins)
-        .enter().append("g")
-        .attr("class", "bar")
-        .attr("transform", function(d) { return "translate(" + x(d.x0) + "," + y(d.length) + ")"; });
-
-    bar.append("rect")
-        .attr("x", -(x(bins[0].x1) - x(bins[0].x0)) / 2)
-        .attr("width", x(bins[0].x1) - x(bins[0].x0) - 1)
-        .attr("height", function(d) { return height - y(d.length); })
-        .style("fill", "steelblue");
-
-    bar.append("text")
-        .attr("dy", ".75em")
-        .attr("y", 6)
-        .attr("x", 0)
-        .attr("text-anchor", "middle")
-        .text(function(d) { return formatCount(d.length); })
-        .style("fill", "#fff")
-        .style("font", "10px sans-serif");
-
-
-    g.append("g")
-        .attr("transform", "translate(0," + height + ")")
-        .call(d3.axisBottom(x));
+function drawBarChart(divId, labels, data, title) {
+    var trace1 = {
+        x: labels,
+        y: data,
+        type: 'bar',
+        text: data,
+        textposition: 'auto',
+        hoverinfo: 'none',
+        marker: {
+            color: 'rgb(158,202,225)',
+            opacity: 0.6,
+            line: {
+                color: 'rbg(8,48,107)',
+                width: 1.5
+            }
+        }};
+  Plotly.newPlot(divId, [trace1], {title: title}, {displayModeBar: false})
 }
 
+
+
+function drawHistogram(divId, data, title) {
+    var trace1 = {
+        x: data,
+        type: 'histogram',
+        marker: {
+            color: 'rgb(158,202,225)',
+            opacity: 0.6,
+            line: {
+                color: 'rbg(8,48,107)',
+                width: 1.5
+            }
+        }};
+    Plotly.newPlot(divId, [trace1], {title: title}, {displayModeBar: false})
+}
+
+function plotlyPlot(divId, data, layout, options) {
+  Plotly.newPlot(divId, data, layout, options)
+}
+
+function plotlyAnimate(divId, datas) {
+  Plotly.addFrames(divId, datas.map((d, i) => {return {data: d}}))
+  Plotly.animate(divId, undefined, {
+        frame: {duration: 1000, redraw: true},
+        transition: {duration: 1000, easing: 'elastic-in'},
+        mode: 'afterall'
+    })
+}
+
+window.plotlyAnimate = plotlyAnimate;
 window.drawTrace = drawTrace;
-window.drawHistogram = drawHistogram;
