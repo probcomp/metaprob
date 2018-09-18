@@ -8,5 +8,6 @@
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [kixi/stats "0.4.0"]
                  [criterium "0.4.4"]]
+  :plugins [[lein-jupyter "0.1.16"]]
   ;; :aot [metaprob.basic-trace]
   )

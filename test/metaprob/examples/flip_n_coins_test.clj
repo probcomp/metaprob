@@ -14,8 +14,7 @@
 (deftest flip-n-coins-smoke-1
   (testing "testing flip-n-coins"
     (let [[answer trace-with-flips score]
-          (infer :procedure flip-n-coins :inputs [number-of-flips]
-                 :output-trace? true)]
+          (infer :procedure flip-n-coins :inputs [number-of-flips])]
       (is (trace? trace-with-flips))
       (is (builtin/list? answer))
       (let [a1 (builtin/nth answer 0)]
@@ -82,7 +81,7 @@
 (deftest output-trace-1
   (testing "ensure that extraneous values not present in output trace"
     (let [[answer output score]
-          (infer :procedure flip-n-coins :inputs [number-of-flips] :output-trace? true)]
+          (infer :procedure flip-n-coins :inputs [number-of-flips])]
       (is (not (trace-has? output '(2))))
       (is (not (trace-has? output '(2 "datum"))))
       (is (not (trace-has? output '(2 "datum" "map"))))

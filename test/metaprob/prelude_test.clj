@@ -38,10 +38,9 @@
     (let [tr (prelude/reverse (builtin/sequence-to-seq (list 1 2 3)))]
       (is (builtin/immutable-trace? tr))
       (is (= tr (list 3 2 1))))
-    ;; This is a problem.
     (let [tr (prelude/reverse (trace-copy (list 1 2 3)))]
       (is (builtin/mutable-trace? tr))
-      (is (= (builtin/first tr) 1)))))
+      (is (= (builtin/first tr) 3)))))
 
 (deftest name-1
   (testing "see if a procedure has the right name"

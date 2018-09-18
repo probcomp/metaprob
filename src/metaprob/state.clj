@@ -100,9 +100,9 @@
 
 (defn set-subtrace [state key sub]
   ;; sub is a trace but not necessarily a sub
-  (if (= sub '())
-    state
-    (map-to-state (assoc (state-to-map state) key sub))))
+  ;(if (= sub '())
+  ;  state
+  (map-to-state (assoc (state-to-map state) key sub)))
 
 (defn clear-subtrace [state key]
   (map-to-state (dissoc (state-to-map state) key)))
@@ -144,9 +144,7 @@
 
           (= n 0) '()                   ;Kludge to ensure seq-ness
 
-          (and (= (get m :value :no-value) :no-value)
-               (value-only-trace? (get m 0 :no-value))
-               (value-only-trace? (get m (- n 1) :no-value)))
+          (every? (fn [n] (value-only-trace? (get m n :no-value))) (range n))
           (vec (for [i (range n)] (get (get m i) :value)))
 
           true (do (assert (map? m) ["expected a map" m])
