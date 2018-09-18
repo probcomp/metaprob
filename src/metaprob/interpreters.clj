@@ -32,7 +32,7 @@
                        null-trace
                        target-trace)
         output-trace? (if (= output-trace? nil)
-                        (not (= output-trace nil))
+                        true
                         output-trace?)
         interpreter (if (= interpreter nil)
                       default-interpreter
@@ -58,8 +58,7 @@
 (defn get-score [proc & inputs]
   (let [[_ target _]
         (infer :procedure proc
-               :inputs inputs
-               :output-trace? true)]
+               :inputs inputs)]
     (let [[_ _ score]
           (infer :procedure proc
                  :inputs inputs

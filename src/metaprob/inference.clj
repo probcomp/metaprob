@@ -18,8 +18,7 @@
       (infer :procedure model-procedure
              :inputs inputs
              :intervention-trace (empty-trace)
-             :target-trace       target-trace
-             :output-trace?      true))
+             :target-trace       target-trace))
     (if (lt (log (uniform 0 1)) (sub score log-bound))
       candidate-trace
       (rejection-sampling
@@ -142,8 +141,7 @@
       (infer :procedure model-procedure
              :inputs inputs
              :intervention-trace nil
-             :target-trace new-target
-             :output-trace? true))
+             :target-trace new-target))
     (define new-value (trace-get new-trace target-address))
 
     ;; the proposal is to move from trace to new-trace
