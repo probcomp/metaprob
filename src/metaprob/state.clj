@@ -58,7 +58,7 @@
                     (vector? state) {:value (nth state key)}
                     (map? state) (get state key)
                     true (assert false ["not a state" state])))]
-    (assert (not (= val nil))
+    (assert (some? val)
             ["no such subtrace" key state])
     val))
 
@@ -72,7 +72,7 @@
 
 (defn ^:private keys-sans-value [m]   ;aux for above
   (let [ks (remove #{:value} (keys m))]
-    (if (= ks nil)
+    (if (nil? ks)
       '()
       ks)))
 

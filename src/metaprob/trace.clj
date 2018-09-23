@@ -31,7 +31,7 @@
   (or (number? val)
       (string? val)
       (boolean? val)
-      (= val nil)))      ; needed?
+      (nil? val)))      ; needed?
 
 ;; Generic traces and their subtypes
 

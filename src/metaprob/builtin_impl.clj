@@ -15,7 +15,7 @@
 (declare procedure-name)
 
 (defn addr [& keys]
-  (if (= keys nil)
+  (if (nil? keys)
     '()
     (map (fn [key]
            (if (procedure? key)

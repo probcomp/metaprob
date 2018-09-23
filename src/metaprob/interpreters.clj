@@ -23,17 +23,17 @@
                        target-trace output-trace
                        output-trace?
                        interpreter]}]
-  (let [inputs (if (= inputs nil) [] inputs)
-        intervention-trace (if (= intervention-trace nil)
+  (let [inputs (if (nil? inputs) [] inputs)
+        intervention-trace (if (nil? intervention-trace)
                              null-trace
                              intervention-trace)
-        target-trace (if (= target-trace nil)
+        target-trace (if (nil? target-trace)
                        null-trace
                        target-trace)
-        output-trace? (if (= output-trace? nil)
+        output-trace? (if (nil? output-trace?)
                         true
                         output-trace?)
-        interpreter (if (= interpreter nil)
+        interpreter (if (nil? interpreter)
                       default-interpreter
                       interpreter)
         [value out score]

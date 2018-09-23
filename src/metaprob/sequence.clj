@@ -124,7 +124,7 @@
 
 (defn metaprob-list [& things]
   ;; (seq-to-mutable-list things)
-  (if (= things nil)
+  (if (nil? things)
     '()
     things))
 
@@ -143,7 +143,7 @@
           (scan 0))
         ;; This is a kludge but it helps in dealing with [& foo]
         ;;  (where if there are no args, foo is nil instead of ())
-        (= x nil)
+        (nil? x)
         '()
         true
         (assert false ["Expected a tuple or list" x])))
