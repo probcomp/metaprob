@@ -530,7 +530,7 @@
 (defn trace-unzip [keyval-seq]
   (into {} (filter (fn [[key sub]]
                      (or (= key :value)
-                         (if (= sub nil)
+                         (if (nil? sub)
                            false
                            (do (assert (trace? sub))
                                true))))
@@ -548,7 +548,7 @@
 (defn kv-pairs-to-map [kvps]
   (if (empty? kvps)
     (state/empty-state)
-    (do (assert (not (empty? (rest kvps))) "odd number of args to trace")
+    (do (assert (seq (rest kvps)) "odd number of args to trace")
         (let [key (first kvps)
               val (first (rest kvps))
               more (kv-pairs-to-map (rest (rest kvps)))]
@@ -590,7 +590,7 @@
     (if (empty? y-keys)
       1
       (let [q (compare-keys (first x-keys) (first y-keys))]
-        (if (= q 0)
+        (if (zero? q)
           (compare-key-lists (rest x-keys) (rest y-keys))
           q)))))
 
@@ -602,7 +602,7 @@
             (if (trace-has? y)
               -1
               0))]
-    (if (= w 0)
+    (if (zero? w)
       (letfn [(lup [x-keys y-keys]
                 (if (empty? x-keys)
                   (if (empty? y-keys)
@@ -611,10 +611,10 @@
                   (if (empty? y-keys)
                     1
                     (let [j (compare-keys (first x-keys) (first y-keys))]
-                      (if (= j 0)
+                      (if (zero? j)
                         (let [q (compare-keys (trace-get x (first x-keys))
                                               (trace-get y (first y-keys)))]
-                          (if (= q 0)
+                          (if (zero? q)
                             (lup (rest x-keys) (rest y-keys))
                             q))
                         j)))))]
@@ -716,7 +716,7 @@
   (let [vertical? (some trace? x)
         indent (str indent " ")]
     (loop [x x first? true]
-      (if (not (empty? x))
+      (if (seq x)
         (do (if (not first?)
               (if vertical?
                 (do (metaprob-newline out)

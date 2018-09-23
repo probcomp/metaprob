@@ -172,9 +172,9 @@
 ;--- kludge. based on clojure time macro.
 
 (defn report-on-elapsed-time [tag thunk]
-  (let [start (. System (nanoTime))
+  (let [start (System/nanoTime)
         ret (thunk)
-        t (java.lang.Math/round (/ (double (- (. System (nanoTime)) start)) 1000000000.0))]
+        t (java.lang.Math/round (/ (double (- (System/nanoTime) start)) 1000000000.0))]
     (if (> t 1)
       (print (str tag ": elapsed time " t " sec\n")))
     ret))

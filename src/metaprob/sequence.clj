@@ -74,7 +74,7 @@
     (cond (seq? state) (count state)
           (vector? state) (count state)
           (map? state) (if (pair-as-map? state)
-                         (+ 1 (length (get state rest-marker)))
+                         (inc (length (get state rest-marker)))
                          (assert false ["not a sequence" state]))
           true (assert false ["length wta" tr state]))))
 
@@ -138,7 +138,7 @@
                   (if (trace-has? x i)
                     ;; Cons always returns a clojure seq
                     ;;  and seqs are interpreted as metaprob lists
-                    (cons (trace-get x i) (scan (+ i 1)))
+                    (cons (trace-get x i) (scan (inc i)))
                     '()))]
           (scan 0))
         ;; This is a kludge but it helps in dealing with [& foo]
@@ -165,9 +165,9 @@
     (if (metaprob-pair? thing)
       (letfn [(re [l i]
                 (if (metaprob-pair? l)
-                  (if (= i 0)
+                  (if (zero? i)
                     (metaprob-first l)
-                    (re (metaprob-rest l) (- i 1)))
+                    (re (metaprob-rest l) (dec i)))
                   (assert false [l i (length thing)])))]
         (re thing (int i)))
       (trace-get thing i))

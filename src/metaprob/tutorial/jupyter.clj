@@ -89,7 +89,7 @@
 
 (defn lin-range
   [low high n-intervals]
-  (map (fn [i] (+ low (* i (/ (- high low) (- n-intervals 1)))))
+  (map (fn [i] (+ low (* i (/ (- high low) (dec n-intervals)))))
        (range n-intervals)))
 
 (defn curve-trace

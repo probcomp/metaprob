@@ -114,7 +114,7 @@
   (if (and elide-block-sometimes
            (seq? form)
            (= (name (first form)) "block")
-           (not (= (count form) 2)))
+           (not= (count form) 2))
     (rest form)
     (list form)))
 
@@ -160,7 +160,7 @@
 
 (defn gen-to-clojure [pat-trace body-trace nest]
   ;; For readability, allow x y instead of (block x y)
-  (let [nest (if (= (trace/trace-count pat-trace) 0)
+  (let [nest (if (zero? (trace/trace-count pat-trace))
                nest
                (assoc nest :bare false))
         body (form-to-formlist (to-clojure body-trace nest))
@@ -225,13 +225,13 @@
 (defn declarations [subs]
   (assert (seq? subs))
   (let [defs (filter gen-definition? subs)]
-    (do (assert (seq? defs) "no brainer")
+    (assert (seq? defs) "no brainer")
     (if (empty? defs)
       (list)
       (list (qons 'declare (for [d defs]
                              ;; This is wrong - we need to collect all
                              ;; the variables in the pattern.
-                             (to-symbol (definition-name d)))))))))
+                             (to-symbol (definition-name d))))))))
 
 ;; Returns a list of clojure expressions.
 ;; These are at the top level of the file, so not subject to constraints on trace path preservation.
@@ -289,7 +289,7 @@
 
 (defn get-requirements [ns-name]
   (filter (fn [x]
-            (not (= (name (first x)) (name ns-name))))
+            (not= (name (first x)) (name ns-name)))
           '([metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all])))

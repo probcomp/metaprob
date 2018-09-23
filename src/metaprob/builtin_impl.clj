@@ -49,7 +49,7 @@
 
 ;; In metaprob, these are strict functions.
 
-(defn neq [x y] (not (= x y)))
+(def neq not=)
 
 ;; Procedure-related
 
@@ -127,9 +127,9 @@
 (defn metaprob-assert [condition complaint & irritants]
   (binding [*out* *err*]
     (doseq [irritant irritants]
-      (if (mutable-trace? irritant)
-        (do (print "Irritant:")
-            (metaprob-pprint irritant)))))
+      (when (mutable-trace? irritant)
+        (print "Irritant:")
+        (metaprob-pprint irritant))))
   (assert condition
           (if (empty? irritants)
             complaint
@@ -165,10 +165,10 @@
   ;; how to create a new binding in a namespace (a la def)???
   (let [sym (symbol name)
         r (ns-resolve the-ns sym)
-        r (if r r (binding [*ns* the-ns]
-                    (print (format "Assigning %s in %s" sym the-ns))
-                    (eval `(def ~sym))
-                    (ns-resolve the-ns sym)))]
+        r (or r (binding [*ns* the-ns]
+                  (print (format "Assigning %s in %s" sym the-ns))
+                  (eval `(def ~sym))
+                  (ns-resolve the-ns sym)))]
     (ref-set r value)
     nil))
 
@@ -264,7 +264,7 @@
                                      "implementation" implementation)
                       ;; When called from Clojure:
                       (fn [& inputs]
-                        (let [inputs (if (= inputs nil) (list) inputs)]
+                        (let [inputs (if (nil? inputs) (list) inputs)]
                           (nth (implementation inputs (trace) (trace) false)
                                0)))))
 

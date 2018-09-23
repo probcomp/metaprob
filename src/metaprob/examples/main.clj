@@ -53,11 +53,11 @@
                        (reduc (rest args)))))]
     ;; If nothing is requested, do everything.  This is ugly code, feel free to rewrite
     (let [dict (reduc args)
-          dict (if (not (or (get dict :rejection)
-                            (get dict :importance)
-                            (get dict :mh)
-                            (get dict :quake-rejection)
-                            (get dict :test)))
+          dict (if-not (or (get dict :rejection)
+                           (get dict :importance)
+                           (get dict :mh)
+                           (get dict :quake-rejection)
+                           (get dict :test))
                  (into dict
                        {:rejection true
                         :importance true

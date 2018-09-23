@@ -295,7 +295,7 @@
            "else" (** (from-clojure els)))))
 
 (defn from-clojure-block [exp]
-  (assert (not (empty? exp))
+  (assert (seq exp)
           ["empty block" exp])
   (from-clojure-seq (rest exp) "block"))
 
@@ -304,8 +304,8 @@
 (defn from-clojure-definition [exp]
   (let [[_ pattern rhs] exp
         key (if (and (symbol? pattern)
-                     (not (= pattern '_))
-                     (not (= pattern 'pattern)))
+                     (not= pattern '_)
+                     (not= pattern 'pattern))
               (str pattern)
               "definiens")]
     (trace :value "definition"
@@ -313,7 +313,7 @@
            key (** (from-clojure rhs)))))
 
 (defn from-clojure-application [exp]
-  (assert (not (empty? exp))
+  (assert (seq exp)
           ["empty application" exp])
   (from-clojure-seq exp "application"))
 
@@ -389,7 +389,7 @@
       (string? exp)
       (boolean? exp)
       (keyword? exp)
-      (= exp nil)))
+      (nil? exp)))
 
 ;; Don't create variables with these names...
 ;;   (tbd: look for :meta on a Var in this namespace ??)

@@ -22,11 +22,11 @@
 (defn has-value? [state]
   (if steady?
     ;; The two methods should be equivalent
-    (not (= (get (state-to-map state) :value :no-value) :no-value))
+    (contains? (state-to-map state))
     (cond (seq? state) (not (empty? state))
           (vector? state) false
-          (map? state) (not (= (get state :value :no-value) :no-value))
-          true (assert false ["not a state" state]))))
+          (map? state) (contains? state :value)
+          :else (assert false ["not a state" state]))))
 
 (defn value [state]
   (if steady?
@@ -35,15 +35,14 @@
     (cond (seq? state) (first state)
           (vector? state) (assert false "no value")
           (map? state)
-          (let [value (get state :value :no-value)]
-            (assert (not (= value :no-value)) ["state has no value" state])
-            value)
-          true (assert false ["not a state" state]))))
+          (do (assert (contains? state :value) ["state has no value" state])
+              (get state :value))
+          :else (assert false ["not a state" state]))))
 
 (defn has-subtrace? [state key]
   (if steady?
     (contains? (state-to-map state) key)
-    (cond (seq? state) (and (not (empty? state))
+    (cond (seq? state) (and (seq state)
                             (= key rest-marker))
           (vector? state) (and (integer? key)
                                (>= key 0)
@@ -82,9 +81,9 @@
     (cond (seq? state) (if (empty? state) 0 1)
           (vector? state) (count state)
           (map? state) (let [n (count state)]
-                         (if (= (get state :value :no-value) :no-value)
+                         (if-not (contains? state :value)
                            n
-                           (- n 1)))
+                           (dec n)))
           true (assert false ["not a state" state]))))
 
 ;; Constructors
@@ -137,12 +136,12 @@
 (defn map-to-state [m]
   (let [n (count m)]
     (cond (and (= n 2)
-               (not (= (get m :value :no-value) :no-value))
-               (seq? (get m rest-marker :no-value)))
+               (contains? m :value)
+               (seq? (get m rest-marker)))
           (cons (get m :value)
                 (get m rest-marker))
 
-          (= n 0) '()                   ;Kludge to ensure seq-ness
+          (zero? n) '()                   ;Kludge to ensure seq-ness
 
           (every? (fn [n] (value-only-trace? (get m n :no-value))) (range n))
           (vec (for [i (range n)] (get (get m i) :value)))
