@@ -7,3 +7,10 @@ before_install:
 script:
   - lein test
   - lein run -m metaprob.examples.main test
+notifications:
+  slack:
+    rooms:
+      secure: B9/VRP+CoXvCE97atMXJ3eFKDbLTIxKTyIcJ7BId8pbCEYEBO+5gnmkAfrt+bP/A+MFDsXVOUw990ARSXxh4GI8ydA+KmqQZ39Zm4cB3UpaM6E24f9McO+5ZicFnHg5aSTipZm5dL8cubdv/f3S0G0kSrkAvODEQK7FHBQsf7bJh9TPXUFteWeGjmKtqIBn4R2oOKweBW9LyESwu/5Y7O2BqtD79Z7is9ejzgLqatq+7YqL1p67jRD9icw97ZNt4tT7NQwQzS94U9vgYbTp4qnRzFN5jrTiRfHuqMSsEAVwYZwkoLaHb6OXhU+deZ4FIggJhheuAHA/zHyle7IwkZY4lZFkj8hkwU8f972FqziuWrvPAtDE2xxJ9PW2ze8hpagu+Sm8LZSnKOEnerxrXLJhBTDOwDT8ARCGuO84G/60aE3ajQfiNAzSQvi5n94H0io1I9udlLX7UAG001eTilyzuJQ973b500KzyMbjgvQvzxXiKtoxP/JinHE/FNYmJm2V3csboQoOJ2+ur1I/vHzdmSrPQ6s14gI5Wf3N2JqkwKRbFjqylLgfihfCO5G09Wly8Vc1sZ8KpggFspimJvUZY+0OEZ79nCKD1iT81m43KCgO9tiDsG3xigVqfQRatkV29SdN3b4L+AkrQxaSKzgmoufU6N6nH68sTWIOkWFE=
+      on_success: change
+      on_failure: always
+      on_pull_requests: false
