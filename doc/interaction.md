@@ -27,50 +27,37 @@ curve is steep if you haven't used emacs before.
 
 To get an interactive read-eval-print loop at the shell:
 
-    $ bin/lein repl
+    $ clj
 
-This should be done with the working directory set to the directory
-that contains `project.clj`, which in this setup would normally be the
-clone of the `metaprob-clojure` repository.
+This should be done with the working directory set to the directory that
+contains `deps.edn`, which in this setup would normally be the clone of the
+`metaprob-clojure` repository.
 
 ### Using Clojure under Emacs
 
 This section describes using a REPL in emacs.  The Emacs interface to
 Clojure is called 'Cider'.  (Or at least the interface that I know about.)
 
-Cider also knows to look at `project.clj`.
+Cider also knows to look at `deps.edn`.
 
 #### Starting a REPL under Emacs
 
-Clojure runs outside of emacs, and emacs connects to it over a TCP
-connection.  At a shell, in its own terminal window or tab (not
-necessarily in emacs), go to the directory that contains
-`project.clj`, and do:
+In emacs, do:
 
-    $ bin/lein repl :headless
+    M-x cider-jack-in RET
 
-This takes a few seconds, then prints a TCP port number (it's different
-every time).  In emacs, do:
-
-    M-x cider-connect
-    localhost
-    {port} C-j
-
-where `{port}` is the port number you saw when you did `bin/lein repl
-:headless`, M-x is meta-x, and C-j is control-J or linefeed.
-
-(Of course the fact that the Clojure connection goes over TCP/IP means
-you can put the server anywhere on the Internet that you want to.  The
-best way to connect is with an ssh tunnel, but that is a story for
-another day.)
+(Alternatively, the fact that the Clojure connection goes over TCP/IP means you
+can put the server anywhere on the Internet that you want to and connect with
+`cider-connect`. The best way to connect is with an ssh tunnel, but that is a
+story for another day.)
 
 #### Emacs commands
 
-Evaluate an expression from a buffer with C-c C-E.  Cider knows how to
+Evaluate an expression from a buffer with `C-c C-E`.  Cider knows how to
 figure out which namespace to evaluate in (see below).
 
-You can load a clojure file by visiting it in a buffer and doing C-c
-C-k.  I think doing so will also load any needed dependencies as
+You can load a clojure file by visiting it in a buffer and doing `C-c
+C-k`.  I think doing so will also load any needed dependencies as
 inferred from the `ns` form at the top of the file.
 
 C-h m will show you commands available in REPL mode.
@@ -104,7 +91,7 @@ You can then evaluate metaprob expressions directly, run examples, and so on:
     (trace-get x "foo")
     (pprint x)
 
-### Creating namespaces for use with metaprob 
+### Creating namespaces for use with metaprob
 
 Metaprob has some name conflicts with Clojure, so some care is
 necessary when preparing files containing Metaprob cod.  The method is
@@ -171,10 +158,9 @@ Need to look into this.)
 See [this stack overflow discussion](https://stackoverflow.com/questions/7658981/how-to-reload-a-clojure-file-in-repl).
 
 Often during development, if the namespaces or `deftype` types
-(`basic_trace.clj`) change in some incompatible way, I find it necessary
-to restart clojure (C-c C-q followed by killing the `bin/lein repl
-:headless` process).  It may also be helpful in such situations to
-remove the `target` directory, which caches `.class` files.
+(`basic_trace.clj`) change in some incompatible way, I find it necessary to
+restart clojure (`C-c C-q` followed by killing the Cider process with `M-x
+cider-quit`).
 
 There are many other circumstances that require a complete Clojure restart.
 
@@ -267,6 +253,6 @@ Rather than use the REPL or the test system I sometimes just put code
 in the `-main` function in some file e.g. `main.clj` (could be any
 file name) and invoke it directly from the shell:
 
-    $ lein run -m metaprob.examples.main
+    $ clojure -m metaprob.examples.main
 
 Any command line arguments become arguments to the `-main` function.
