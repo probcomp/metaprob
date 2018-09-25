@@ -4,13 +4,7 @@ This directory contains a work-in-progress tutorial for Metaprob, in the file `T
 
 To run it, you will need to:
 
-1. Ensure you have Jupyter installed. Can you run `jupyter notebook` and start a Jupyter server?
-2. Ensure lein is installed.
-3. Install the Lein Jupyter kernel: `lein jupyter install-kernel`.
-4. Inside the `metaprob-clojure` directory, run `lein jupyter notebook`. (If you prefer (and have installed) Jupyter Lab, you may use it (`lein jupyter lab`), but you will need to run `jupyter labextension install @jupyterlab/javascript-extension` for the visualization code to work.)
-5. Running step 4 should open a web browser to the Jupyter Notebook (or Lab) application. Navigate to the `Tutorial.ipynb` file.
-
-If you run into an error that your IO rate has been exceeded, try starting the server with this option:
-
-`lein jupyter notebook --NotebookApp.iopub_data_rate_limit=10000000`
-
+1. Ensure `docker` and `docker-compose` are installed. Can you run `docker version` and `docker-compose version`?
+2. Build the Docker image with `make docker`.
+3. Run the Docker image with `make notebook`. This should open the Jupyter Notebook web application in your browser.
+4. Navigate to the `tutorial.ipynb` file.
