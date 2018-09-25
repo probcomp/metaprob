@@ -79,10 +79,14 @@ docker-build:
 .PHONY: docker-build
 
 docker-test:
-	docker run probcomp/metaprob-clojure:latest bash -c "lein test && time lein run -m metaprob.examples.main test"
+	docker run -t probcomp/metaprob-clojure:latest bash -c "lein test && time lein run -m metaprob.examples.main test"
 .PHONY: docker-test
 
-
 docker-notebook:
-	docker run --user metaprob probcomp/metaprob-clojure:latest bash -c "lein jupyter notebook --ip=127.0.0.1 --port=8080 --no-browser"
+	docker run \
+		-it \
+		--mount type=bind,source=${CURDIR},destination=/home/metaprob/projects/metaprob-clojure \
+		--publish 8888:8888/tcp \
+		probcomp/metaprob-clojure:latest \
+		bash -c "lein jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --notebook-dir ./src/metaprob/tutorial"
 .PHONY: docker-notebook
