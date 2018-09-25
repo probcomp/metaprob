@@ -88,6 +88,6 @@ docker-build:
 docker-test:
 	@NB_UID=${NB_UID} docker-compose run notebook bash -c "lein test && time lein run -m metaprob.examples.main test"
 
-.PHONY: notebook
+.PHONY: docker-notebook
 notebook:
 	@NB_UID=${NB_UID} docker-compose up
