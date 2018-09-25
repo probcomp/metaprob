@@ -1,4 +1,3 @@
-
 all: bin/lein .lein_classpath
 	@echo "Good to go!"
 
@@ -73,3 +72,22 @@ view: $(SAMPLES).png
 # suppress '.#foo.clj' somehow
 tags:
 	etags --language=lisp `find src -name "[a-z]*.clj"` `find test -name "[a-z]*.clj"`
+
+# Targets for manipulating Docker below. NB_UID must be set to the current user
+# for each of these because the base Docker image that we rely on requires it.
+# For more information refer to the Jupyter Docker Stacks documentation:
+# https://jupyter-docker-stacks.readthedocs.io/en/latest/using/common.html#docker-options
+
+NB_UID := $(shell id -u)
+
+.PHONY: docker
+docker:
+	@NB_UID=${NB_UID} docker-compose build
+
+.PHONY: notebook
+notebook:
+	@NB_UID=${NB_UID} docker-compose -f docker-compose.yaml up
+
+.PHONY: repl
+repl:
+  @NB_UID=${NB_UID} docker-compose -f docker-compose-repl.yaml up

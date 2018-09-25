@@ -1,0 +1,12 @@
+version: "2"
+
+services:
+  notebook:
+    build: .
+    ports:
+      - 8888:8888
+    hostname: ${USER}-notebook
+    environment:
+      NB_UID: ${NB_UID}
+    volumes:
+      - .:/home/jovyan/metaprob-clojure:rw
