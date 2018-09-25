@@ -82,11 +82,11 @@ NB_UID := $(shell id -u)
 
 .PHONY: docker-build
 docker-build:
-	@NB_UID=${NB_UID} docker build -t probcomp/metaprob-clojure .
+	@NB_UID=${NB_UID} docker build -t probcomp/metaprob-clojure:latest .
 
 .PHONY: docker-test
 docker-test:
-	@NB_UID=${NB_UID} docker-compose run notebook bash -c "lein test && time lein run -m metaprob.examples.main test"
+	@NB_UID=${NB_UID} docker run probcomp/metaprob-clojure:latest bash -c "lein test && time lein run -m metaprob.examples.main test"
 
 .PHONY: docker-notebook
 docker-notebook:
