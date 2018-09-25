@@ -21,10 +21,12 @@ RUN curl -O https://download.clojure.org/install/linux-install-${CLOJURE_VERSION
 # Install jupyter.
 RUN pip3 install jupyter
 
-# Create a new user to run commands as per the best practices listed here:
+# Create a new user to run commands as per the best practice.
 # https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#user
+# Use --no-log-init to work around the bug detailed there.
+
 RUN groupadd metaprob && \
-    useradd -m -g metaprob metaprob
+    useradd --no-log-init -m -g metaprob metaprob
 
 # Switch users early so files created by subsequent operations will be owned by the
 # runtime user. This also makes it so that commands will not be run as root.
