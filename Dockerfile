@@ -10,8 +10,8 @@ RUN sudo apt-get update -qq \
         curl \
         leiningen
 
-RUN curl -O https://download.clojure.org/install/linux-install-1.9.0.394.sh
-      && chmod +x linux-install-1.9.0.394.sh
+RUN curl -O https://download.clojure.org/install/linux-install-1.9.0.394.sh \
+      && chmod +x linux-install-1.9.0.394.sh \
       && ./linux-install-1.9.0.394.sh
 
 RUN clojure -e "(clojure-version)"
