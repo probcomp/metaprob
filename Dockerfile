@@ -5,23 +5,23 @@ RUN apt-get update -qq \
       && apt-get upgrade -qq \
       && apt-get install -qq -y \
         curl \
-        python-pip
+        python3-pip
 
 RUN curl -O https://download.clojure.org/install/linux-install-1.9.0.394.sh \
       && chmod +x linux-install-1.9.0.394.sh \
       && ./linux-install-1.9.0.394.sh
 
-RUN pip install jupyter
+RUN pip3 install jupyter
 
-RUN mkdir -p /usr/src/project
-WORKDIR /usr/src/project
+RUN groupadd metaprob && useradd -m -g metaprob metaprob
+RUN chown -R metaprob /home/metaprob
+USER metaprob
 
-COPY ./deps.edn /usr/src/project
-COPY ./project.clj /usr/src/project
-
+WORKDIR /home/metaprob
+COPY --chown=metaprob:metaprob ./deps.edn /home/metaprob
+COPY --chown=metaprob:metaprob ./project.clj /home/metaprob
 RUN lein deps
+
 RUN lein jupyter install-kernel
 
-COPY . /usr/src/project
-
-CMD lein jupyter lab
+COPY --chown=metaprob:metaprob . /home/metaprob

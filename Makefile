@@ -73,21 +73,16 @@ view: $(SAMPLES).png
 tags:
 	etags --language=lisp `find src -name "[a-z]*.clj"` `find test -name "[a-z]*.clj"`
 
-# Targets for manipulating Docker below. NB_UID must be set to the current user
-# for each of these because the base Docker image that we rely on requires it.
-# For more information refer to the Jupyter Docker Stacks documentation:
-# https://jupyter-docker-stacks.readthedocs.io/en/latest/using/common.html#docker-options
-
-NB_UID := $(shell id -u)
-
-.PHONY: docker-build
+# Targets for manipulating Docker below.
 docker-build:
-	@NB_UID=${NB_UID} docker build -t probcomp/metaprob-clojure:latest .
+	docker build -t probcomp/metaprob-clojure:latest .
+.PHONY: docker-build
 
-.PHONY: docker-test
 docker-test:
-	@NB_UID=${NB_UID} docker run probcomp/metaprob-clojure:latest bash -c "lein test && time lein run -m metaprob.examples.main test"
+	docker run probcomp/metaprob-clojure:latest bash -c "lein test && time lein run -m metaprob.examples.main test"
+.PHONY: docker-test
 
-.PHONY: docker-notebook
+
 docker-notebook:
-	@NB_UID=${NB_UID} docker-compose up
+	docker run --user metaprob probcomp/metaprob-clojure:latest bash -c "lein jupyter notebook --ip=127.0.0.1 --port=8080 --no-browser"
+.PHONY: docker-notebook
