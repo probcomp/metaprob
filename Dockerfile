@@ -11,8 +11,10 @@ RUN sudo apt-get update -qq \
         leiningen
 
 RUN curl -O https://download.clojure.org/install/linux-install-1.9.0.394.sh
-RUN chmod +x linux-install-1.9.0.394.sh
-RUN ./linux-install-1.9.0.394.sh
+      && chmod +x linux-install-1.9.0.394.sh
+      && ./linux-install-1.9.0.394.sh
+
+RUN clojure -e "(clojure-version)"
 
 # Switch off root now that we've installed everything
 USER $NB_USER
