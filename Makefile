@@ -81,13 +81,13 @@ tags:
 NB_UID := $(shell id -u)
 
 .PHONY: docker-build
-dbuild:
+docker-build:
 	@NB_UID=${NB_UID} docker build -t probcomp/metaprob-clojure .
 
 .PHONY: docker-test
-dtest:
+docker-test:
 	@NB_UID=${NB_UID} docker-compose run notebook bash -c "lein test && time lein run -m metaprob.examples.main test"
 
 .PHONY: docker-notebook
-dnotebook:
+docker-notebook:
 	@NB_UID=${NB_UID} docker-compose up
