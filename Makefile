@@ -82,9 +82,39 @@ docker-test:
 	docker run -t probcomp/metaprob-clojure:latest bash -c "lein test && time lein run -m metaprob.examples.main test"
 .PHONY: docker-test
 
+docker-bash:
+	docker run \
+		-it \
+		--mount type=bind,source=${HOME}/.m2,destination=/home/metaprob/.m2 \
+		--mount type=bind,source=${CURDIR},destination=/home/metaprob/projects/metaprob-clojure \
+		probcomp/metaprob-clojure:latest \
+		bash
+.PHONY: docker-cider
+
+docker-repl:
+	docker run \
+		-it \
+		--mount type=bind,source=${HOME}/.m2,destination=/home/metaprob/.m2 \
+		--mount type=bind,source=${CURDIR},destination=/home/metaprob/projects/metaprob-clojure \
+		probcomp/metaprob-clojure:latest \
+		bash -c "sleep 1;clj"
+# For more information on why this sleep is necessary see this pull request:
+# https://github.com/sflyr/docker-sqlplus/pull/2
+.PHONY: docker-repl
+
+docker-cider:
+	docker run \
+		--mount type=bind,source=${HOME}/.m2,destination=/home/metaprob/.m2 \
+		--mount type=bind,source=${CURDIR},destination=/home/metaprob/projects/metaprob-clojure \
+		--publish 9009:9009 \
+		probcomp/metaprob-clojure:latest \
+		bash -c "clojure -Acider bin/start_cider_nrepl.clj"
+.PHONY: docker-cider
+
 docker-notebook:
 	docker run \
 		-it \
+		--mount type=bind,source=${HOME}/.m2,destination=/home/metaprob/.m2 \
 		--mount type=bind,source=${CURDIR},destination=/home/metaprob/projects/metaprob-clojure \
 		--publish 8888:8888/tcp \
 		probcomp/metaprob-clojure:latest \

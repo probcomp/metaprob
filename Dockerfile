@@ -2,12 +2,13 @@
 # us from having to install Leiningen ourselves.
 FROM clojure:lein-2.8.1
 
-# Install curl so we can use it to download the Clojure command line tools, and
-# install pip so we can install jupyter.
+# Install curl so we can use it to download the Clojure command line tools,
+# install rlwrap so we can run clj, and install pip so we can install jupyter.
 RUN apt-get update -qq \
       && apt-get upgrade -qq \
       && apt-get install -qq -y \
         curl \
+        rlwrap \
         python3-pip
 
 # Install the Clojure command line tools. These instructions are taken directly
