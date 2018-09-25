@@ -8,4 +8,3 @@ before_install:
   - make dbuild
 script:
   - make dtest
-  - make
