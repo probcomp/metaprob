@@ -2,7 +2,7 @@ version: "2"
 
 services:
   notebook:
-    build: .
+    image: probcomp/metaprob-clojure:latest
     ports:
       - 8888:8888
     hostname: ${USER}-notebook
