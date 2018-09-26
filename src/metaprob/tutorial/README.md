@@ -2,7 +2,7 @@
 
 This directory contains a work-in-progress tutorial for Metaprob, in the file `Tutorial.ipynb`.
 
-To run it you will need to:
+To run it you will need to run the following commands from the root of this repository (in the same directory as `Makefile`):
 
 1. Ensure `docker` and `docker-compose` are installed. Can you run `docker version` and `docker-compose version`?
 2. Build the Docker image with `make docker-build`.
