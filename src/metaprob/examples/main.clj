@@ -61,8 +61,7 @@
 
    ["-p" "--prior" "Run the prior example"
     :default-fn (any-of :rejection :importance :mh)]
-   ["-H" "--help" "Display this help message"
-    :default-fn (none-of :rejection :importance :mh :quake :test :prior)]
+
    ["-s" "--samples SAMPLES" "Number of samples for all examples"
     :parse-fn parse-int
     :validate (greater-than 1)
@@ -83,7 +82,10 @@
    [nil "--mh-count COUNT" "Metropolis Hastings count"
     :default 20
     :parse-fn parse-int
-    :validate (greater-than 0)]])
+    :validate (greater-than 0)]
+
+   ["-H" "--help" "Display this help message"
+    :default-fn (none-of :rejection :importance :mh :quake :test :prior)]])
 
 (defn- print-help
   [summary]
