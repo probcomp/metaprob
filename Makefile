@@ -62,7 +62,7 @@ SAMPLES=results/samples_from_the_gaussian_demo_prior.samples
 
 $(SAMPLES):
 	mkdir -p results
-	time clojure -Aexamples --samples $(COUNT)
+	time clojure -Aexamples -a --samples $(COUNT)
 
 $(SAMPLES).png: $(SAMPLES)
 	for f in results/*.samples; do bin/gnuplot-hist $$f; done

@@ -24,25 +24,26 @@
          :overhead 0})))))
 
 (def cli-options
-  [["-a" "--all"        "Run all the examples"                :default false]
-   ["-r" "--rejection"  "Run the rejectionsampling example"   :default false]
-   ["-i" "--importance" "Run the importance sampling example" :default false]
-   ["-m" "--mh"         "Run the Metropolis Hastings example" :default false]
-   ["-q" "--quake"      "Run the earthquake bayes net example":default false]
-   ["-t" "--test"       "Run the long test example"           :default false]
+  [["-a" "--all"        "Run all the examples"                 :default    false]
+   ["-r" "--rejection"  "Run the rejectionsampling example"    :default-fn :all]
+   ["-i" "--importance" "Run the importance sampling example"  :default-fn :all]
+   ["-m" "--mh"         "Run the Metropolis Hastings example"  :default-fn :all]
+   ["-q" "--quake"      "Run the earthquake bayes net example" :default    false]
+   ["-t" "--test"       "Run the long test example"            :default    false]
 
    ["-s" "--samples SAMPLES" "Number of samples for all examples"
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(< 1 %) "Must be greater than 1"]
+    :default 5]
+
+   [nil "--gaussian-samples SAMPLES" "Number of gaussian samples"
+    ;; For a more serious test, try 100 (takes about an hour?)
+    :default-fn #(get % :samples 5)
     :parse-fn #(Integer/parseInt %)
     :validate [#(< 1 %) "Must be greater than 1"]]
 
    [nil "--quake-samples SAMPLES" "Number of quake samples"
-    :default 5
-    :parse-fn #(Integer/parseInt %)
-    :validate [#(< 1 %) "Must be greater than 1"]]
-
-   [nil "--gaussian-samples SAMPLES" "Number of gaussian samples"
-    ;; For a more serious test, try 100 (takes about an hour?)
-    :default 5
+    :default-fn #(get % :samples 5)
     :parse-fn #(Integer/parseInt %)
     :validate [#(< 1 %) "Must be greater than 1"]]
 
@@ -67,19 +68,14 @@
   (let [{:keys [options arguments summary] :as opts}
         (cli/parse-opts args cli-options)
 
-        {:keys [all
-                rejection importance mh quake test
-                samples quake-samples gaussian-samples particles mh-count
-                help]}
-        options
-
-        all
-        (or all (every? false? [rejection importance mh quake test]))]
-
+        {:keys [rejection importance mh quake test
+                quake-samples gaussian-samples particles mh-count
+                all help]}
+        options]
     (if help
       (println summary)
       #_
-      (do (clojure.pprint/pprint options))
+      (clojure.pprint/pprint opts)
       (do
         (when test
           (test/run-tests 'metaprob.examples.long-test))
@@ -88,33 +84,33 @@
           (print-header "Prior")
           (ginf/gaussian-histogram
            "samples from the gaussian demo prior"
-           (instrument ginf/gaussian-prior-samples (or samples gaussian-samples))))
+           (instrument ginf/gaussian-prior-samples gaussian-samples)))
 
-        (when (or all rejection)
+        (when rejection
           ;; Rejection sampling is very slow - 20 seconds per
           (print-header "Rejection")
           (ginf/gaussian-histogram
            "samples from the gaussian demo target"
            (instrument ginf/rejection-assay gaussian-samples)))
 
-        (when (or all importance)
+        (when importance
           ;; Importance sampling is very fast
           (print-header "Importance")
           (ginf/gaussian-histogram
            (format "importance sampling gaussian demo with %s particles" particles)
-           (instrument ginf/importance-assay particles (or samples gaussian-samples))))
+           (instrument ginf/importance-assay particles gaussian-samples)))
 
-        (when (or all mh)
+        (when mh
           ;; MH is fast
           (print-header "Metropolis Hastings")
           (ginf/gaussian-histogram
            (format "samples from gaussian demo lightweight single-site MH with %s iterations"
                    mh-count)
-           (instrument ginf/MH-assay mh-count (or samples gaussian-samples))))
+           (instrument ginf/MH-assay mh-count gaussian-samples)))
 
         (when quake
           (print-header "Earthquake Bayesnet")
           ;; (quake/demo-earthquake) - doesn't work yet
           (quake/earthquake-histogram
            "bayesnet samples from rejection sampling"
-           (quake/eq-rejection-assay (or samples quake-samples))))))))
+           (quake/eq-rejection-assay quake-samples)))))))
