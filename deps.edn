@@ -1,3 +1,8 @@
 {:deps
  {org.clojure/clojure {:mvn/version "1.9.0"}
-  kixi/stats {:mvn/version "0.4.0"}}}
+  kixi/stats {:mvn/version "0.4.0"}}
+ :aliases
+ {:examples {:extra-paths ["examples/src"]
+             :extra-deps {org.clojure/tools.cli {:mvn/version "0.4.1"}}
+             :jvm-opts ["-Xss50M"]
+             :main-opts ["-m" "metaprob.examples.main"]}}}
