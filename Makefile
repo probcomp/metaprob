@@ -19,8 +19,8 @@ bin/lein:
 
 # Incudes long-running tests
 test:
-	clj -Atest
-	time clj -Atest -d src -n metaprob.examples.main
+	clojure -Atest
+	time clojure -Atest -d src -n metaprob.examples.long-test
 .PHONY: test
 
 # Create directory of .trace files from .vnts files.

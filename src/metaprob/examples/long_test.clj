@@ -10,7 +10,7 @@
             [metaprob.builtin-impl :as impl]))
 
 ;; These tests are smoke tests, not real tests of the methods - the
-;; real tests take too long and make `clj -Atest` take too long.
+;; real tests take too long and make `clojure -Atest` take too long.
 ;; For method tests, we use a longer-running procedure.
 
 ;; VKM requested 1000 samples on 2018-07-06.

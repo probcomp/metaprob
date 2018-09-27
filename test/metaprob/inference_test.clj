@@ -9,13 +9,12 @@
             [metaprob.examples.inference-on-gaussian :refer :all]
             [metaprob.builtin-impl :as impl]))
 
-;; These tests are smoke tests, not real tests of the methods - we
-;; don't expect to get meaningful results with only 16 samples.  The
-;; real tests take too long for `clj -Atest` which I would like to be
-;; fast (so it can be run frequently).
+;; These tests are smoke tests, not real tests of the methods - we don't expect
+;; to get meaningful results with only 16 samples. The real tests take too long
+;; for `clojure -Atest` which I would like to be fast (so it can be run
+;; frequently).
 ;;
-;; For actual method tests, we use a longer-running procedure (see
-;; long_test.clj).
+;; For actual method tests, we use a longer-running procedure (see long_test.clj).
 
 (def small-nsamples 24)
 (def small-nbins 4)
