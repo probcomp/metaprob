@@ -98,7 +98,7 @@
 
 (defn -main [& args]
   (.mkdir (File. "results"))
-  (let [{:keys [options arguments summary]}
+  (let [{:keys [options summary]}
         (cli/parse-opts args cli-options)
 
         {:keys [rejection importance mh quake test prior
