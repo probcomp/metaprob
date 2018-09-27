@@ -37,8 +37,7 @@
   option. Returns a validation setting that enforces that the parsed value be
   greater than `n`."
   [n]
-  [#(< 1 n)
-   (format "Must be greater than %d" n)])
+  [#(< 1 n) (format "Must be greater than %d" n)])
 
 (def any-of
   "Returns a function to be used with `clojure.tools.cli/parse-opts`'s
@@ -99,39 +98,35 @@
 (defn -main [& args]
   (.mkdir (File. "results"))
   (let [{:keys [options summary]}
-        (cli/parse-opts args cli-options)
-
-        {:keys [rejection importance mh quake test prior
-                quake-samples gaussian-samples particles mh-count
-                all help]}
-        options]
-    (if help
+        (cli/parse-opts args cli-options)]
+    (if (:help options)
       (print-help summary)
-      (do
-        (when test
+      (let [{:keys [mh-count particles samples gaussian-samples quake-samples]}
+            options]
+        (when (:test options)
           (test/run-tests 'metaprob.examples.long-test))
 
-        (when prior
+        (when (:prior options)
           (print-header "Prior")
           (ginf/gaussian-histogram
            "samples from the gaussian demo prior"
            (instrument ginf/gaussian-prior-samples gaussian-samples)))
 
-        (when rejection
+        (when (:rejection options)
           ;; Rejection sampling is very slow - 20 seconds per
           (print-header "Rejection")
           (ginf/gaussian-histogram
            "samples from the gaussian demo target"
            (instrument ginf/rejection-assay gaussian-samples)))
 
-        (when importance
+        (when (:importance options)
           ;; Importance sampling is very fast
           (print-header "Importance")
           (ginf/gaussian-histogram
            (format "importance sampling gaussian demo with %s particles" particles)
            (instrument ginf/importance-assay particles gaussian-samples)))
 
-        (when mh
+        (when (:mh options)
           ;; MH is fast
           (print-header "Metropolis Hastings")
           (ginf/gaussian-histogram
@@ -139,7 +134,7 @@
                    mh-count)
            (instrument ginf/MH-assay mh-count gaussian-samples)))
 
-        (when quake
+        (when (:quake options)
           (print-header "Earthquake Bayesnet")
           ;; (quake/demo-earthquake) - doesn't work yet
           (quake/earthquake-histogram
