@@ -38,12 +38,12 @@
 
    [nil "--gaussian-samples SAMPLES" "Number of gaussian samples"
     ;; For a more serious test, try 100 (takes about an hour?)
-    :default-fn #(get % :samples 5)
+    :default-fn :samples
     :parse-fn #(Integer/parseInt %)
     :validate [#(< 1 %) "Must be greater than 1"]]
 
    [nil "--quake-samples SAMPLES" "Number of quake samples"
-    :default-fn #(get % :samples 5)
+    :default-fn :samples
     :parse-fn #(Integer/parseInt %)
     :validate [#(< 1 %) "Must be greater than 1"]]
 
@@ -74,8 +74,6 @@
         options]
     (if help
       (println summary)
-      #_
-      (clojure.pprint/pprint opts)
       (do
         (when test
           (test/run-tests 'metaprob.examples.long-test))
