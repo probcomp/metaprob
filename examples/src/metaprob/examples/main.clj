@@ -81,7 +81,7 @@
       #_
       (do (clojure.pprint/pprint options))
       (do
-        (when (or all test)
+        (when test
           (test/run-tests 'metaprob.examples.long-test))
 
         (when (some true? [all rejection importance mh])
@@ -101,7 +101,7 @@
           ;; Importance sampling is very fast
           (print-header "Importance")
           (ginf/gaussian-histogram
-           (println (format "importance sampling gaussian demo with %s particles" particles))
+           (format "importance sampling gaussian demo with %s particles" particles)
            (instrument ginf/importance-assay particles (or samples gaussian-samples))))
 
         (when (or all mh)
@@ -112,7 +112,7 @@
                    mh-count)
            (instrument ginf/MH-assay mh-count (or samples gaussian-samples))))
 
-        (when (or all quake)
+        (when quake
           (print-header "Earthquake Bayesnet")
           ;; (quake/demo-earthquake) - doesn't work yet
           (quake/earthquake-histogram
