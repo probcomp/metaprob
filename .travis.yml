@@ -6,5 +6,4 @@ before_install:
   - sudo ./linux-install-1.9.0.394.sh
 
 script:
-  - clj -Atest
-  - clj -Atest -d src -n metaprob.examples.main
+  - make test
