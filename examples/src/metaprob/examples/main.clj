@@ -25,7 +25,7 @@
 
 (def cli-options
   [["-a" "--all"        "Run all the examples"                 :default    false]
-   ["-r" "--rejection"  "Run the rejectionsampling example"    :default-fn :all]
+   ["-r" "--rejection"  "Run the rejection sampling example"   :default-fn :all]
    ["-i" "--importance" "Run the importance sampling example"  :default-fn :all]
    ["-m" "--mh"         "Run the Metropolis Hastings example"  :default-fn :all]
    ["-q" "--quake"      "Run the earthquake bayes net example" :default    false]
@@ -57,7 +57,14 @@
     :parse-fn #(Integer/parseInt %)
     :validate [#(< 0 %) "Must be positive"]]
 
-   ["-h" "--help" nil]])
+   ["-h" "--help" nil
+    :default-fn (complement (some-fn :rejection :importance :mh :quake :test))]])
+
+(defn print-help
+  [summary]
+  (println "Run Metaprob examples")
+  (println)
+  (println summary))
 
 (defn print-header
   [header]
@@ -73,12 +80,12 @@
                 all help]}
         options]
     (if help
-      (println summary)
+      (print-help summary)
       (do
         (when test
           (test/run-tests 'metaprob.examples.long-test))
 
-        (when (some true? [all rejection importance mh])
+        (when (some true? [rejection importance mh])
           (print-header "Prior")
           (ginf/gaussian-histogram
            "samples from the gaussian demo prior"
