@@ -8,7 +8,11 @@
 
 ;; The file from which this one was derived is ../main.clj
 
-(def s-to-ns (* 1000 1000 1000)) ; in ns
+(defn s-to-ns
+  "Takes a number of seconds `n` and returns the equivalent number of
+  nanoseconds."
+  [n]
+  (* n 1000 1000 1000))
 
 (defn- instrument [fun & args]
   (flush)
@@ -20,12 +24,33 @@
         #(apply fun args)
         {:warmup-jit-period 0
          :samples 1
-         :target-execution-time (* 10 s-to-ns)
+         :target-execution-time (s-to-ns 10)
          :overhead 0})))))
 
-(defn- parse-int [x] (Integer/parseInt x))
+(defn- parse-int
+  "Parse an integer from a string."
+  [x]
+  (Integer/parseInt x))
 
-(defn- greater-than [n] [#(< 1 n) (format "Must be greater than %d" n)])
+(defn- greater-than
+  "Returns a function to be used with `clojure.tools.cli/parse-opts`'s `:validate`
+  option. Returns a validation setting that enforces that the parsed value be
+  greater than `n`."
+  [n]
+  [#(< 1 n)
+   (format "Must be greater than %d" n)])
+
+(def any-of
+  "Returns a function to be used with `clojure.tools.cli/parse-opts`'s
+  `:default-fn` option. If any of the options passed to `any-of` are true then
+  the default will be true."
+  some-fn)
+
+(def none-of
+  "Returns a function to be used with `clojure.tools.cli/parse-opts`'s
+  `:default-fn` option. If none of the options passed to `any-of` are true then
+  the default will be true."
+  (comp complement any-of))
 
 (def cli-options
   [["-a" "--all"        "Run all the examples"                 :default    false]
@@ -34,6 +59,11 @@
    ["-m" "--mh"         "Run the Metropolis Hastings example"  :default-fn :all]
    ["-q" "--quake"      "Run the earthquake bayes net example" :default    false]
    ["-t" "--test"       "Run the long test example"            :default    false]
+
+   ["-p" "--prior" "Run the prior example"
+    :default-fn (any-of :rejection :importance :mh)]
+   ["-H" "--help" "Display this help message"
+    :default-fn (none-of :rejection :importance :mh :quake :test :prior)]
    ["-s" "--samples SAMPLES" "Number of samples for all examples"
     :parse-fn parse-int
     :validate (greater-than 1)
@@ -54,9 +84,7 @@
    [nil "--mh-count COUNT" "Metropolis Hastings count"
     :default 20
     :parse-fn parse-int
-    :validate (greater-than 0)]
-   ["-H" "--help" "Display this help message"
-    :default-fn (complement (some-fn :rejection :importance :mh :quake :test))]])
+    :validate (greater-than 0)]])
 
 (defn- print-help
   [summary]
@@ -70,10 +98,10 @@
 
 (defn -main [& args]
   (.mkdir (File. "results"))
-  (let [{:keys [options arguments summary] :as opts}
+  (let [{:keys [options arguments summary]}
         (cli/parse-opts args cli-options)
 
-        {:keys [rejection importance mh quake test
+        {:keys [rejection importance mh quake test prior
                 quake-samples gaussian-samples particles mh-count
                 all help]}
         options]
@@ -83,7 +111,7 @@
         (when test
           (test/run-tests 'metaprob.examples.long-test))
 
-        (when (some true? [rejection importance mh])
+        (when prior
           (print-header "Prior")
           (ginf/gaussian-histogram
            "samples from the gaussian demo prior"
