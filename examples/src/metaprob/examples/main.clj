@@ -10,7 +10,7 @@
 
 (def s-to-ns (* 1000 1000 1000)) ; in ns
 
-(defn instrument [fun & args]
+(defn- instrument [fun & args]
   (flush)
   (if true
     (apply fun args)
@@ -23,6 +23,10 @@
          :target-execution-time (* 10 s-to-ns)
          :overhead 0})))))
 
+(defn- parse-int [x] (Integer/parseInt x))
+
+(defn- greater-than [n] [#(< 1 n) (format "Must be greater than %d" n)])
+
 (def cli-options
   [["-a" "--all"        "Run all the examples"                 :default    false]
    ["-r" "--rejection"  "Run the rejection sampling example"   :default-fn :all]
@@ -30,40 +34,34 @@
    ["-m" "--mh"         "Run the Metropolis Hastings example"  :default-fn :all]
    ["-q" "--quake"      "Run the earthquake bayes net example" :default    false]
    ["-t" "--test"       "Run the long test example"            :default    false]
-
    ["-s" "--samples SAMPLES" "Number of samples for all examples"
-    :parse-fn #(Integer/parseInt %)
-    :validate [#(< 1 %) "Must be greater than 1"]
+    :parse-fn parse-int
+    :validate (greater-than 1)
     :default 5]
-
    [nil "--gaussian-samples SAMPLES" "Number of gaussian samples"
     ;; For a more serious test, try 100 (takes about an hour?)
     :default-fn :samples
-    :parse-fn #(Integer/parseInt %)
-    :validate [#(< 1 %) "Must be greater than 1"]]
-
+    :parse-fn parse-int
+    :validate (greater-than 1)]
    [nil "--quake-samples SAMPLES" "Number of quake samples"
     :default-fn :samples
-    :parse-fn #(Integer/parseInt %)
-    :validate [#(< 1 %) "Must be greater than 1"]]
-
+    :parse-fn parse-int
+    :validate (greater-than 1)]
    [nil "--particles PARTICLES" "Number of particles"
     :default 20
-    :parse-fn #(Integer/parseInt %)
-    :validate [#(< 0 %) "Must be positive"]]
-
+    :parse-fn parse-int
+    :validate (greater-than 0)]
    [nil "--mh-count COUNT" "Metropolis Hastings count"
     :default 20
-    :parse-fn #(Integer/parseInt %)
-    :validate [#(< 0 %) "Must be positive"]]
-
-   ["-h" "--help" nil
+    :parse-fn parse-int
+    :validate (greater-than 0)]
+   ["-H" "--help" "Display this help message"
     :default-fn (complement (some-fn :rejection :importance :mh :quake :test))]])
 
-(defn print-help
+(defn- print-help
   [summary]
-  (println "Run Metaprob examples")
-  (println)
+  (println "\nUSAGE:\n")
+  (println "clojure -m" (namespace `print-help) "<options>\n")
   (println summary))
 
 (defn print-header
