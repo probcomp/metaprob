@@ -24,7 +24,7 @@
   (:require [metaprob.examples.earthquake :refer :all])
   (:require [metaprob.examples.inference-on-gaussian :refer :all])
   ;; The following would simplify startup a bit but I'm getting
-  ;; an error in `lein test`
+  ;; an error in `clj -Atest`
   ;; (:require [clojure.tools.namespace.repl :refer [refresh]])
   )
 

@@ -10,7 +10,7 @@
             [metaprob.builtin-impl :as impl]))
 
 ;; These tests are smoke tests, not real tests of the methods - the
-;; real tests take too long and make 'lein test' take too long.
+;; real tests take too long and make `clj -Atest` take too long.
 ;; For method tests, we use a longer-running procedure.
 
 ;; VKM requested 1000 samples on 2018-07-06.
@@ -50,7 +50,7 @@
 
 (deftest check-prior
   (testing "check sampling from gaussian prior"
-    (let [sampler (fn [i] 
+    (let [sampler (fn [i]
                     (tell-travis "Prior")
                     (gaussian 0 1))
           pdf prior-density]
@@ -58,7 +58,7 @@
 
 (deftest check-prior-failure
   (testing "check sampling from 'wrong' gaussian prior"
-    (let [sampler (fn [i] 
+    (let [sampler (fn [i]
                     (tell-travis "Wrong prior")
                     (gaussian 0.5 1.2)) ;wrong gaussian!!
           pdf prior-density]
@@ -69,10 +69,10 @@
     (let [n-particles 20
           sampler (fn [i]
                     (tell-travis "Rejection")
-                    (gaussian-sample-value 
-                     (rejection-sampling two-variable-gaussian-model  ; :model-procedure 
-                                         []  ; :inputs 
-                                         target-trace  ; :target-trace 
+                    (gaussian-sample-value
+                     (rejection-sampling two-variable-gaussian-model  ; :model-procedure
+                                         []  ; :inputs
+                                         target-trace  ; :target-trace
                                          0.5)))
           pdf target-density]
       (is (assay "r" sampler nsamples pdf nbins threshold)))))

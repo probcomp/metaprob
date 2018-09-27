@@ -11,7 +11,7 @@
 
 ;; These tests are smoke tests, not real tests of the methods - we
 ;; don't expect to get meaningful results with only 16 samples.  The
-;; real tests take too long for 'lein test' which I would like to be
+;; real tests take too long for `clj -Atest` which I would like to be
 ;; fast (so it can be run frequently).
 ;;
 ;; For actual method tests, we use a longer-running procedure (see
@@ -36,16 +36,16 @@
     (let [sampler (fn [i] (gaussian 0 1))
           pdf prior-density]
       (is (assay "p" sampler small-nsamples pdf small-nbins weak-threshold)))))
-      
+
 ;; Inference methods
 
 (deftest check-rejection
   (testing "check rejection sampling"
     (let [sampler (fn [i]
                     (gaussian-sample-value
-                     (rejection-sampling two-variable-gaussian-model  ; :model-procedure 
-                                         []  ; :inputs 
-                                         target-trace  ; :target-trace 
+                     (rejection-sampling two-variable-gaussian-model  ; :model-procedure
+                                         []  ; :inputs
+                                         target-trace  ; :target-trace
                                          0.5)))
           pdf target-density]
       (is (assay "r" sampler small-nsamples pdf small-nbins weak-threshold)))))
@@ -73,4 +73,3 @@
                                                           steps-per-sample)))
           pdf target-density]
       (is (assay "m" sampler small-nsamples pdf small-nbins weak-threshold)))))
-

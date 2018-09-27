@@ -19,9 +19,8 @@ bin/lein:
 
 # Incudes long-running tests
 test:
-	bin/lein test
-	time bin/lein run -m metaprob.examples.main test
-# 'test' is a directory name
+	clj -Atest
+	time clj -Atest -d src -n metaprob.examples.main
 .PHONY: test
 
 # Create directory of .trace files from .vnts files.

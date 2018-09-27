@@ -67,9 +67,6 @@
 
       (print (format "dict=%s\n" dict))
 
-      (when (get dict :test)
-        (run-tests 'metaprob.examples.long-test))
-
       (let [quake-number-of-samples (or (get dict :count)
                                         quake-number-of-samples)]
         (when (get dict :quake)
@@ -90,7 +87,7 @@
           ;; Rejection sampling is very slow - 20 seconds per
           (print "---- Rejection ----\n")
           (ginf/gaussian-histogram
-           "samples from the gaussian demo target"   
+           "samples from the gaussian demo target"
            (instrument ginf/rejection-assay gaussian-number-of-samples)))
 
         (when (get dict :importance)

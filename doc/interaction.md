@@ -231,11 +231,11 @@ Single module test: the two `require`s above, plus:
 
 Or, from the shell: Run tests for all modules in the project:
 
-    lein test
+    clj -Atest
 
 Single module test:
 
-    lein test metaprob.trace-test
+    clj -Atest -n metaprob.trace-test
 
 Don't forget the `-test` in the module names, and `_test` in the file
 names!  I have spent a lot of time being confused, first because I
@@ -243,7 +243,7 @@ hadn't realized the `-test` was needed, and later because I just
 forgot it.  No error is reported when you get this wrong.
 
 I like for tests that reside in the test system to run quickly so that
-I can run `lein test` frequently and not have to wait a long time.
+I can run `clj -Atest` frequently and not have to wait a long time.
 It's good to run all the tests frequently, and if this were a slow
 operation I would be put off, and would run them less often.
 
