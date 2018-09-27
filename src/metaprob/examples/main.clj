@@ -8,7 +8,7 @@
 
 ;; The file from which this one was derived is ../main.clj
 
-(defn s-to-ns
+(defn- s-to-ns
   "Takes a number of seconds `n` and returns the equivalent number of
   nanoseconds."
   [n]
@@ -93,7 +93,7 @@
   (println "clojure -m" (namespace `print-help) "<options>\n")
   (println summary))
 
-(defn print-header
+(defn- print-header
   [header]
   (println (format "---- %s ----" header)))
 
