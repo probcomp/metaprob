@@ -97,7 +97,11 @@
   [header]
   (println (format "---- %s ----" header)))
 
-(defn -main [& args]
+(defn -main
+  "Runs examples and outputs samples and commands to `results/`. For a list of
+  available options and their defaults see `clojure.tools.cli/parse-opts` and
+  `cli-options`."
+  [& args]
   (.mkdir (File. "results"))
   (let [{:keys [options summary]}
         (cli/parse-opts args cli-options)]
