@@ -1,5 +1,5 @@
 language: clojure
-lein: lein
+
 before_install:
   # The clojure Travis language does not yet include the Clojure CLI tools so we
   # install them per the instructions here:
@@ -7,9 +7,10 @@ before_install:
   - curl -O https://download.clojure.org/install/linux-install-1.9.0.394.sh
   - chmod +x linux-install-1.9.0.394.sh
   - sudo ./linux-install-1.9.0.394.sh
+
 script:
-  - lein test
-  - lein run -m metaprob.examples.main test
+  - make test
+
 notifications:
   # Notification options are documented here:
   # https://docs.travis-ci.com/user/notifications/#configuring-slack-notifications
