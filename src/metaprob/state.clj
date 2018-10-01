@@ -17,6 +17,10 @@
       (vector? val)
       (map? val)))
 
+(defn empty-state? [state]
+  (and (state? state)
+       (empty? state)))
+
 ;; Basic trace operations
 
 (defn has-value? [state]
@@ -62,6 +66,8 @@
             ["no such subtrace" key state])
     val))
 
+;; Returns a seq of keys (without the :value marker)
+
 (defn state-keys [state]
   (if steady?
     (keys-sans-value (state-to-map state))
@@ -89,8 +95,7 @@
 
 ;; Constructors
 
-(defn empty-state []
-  '())
+(defn empty-state [] {})    ; 'lein test' passes with () and [] here as well
 
 (defn set-value [state val]
   (map-to-state (assoc (state-to-map state) :value val)))
@@ -99,9 +104,6 @@
   (map-to-state (dissoc (state-to-map state) :value)))
 
 (defn set-subtrace [state key sub]
-  ;; sub is a trace but not necessarily a sub
-  ;(if (= sub '())
-  ;  state
   (map-to-state (assoc (state-to-map state) key sub)))
 
 (defn clear-subtrace [state key]
@@ -132,9 +134,14 @@
        (= (count tr) 1)
        (contains? tr :value)))
 
-;; Convert hash-map to heterogeneous canonical clojure form
+;; Convert hash-map to heterogeneous canonical clojure form.
+
+;; I'm sorry I failed to record the reason that the 'don't be lazy'
+;; command is there; there must have been a failure at some point that
+;; I attributed to laziness in these maps.
 
 (defn map-to-state [m]
+  (doseq [entry m] true)    ;Don't be lazy!
   (let [n (count m)]
     (cond (and (= n 2)
                (not (= (get m :value :no-value) :no-value))
