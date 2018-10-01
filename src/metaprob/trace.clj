@@ -30,8 +30,7 @@
 (defn ok-key? [val]
   (or (number? val)
       (string? val)
-      (boolean? val)
-      (nil? val)))      ; needed?
+      (boolean? val)))
 
 ;; Generic traces and their subtypes
 
@@ -59,6 +58,7 @@
   (or (ok-key? val)
       (trace? val)
       (keyword? val)
+      (= val nil)
       (top-level-environment? val)
       (proper-function? val)))
 
@@ -126,7 +126,7 @@
 ;;    generative / inference
 ;; The compiled+generative variety has two representations:
 ;;   1. as a clojure 'function' (these are *not* traces), or
-;;   2. as a clojure function associated with a trace (these *are* treated 
+;;   2. as a clojure function associated with a trace (these *are* treated
 ;;      as traces).
 ;; The other three kinds have only representation #2.
 
@@ -199,7 +199,7 @@
         (recur (trace-direct-subtrace tr (first adr))
                (rest adr))))
     (trace-direct-subtrace tr adr)))
-    
+
 (defn trace-has?                        ;Does it have a value?
   ([tr] (trace-has-value? tr))
   ([tr adr]
@@ -493,7 +493,7 @@
 (defn trace-merge!-maybe [mutable tr]
   (if (mutable-trace? mutable)
     (do (trace-swap! mutable
-                     (fn [s1] 
+                     (fn [s1]
                        (trace-merge s1 tr trace-merge!-maybe)))
         mutable)
     (trace-merge mutable tr trace-merge!-maybe)))
@@ -775,4 +775,3 @@
    (pprint-indented x "" out)
    (metaprob-newline out)
    (.flush out)))
-

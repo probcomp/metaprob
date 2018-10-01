@@ -17,6 +17,10 @@
       (vector? val)
       (map? val)))
 
+(defn empty-state? [state]
+  (and (state? state)
+       (empty? state)))
+
 ;; Basic trace operations
 
 (defn has-value? [state]
@@ -62,6 +66,8 @@
             ["no such subtrace" key state])
     val))
 
+;; Returns a seq of keys (without the :value marker)
+
 (defn state-keys [state]
   (if steady?
     (keys-sans-value (state-to-map state))
@@ -89,8 +95,7 @@
 
 ;; Constructors
 
-(defn empty-state []
-  '())
+(defn empty-state [] {})    ; 'lein test' passes with () and [] here as well
 
 (defn set-value [state val]
   (map-to-state (assoc (state-to-map state) :value val)))
@@ -99,9 +104,6 @@
   (map-to-state (dissoc (state-to-map state) :value)))
 
 (defn set-subtrace [state key sub]
-  ;; sub is a trace but not necessarily a sub
-  ;(if (= sub '())
-  ;  state
   (map-to-state (assoc (state-to-map state) key sub)))
 
 (defn clear-subtrace [state key]
@@ -132,21 +134,32 @@
        (= (count tr) 1)
        (contains? tr :value)))
 
-;; Convert hash-map to heterogeneous canonical clojure form
+;; Convert hash-map to heterogeneous canonical clojure form.
+
+;; I'm sorry I failed to record the reason that the 'don't be lazy'
+;; command is there; there must have been a failure at some point that
+;; I attributed to laziness in these maps.
 
 (defn map-to-state [m]
+  (doseq [entry m] true)    ;Don't be lazy!
   (let [n (count m)]
-    (cond (and (= n 2)
-               (contains? m :value)
-               (seq? (get m rest-marker)))
-          (cons (get m :value)
-                (get m rest-marker))
-
-          (zero? n) '()                   ;Kludge to ensure seq-ness
-
-          (every? (fn [n] (value-only-trace? (get m n :no-value))) (range n))
-          (vec (for [i (range n)] (get (get m i) :value)))
-
-          true (do (assert (map? m) ["expected a map" m])
-                   (doseq [entry m] true)    ;Don't be lazy!
-                   m))))
+    (if (zero? n)
+      (empty-state)
+      (let [value (get m :value :no-value)]
+        (if (= value :no-value)
+          ;; Has no value: could be a vector.
+          (if (every? (fn [i] (value-only-trace? (get m i)))
+                      (range n))
+            (vec (for [i (range n)] (get (get m i) :value)))
+            m)
+          ;; Has value: could be a seq / list.
+          (if (= n 2)
+            (let [rest (get m rest-marker :no-value)]
+              (if (= rest :no-value)
+                m                 ;No "rest", so just an ordinary dict
+                (if (empty-state? rest)
+                  (cons value '())    ;Allow termination in () [] or {}
+                  (if (seq? rest)
+                    (cons value rest)
+                    m))))
+            m))))))

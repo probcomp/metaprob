@@ -19,9 +19,8 @@ bin/lein:
 
 # Incudes long-running tests
 test:
-	bin/lein test
-	time bin/lein run -m metaprob.examples.main test
-# 'test' is a directory name
+	clojure -Atest
+	time clojure -Atest -d src -n metaprob.examples.long-test
 .PHONY: test
 
 # Create directory of .trace files from .vnts files.
@@ -62,7 +61,7 @@ SAMPLES=results/samples_from_the_gaussian_demo_prior.samples
 
 $(SAMPLES):
 	mkdir -p results
-	time bin/lein run -m metaprob.examples.main $(COUNT)
+	time clojure -Aexamples -a --samples $(COUNT)
 
 $(SAMPLES).png: $(SAMPLES)
 	for f in results/*.samples; do bin/gnuplot-hist $$f; done
