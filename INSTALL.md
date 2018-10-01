@@ -25,7 +25,28 @@ Use `https` if the above method (ssh) doesn't work:
     git clone https://github.com/probcomp/metaprob-clojure.git
     cd metaprob-clojure
 
-## Install Leiningen and Clojure
+## Install the Clojure command line tools and Leiningen
+
+To use Metaprob and run the tutorials you will need to install both the Clojure
+command line tools and Leiningen. It is not necessary to separately install
+Clojure, because it will be retrieved as-needed by these tools. Metaprob
+requires Clojure 1.9 or later.
+
+### MacOS
+
+On MacOS we recommend you first [install Homewbrew](https://brew.sh/) and then
+use it to install both the Clojure command line tools and Leiningen like so:
+
+1. `brew update`
+2. `brew upgrade`
+3. `brew install clojure`
+4. `brew install leiningen`
+
+### Linux
+
+To install the Clojure command line tools follow the instructions for your
+system in the [Clojure getting started
+guide](https://clojure.org/guides/getting_started#_clojure_installer_and_cli_tools).
 
 For a quick Leiningen installation, just do `make`:
 
@@ -46,9 +67,6 @@ The `make` that you run for this purpose also creates a file
 `.lein_classpath`, which is used to speed up Java invocation in some
 cases.
 
-If Leiningen is installed, it is not necessary to separately install
-Clojure, because Leiningen will install it.  If you are not using
-Leiningen, be sure you are running Clojure 1.9 or later.
 
 ## Emacs setup
 
