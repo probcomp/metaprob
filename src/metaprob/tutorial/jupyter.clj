@@ -12,7 +12,12 @@
 
 (defn trace-as-json
   [tr]
-  (let [base (if (builtin/trace-has? tr) {:value (pr-str (builtin/trace-get tr))} {})
+  (let [base (if (builtin/trace-has? tr)
+               (let [v (builtin/trace-get tr)]
+                 {:value (if (float? v)
+                           (format "%f" v)
+                           (pr-str v))})
+               {})
         children (for [key (builtin/trace-keys tr)]
                    (into (trace-as-json (builtin/trace-subtrace tr key)) [[:name (pr-str key)]]))]
     (into base [[:children (vec children)]])))
