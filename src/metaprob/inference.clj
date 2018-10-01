@@ -18,8 +18,7 @@
       (infer :procedure model-procedure
              :inputs inputs
              :intervention-trace (empty-trace)
-             :target-trace       target-trace
-             :output-trace?      true))
+             :target-trace       target-trace))
     (if (lt (log (uniform 0 1)) (sub score log-bound))
       candidate-trace
       (rejection-sampling
@@ -121,6 +120,62 @@
                                    new-addr
                                    (trace-get new-trace new-addr)))))
 	(trace-set! trace target-address initial-value))))
+
+
+(define immutable-single-site-metropolis-hastings-step
+  (gen [model-procedure inputs trace constraint-addresses]
+
+    ;; choose an address to modify, uniformly at random
+
+    (define choice-addresses (addresses-of trace))
+    (define candidates (set-difference choice-addresses constraint-addresses))
+    (define target-address (uniform-sample candidates))
+
+    ;; generate a proposal trace
+
+    (define initial-value (trace-get trace target-address))
+    (define initial-num-choices (length candidates))
+    (define new-target (trace-delete trace target-address))
+
+    (define [_ new-trace forward-score]
+      (infer :procedure model-procedure
+             :inputs inputs
+             :intervention-trace nil
+             :target-trace new-target))
+    (define new-value (trace-get new-trace target-address))
+
+    ;; the proposal is to move from trace to new-trace
+    ;; now calculate the Metropolis-Hastings acceptance ratio
+
+    (define new-choice-addresses (addresses-of new-trace))
+    (define new-candidates (set-difference new-choice-addresses constraint-addresses))
+    (define new-num-choices (length new-candidates))
+
+    ;; make a trace that can be used to restore the original trace
+    (define restoring-trace
+      (trace-set
+        (clojure.core/reduce
+          (gen [so-far next-adr] (trace-set so-far next-adr (trace-get trace next-adr)))
+          (empty-trace)
+          (to-immutable-list (set-difference choice-addresses new-choice-addresses)))
+        target-address initial-value))
+
+    ;; remove the new value
+    (define new-target-rev (trace-delete new-trace target-address))
+
+    (define [_ _ reverse-score]
+      (infer :procedure model-procedure
+             :inputs   inputs
+             :intervention-trace restoring-trace
+             :target-trace new-target-rev
+             :output-trace? false))
+
+    (define log-acceptance-probability (sub (add forward-score (log new-num-choices))
+                                            (add reverse-score (log initial-num-choices))))
+    (if (lt (log (uniform 0 1)) log-acceptance-probability)
+      new-trace
+      trace)))
+
 
 ;; Should return [output-trace value] ...
 

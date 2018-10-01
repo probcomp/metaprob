@@ -1,12 +1,6 @@
 (defproject metaprob "0.1.0-SNAPSHOT"
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
-  :license {:name "GNU General Public License Version 3, 29 June 2007"
-            :url "http://www.gnu.org/licenses/"}
-  ;; Default stack size is 1MB or less, increase to 50
-  :jvm-opts ["-Xss50M"]
-  :dependencies [[org.clojure/clojure "1.9.0"]
-                 [kixi/stats "0.4.0"]
-                 [criterium "0.4.4"]]
-  ;; :aot [metaprob.basic-trace]
-  )
+  :jvm-opts ["-Xss50M"] ; Default stack size is 1MB or less, increase to 50
+  :plugins [[lein-tools-deps "0.4.1"]
+            [lein-jupyter "0.1.16"]]
+  :middleware [lein-tools-deps.plugin/resolve-dependencies-with-deps-edn]
+  :lein-tools-deps/config {:config-files [:install :user :project]})
