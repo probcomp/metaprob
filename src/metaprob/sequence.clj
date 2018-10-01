@@ -1,6 +1,7 @@
 
 (ns metaprob.sequence
   (:require [metaprob.trace :refer :all])
+  (:require [metaprob.state :refer [empty-state?]])
   (:require [clojure.set :as set]))
 
 ;; ----------------------------------------------------------------------------
@@ -52,8 +53,8 @@
 (defn tuple? [x]
   (and (trace? x)
        (let [state (trace-state x)]
-         ;; [] always ends up getting represented as ()
-         (or (empty? state) (vector? state)))))
+         ;; [] can end up getting represented as () or {}
+         (or (vector? state) (empty-state? state)))))
 
 ;; sequence-to-seq - convert metaprob sequence (list or tuple) to clojure seq.
 
@@ -64,7 +65,9 @@
           (map? state) (if (pair-as-map? state)
                          (cons (get state :value)
                                (sequence-to-seq (get state rest-marker)))
-                         (assert false ["not a sequence" state]))
+                         (if (empty-state? state)
+                           '()
+                           (assert false ["not a sequence" state])))
           true (assert false ["sequence-to-seq wta" things state]))))
 
 ;; Length of list or tuple
@@ -75,7 +78,9 @@
           (vector? state) (count state)
           (map? state) (if (pair-as-map? state)
                          (+ 1 (length (get state rest-marker)))
-                         (assert false ["not a sequence" state]))
+                         (if (empty-state? state)
+                           0
+                           (assert false ["not a sequence" state])))
           true (assert false ["length wta" tr state]))))
 
 
@@ -120,15 +125,15 @@
       (vec (sequence-to-seq x))
       (assert false ["Expected a list or tuple" x]))))
 
-;; list - builtin
+;; list - builtin.  Returns a list-qua-trace.
 
 (defn metaprob-list [& things]
   ;; (seq-to-mutable-list things)
   (if (= things nil)
-    '()
+    (empty-list)
     things))
 
-;; to-list - builtin - convert metaprob sequence to metaprob list
+;; to-list - builtin - convert metaprob sequence to metaprob seq / list
 
 (defn to-list [x]
   (cond (metaprob-list? x)

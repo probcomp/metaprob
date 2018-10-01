@@ -204,6 +204,16 @@
         (trace-set! tr adr 19)
         (is (= (trace-get tr adr) 19))))))
 
+(deftest trace-yielding-pair
+  (testing "trace-yielding-pair"
+    (is (= (trace :value 7 "rest" (** '())) '(7)))
+    (is (= (trace :value 7 "rest" (** '(8))) '(7 8)))
+    (is (= (trace :value 7 "rest" (** {})) '(7)))
+    (is (= (trace :value 7 "rest" (** [])) '(7)))
+    (is (map? (trace :value 7 "rest" {})))
+    (is (map? (trace :value 7 "rest" (** '(8)) "frass" 27)))))
+
+
 (deftest same-1
   (testing "object comparison smoke test"
     (is (same-states? 7 7))
