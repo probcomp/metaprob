@@ -1,109 +1,148 @@
+(ns metaprob.examples.main
+  (:import [java.io File])
+  (:require [clojure.test :as test]
+            [clojure.tools.cli :as cli]
+            [metaprob.examples.inference-on-gaussian :as ginf]
+            [metaprob.examples.earthquake :as quake]
+            [metaprob.examples.long-test]))
+
 ;; The file from which this one was derived is ../main.clj
 
-(ns metaprob.examples.main
-  (:require [metaprob.examples.inference-on-gaussian :as ginf]
-            [metaprob.examples.earthquake :as quake]
-            [metaprob.examples.long-test]
-            [clojure.test :refer :all]
-            ;[criterium.core :as crit]
-            )
-  ;; (:gen-class)
-  )
+(defn- s-to-ns
+  "Takes a number of seconds `n` and returns the equivalent number of
+  nanoseconds."
+  [n]
+  (* n 1000 1000 1000))
 
-(def s-to-ns (* 1000 1000 1000)) ; in ns
-
-(defn instrument [fun & args]
+(defn- instrument [fun & args]
   (flush)
   (if true
     (apply fun args)
-;    (crit/report-result
-;     (crit/benchmark*
-;      (fn [] (apply fun args))
-;      {:warmup-jit-period 0
-;       :samples 1
-;       :target-execution-time (* 10 s-to-ns)
-;       :overhead 0
-;       }))
-))
+    (comment
+      (crit/report-result
+       (crit/benchmark*
+        #(apply fun args)
+        {:warmup-jit-period 0
+         :samples 1
+         :target-execution-time (s-to-ns 10)
+         :overhead 0})))))
 
-;; For a more serious test, try 100 (takes about an hour?)
-(def gaussian-number-of-samples 5)
-(def quake-number-of-samples 5)
+(defn- parse-int
+  "Parse an integer from a string."
+  [x]
+  (Integer/parseInt x))
 
-(def n-particles 20)
-(def mh-count 20)
+(defn- greater-than
+  "Returns a function to be used with `clojure.tools.cli/parse-opts`'s `:validate`
+  option. Returns a validation setting that enforces that the parsed value be
+  greater than `n`."
+  [n]
+  [#(< 1 n) (format "Must be greater than %d" n)])
 
-(defn -main [& args]
-  (letfn [(combine [arg dict]
-            (case arg
-              "test" (assoc dict :test true)
-              "rejection" (assoc dict :rejection true)
-              "importance" (assoc dict :importance true)
-              "mh" (assoc dict :mh true)
-              "quake-rejection" (assoc dict :quake true)
-              (let [matches (re-seq #"^\d+$" arg)]
-                (if matches
-                  (assoc dict :count (Integer. (first matches)))
-                  (assert false ["bad arg" arg])))))
-          (reduc [args]    ; I'm sure there's a cool way to do this but it's too
-                                        ; hard to slog through the clojure docs
-            (if (empty? args)
-              {}
-              (combine (first args)
-                       (reduc (rest args)))))]
-    ;; If nothing is requested, do everything.  This is ugly code, feel free to rewrite
-    (let [dict (reduc args)
-          dict (if (not (or (get dict :rejection)
-                            (get dict :importance)
-                            (get dict :mh)
-                            (get dict :quake-rejection)
-                            (get dict :test)))
-                 (into dict
-                       {:rejection true
-                        :importance true
-                        :mh true
-                        :quake-rejection true})
-                 dict)]
+(def any-of
+  "Returns a function to be used with `clojure.tools.cli/parse-opts`'s
+  `:default-fn` option. If any of the options passed to `any-of` are true then
+  the default will be true."
+  some-fn)
 
-      (print (format "dict=%s\n" dict))
+(def none-of
+  "Returns a function to be used with `clojure.tools.cli/parse-opts`'s
+  `:default-fn` option. If none of the options passed to `any-of` are true then
+  the default will be true."
+  (comp complement any-of))
 
-      (when (get dict :test)
-        (run-tests 'metaprob.examples.long-test))
+(def cli-options
+  [["-a" "--all"        "Run all the examples"                 :default    false]
+   ["-r" "--rejection"  "Run the rejection sampling example"   :default-fn :all]
+   ["-i" "--importance" "Run the importance sampling example"  :default-fn :all]
+   ["-m" "--mh"         "Run the Metropolis Hastings example"  :default-fn :all]
+   ["-q" "--quake"      "Run the earthquake bayes net example" :default    false]
+   ["-t" "--test"       "Run the long test example"            :default    false]
 
-      (let [quake-number-of-samples (or (get dict :count)
-                                        quake-number-of-samples)]
-        (when (get dict :quake)
-          (print "---- earthquake bayesnet ----\n")
-          ;; (quake/demo-earthquake) - doesn't work yet
-          (quake/earthquake-histogram "bayesnet samples from rejection sampling"
-                                (quake/eq-rejection-assay quake-number-of-samples))))
+   ["-p" "--prior" "Run the prior example"
+    :default-fn (any-of :rejection :importance :mh)]
 
-      (let [gaussian-number-of-samples (or (get dict :count)
-                                           gaussian-number-of-samples)]
-        (when (or (get dict :rejection) (get dict :importance) (get dict :mh))
-          (print "---- Prior ----\n")
+   ["-s" "--samples SAMPLES" "Number of samples for all examples"
+    :parse-fn parse-int
+    :validate (greater-than 1)
+    :default 5]
+   [nil "--gaussian-samples SAMPLES" "Number of gaussian samples"
+    ;; For a more serious test, try 100 (takes about an hour?)
+    :default-fn :samples
+    :parse-fn parse-int
+    :validate (greater-than 1)]
+   [nil "--quake-samples SAMPLES" "Number of quake samples"
+    :default-fn :samples
+    :parse-fn parse-int
+    :validate (greater-than 1)]
+   [nil "--particles PARTICLES" "Number of particles"
+    :default 20
+    :parse-fn parse-int
+    :validate (greater-than 0)]
+   [nil "--mh-count COUNT" "Metropolis Hastings count"
+    :default 20
+    :parse-fn parse-int
+    :validate (greater-than 0)]
+
+   ["-H" "--help" "Display this help message"
+    :default-fn (none-of :rejection :importance :mh :quake :test :prior)]])
+
+(defn- print-help
+  [summary]
+  (println "\nUSAGE:\n")
+  (println "clojure -m" (namespace `print-help) "<options>\n")
+  (println summary))
+
+(defn- print-header
+  [header]
+  (println (format "---- %s ----" header)))
+
+(defn -main
+  "Runs examples and outputs samples and commands to `results/`. For a list of
+  available options and their defaults see `clojure.tools.cli/parse-opts` and
+  `cli-options`."
+  [& args]
+  (.mkdir (File. "results"))
+  (let [{:keys [options summary]}
+        (cli/parse-opts args cli-options)]
+    (if (:help options)
+      (print-help summary)
+      (let [{:keys [mh-count particles samples gaussian-samples quake-samples]}
+            options]
+        (when (:test options)
+          (test/run-tests 'metaprob.examples.long-test))
+
+        (when (:prior options)
+          (print-header "Prior")
           (ginf/gaussian-histogram
            "samples from the gaussian demo prior"
-           (instrument ginf/gaussian-prior-samples gaussian-number-of-samples)))
+           (instrument ginf/gaussian-prior-samples gaussian-samples)))
 
-        (when (get dict :rejection)
+        (when (:rejection options)
           ;; Rejection sampling is very slow - 20 seconds per
-          (print "---- Rejection ----\n")
+          (print-header "Rejection")
           (ginf/gaussian-histogram
-           "samples from the gaussian demo target"   
-           (instrument ginf/rejection-assay gaussian-number-of-samples)))
+           "samples from the gaussian demo target"
+           (instrument ginf/rejection-assay gaussian-samples)))
 
-        (when (get dict :importance)
+        (when (:importance options)
           ;; Importance sampling is very fast
-          (print "---- Importance ----\n")
+          (print-header "Importance")
           (ginf/gaussian-histogram
-           (format "importance sampling gaussian demo with %s particles" n-particles)
-           (instrument ginf/importance-assay n-particles gaussian-number-of-samples)))
+           (format "importance sampling gaussian demo with %s particles" particles)
+           (instrument ginf/importance-assay particles gaussian-samples)))
 
-        (when (get dict :mh)
+        (when (:mh options)
           ;; MH is fast
-          (print "---- MH ----\n")
+          (print-header "Metropolis Hastings")
           (ginf/gaussian-histogram
            (format "samples from gaussian demo lightweight single-site MH with %s iterations"
                    mh-count)
-           (instrument ginf/MH-assay mh-count gaussian-number-of-samples)))))))
+           (instrument ginf/MH-assay mh-count gaussian-samples)))
+
+        (when (:quake options)
+          (print-header "Earthquake Bayesnet")
+          ;; (quake/demo-earthquake) - doesn't work yet
+          (quake/earthquake-histogram
+           "bayesnet samples from rejection sampling"
+           (quake/eq-rejection-assay quake-samples)))))))

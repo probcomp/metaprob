@@ -1,5 +1,7 @@
 dist: trusty
+
 language: bash
+
 sudo: required
 
 services:

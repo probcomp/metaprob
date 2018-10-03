@@ -22,3 +22,4 @@ parsings
 *#
 bin/lein
 /src/metaprob/tutorial/.ipynb_checkpoints/
+/results/
