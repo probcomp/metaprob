@@ -78,7 +78,7 @@ docker-build:
 .PHONY: docker-build
 
 docker-test:
-	docker run -t probcomp/metaprob-clojure:latest bash -c "lein test && time lein run -m metaprob.examples.main test"
+	docker run -t probcomp/metaprob-clojure:latest bash -c "make test"
 .PHONY: docker-test
 
 docker-bash:
