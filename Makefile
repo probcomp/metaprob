@@ -101,15 +101,6 @@ docker-repl:
 # https://github.com/sflyr/docker-sqlplus/pull/2
 .PHONY: docker-repl
 
-docker-cider:
-	docker run \
-		--mount type=bind,source=${HOME}/.m2,destination=/home/metaprob/.m2 \
-		--mount type=bind,source=${CURDIR},destination=/home/metaprob/projects/metaprob-clojure \
-		--publish 9009:9009 \
-		probcomp/metaprob-clojure:latest \
-		bash -c "clojure -Acider bin/start_cider_nrepl.clj"
-.PHONY: docker-cider
-
 docker-notebook:
 	docker run \
 		-it \
