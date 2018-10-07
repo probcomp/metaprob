@@ -1,101 +1,32 @@
-;; Trace states
+(ns metaprob.state
+  "Trace states"
+  (:require [metaprob.state.common :as common]
+            ;; The `impl` alias controls a choice between a simple but slower
+            ;; implementation and an obscure but faster implementation of the
+            ;; primitives.
+            [metaprob.state.unsteady :as impl]))
 
-(ns metaprob.state)
-
-(declare map-to-state state-to-map keys-sans-value)
-
-;; The `steady?` flag controls a choice between a simple but slower
-;; implementation and an obscure but faster implementation of the
-;; primitives.
-
-(def steady? false)
-
-(def rest-marker "rest")
-
-(defn state? [val]
-  (or (seq? val)                        ;Strings are not seqs
-      (vector? val)
-      (map? val)))
-
-(defn empty-state? [state]
-  (and (state? state)
-       (empty? state)))
+(def rest-marker common/rest-marker)
 
 ;; Basic trace operations
 
-(defn has-value? [state]
-  (if steady?
-    ;; The two methods should be equivalent
-    (not (= (get (state-to-map state) :value :no-value) :no-value))
-    (cond (seq? state) (not (empty? state))
-          (vector? state) false
-          (map? state) (not (= (get state :value :no-value) :no-value))
-          true (assert false ["not a state" state]))))
+(def state?         common/state?)
+(def empty-state?   common/empty-state?)
+(def has-value?     impl/has-value?)
+(def value          impl/value)
+(def has-subtrace?  impl/has-subtrace?)
+(def subtrace       impl/subtrace)
+(def state-keys     impl/state-keys)
+(def subtrace-count impl/subtrace-count)
 
-(defn value [state]
-  (if steady?
-    ;; The two methods should be equivalent
-    (get (state-to-map state) :value)
-    (cond (seq? state) (first state)
-          (vector? state) (assert false "no value")
-          (map? state)
-          (let [value (get state :value :no-value)]
-            (assert (not (= value :no-value)) ["state has no value" state])
-            value)
-          true (assert false ["not a state" state]))))
+;; Converters
 
-(defn has-subtrace? [state key]
-  (if steady?
-    (contains? (state-to-map state) key)
-    (cond (seq? state) (and (not (empty? state))
-                            (= key rest-marker))
-          (vector? state) (and (integer? key)
-                               (>= key 0)
-                               (< key (count state)))
-          (map? state) (contains? state key)
-          true (assert false ["not a state" state]))))
-
-(defn subtrace [state key]
-  (let [val (if steady?
-              (get (state-to-map state) key)
-              (cond (seq? state) (rest state)
-                    (vector? state) {:value (nth state key)}
-                    (map? state) (get state key)
-                    true (assert false ["not a state" state])))]
-    (assert (not (= val nil))
-            ["no such subtrace" key state])
-    val))
-
-;; Returns a seq of keys (without the :value marker)
-
-(defn state-keys [state]
-  (if steady?
-    (keys-sans-value (state-to-map state))
-    (cond (seq? state) (if (empty? state) '() (list rest-marker))
-          (vector? state) (range (count state))
-          (map? state) (keys-sans-value state)
-          true (assert false ["not a state" state]))))
-
-(defn ^:private keys-sans-value [m]   ;aux for above
-  (let [ks (remove #{:value} (keys m))]
-    (if (= ks nil)
-      '()
-      ks)))
-
-(defn subtrace-count [state]
-  (if steady?
-    (count (state-keys state))
-    (cond (seq? state) (if (empty? state) 0 1)
-          (vector? state) (count state)
-          (map? state) (let [n (count state)]
-                         (if (= (get state :value :no-value) :no-value)
-                           n
-                           (- n 1)))
-          true (assert false ["not a state" state]))))
+(def map-to-state common/map-to-state)
+(def state-to-map common/state-to-map)
 
 ;; Constructors
 
-(defn empty-state [] {})    ; 'lein test' passes with () and [] here as well
+(def empty-state common/empty-state)
 
 (defn set-value [state val]
   (map-to-state (assoc (state-to-map state) :value val)))
@@ -108,58 +39,3 @@
 
 (defn clear-subtrace [state key]
   (map-to-state (dissoc (state-to-map state) key)))
-
-
-
-;; Convert heterogeneous canonical clojure form to hash-map
-
-(defn state-to-map [state]
-  (cond (map? state) state
-
-        (seq? state)
-        (if (empty? state)
-          {}
-          {:value (first state) rest-marker (rest state)})
-
-        (vector? state)
-        (into {} (map (fn [i x] [i {:value x}])
-                      (range (count state))
-                      state))
-
-        true (assert false ["not a state" state])
-        ))
-
-(defn value-only-trace? [tr]
-  (and (map? tr)
-       (= (count tr) 1)
-       (contains? tr :value)))
-
-;; Convert hash-map to heterogeneous canonical clojure form.
-
-;; I'm sorry I failed to record the reason that the 'don't be lazy'
-;; command is there; there must have been a failure at some point that
-;; I attributed to laziness in these maps.
-
-(defn map-to-state [m]
-  (doseq [entry m] true)    ;Don't be lazy!
-  (let [n (count m)]
-    (if (= n 0)
-      (empty-state)
-      (let [value (get m :value :no-value)]
-        (if (= value :no-value)
-          ;; Has no value: could be a vector.
-          (if (every? (fn [i] (value-only-trace? (get m i)))
-                      (range n))
-            (vec (for [i (range n)] (get (get m i) :value)))
-            m)
-          ;; Has value: could be a seq / list.
-          (if (= n 2)
-            (let [rest (get m rest-marker :no-value)]
-              (if (= rest :no-value)
-                m                 ;No "rest", so just an ordinary dict
-                (if (empty-state? rest)
-                  (cons value '())    ;Allow termination in () [] or {}
-                  (if (seq? rest)
-                    (cons value rest)
-                    m))))
-            m))))))
