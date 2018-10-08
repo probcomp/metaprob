@@ -1,6 +1,8 @@
 (ns metaprob.syntax
+  (:import [clojure.lang ISeq IPersistentMap])
   (:require [clojure.string :as string]
             [clojure.set :as set]
+            [clojure.walk :as walk]
             [metaprob.state :as state]
             [metaprob.trace :refer :all]
             [metaprob.sequence :refer :all]
@@ -124,11 +126,45 @@
                       '~(seq (map str names))
                       ~names)))
 
+(defn- inline-list
+  "Returns Metaprob code for building a trace with the same structure as the
+  provided list."
+  [xs]
+  (if-let [s (seq xs)]
+    `(trace-set-subtrace (trace-set-value (empty-trace)
+                                          ~(first s))
+                         ~state/rest-marker
+                         ~(build-list (rest s)))
+    `(trace)))
+
+(defn- inline-map
+  "Returns Metaprob code for building a trace with the same structure as the
+  provided map."
+  [x]
+  (reduce-kv (fn [acc k v]
+               `(trace-set-subtrace ~acc ~k ~v))
+             `(trace)
+             x))
+
+(defn- inline-collection
+  ""
+  [x]
+  (cond (map? x)
+        (inline-map x)
+
+        (and (seq? x)
+             (= 'list (first x)))
+        (inline-list (rest x))
+
+        :else x))
+
 (defmacro gen
   "like fn, but for metaprob procedures"
   {:style/indent 1}
   [params & body]
-  `(named-generator nil ~params ~@body))
+  `(named-generator nil
+                    ~params
+                    ~@(walk/postwalk inline-collection body)))
 
 ;; Oddly, the source s-expressions don't seem to answer true to list?
 
