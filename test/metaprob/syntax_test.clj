@@ -87,3 +87,29 @@
         (eval form)
         (let [proc (eval 'foo)]
           (is (= (proc 17) 17) proc))))))
+
+(deftest free-vars-approximately-1
+  (testing "free-vars-approximately"
+    (testing "one level deep"
+      (are [vars form] (= vars (free-vars-approximately form))
+        '#{}    '[]
+        '#{a}   '[a]
+        '#{a}   (seq '[a])
+        '#{a b} '{a b}))
+    (testing "two levels deep"
+      (are [vars form] (= vars (free-vars-approximately form))
+        '#{a b}     '[a [b]]
+        '#{a b}     ['a (seq ['b])]
+        '#{a b}     (seq ['a (seq ['b])])
+        '#{a b c d} '[{a b} {c d}]
+        '#{a b c d} {'[a b] '[c d]}
+        '#{a b c d} {(seq '[a b]) (seq '[c d])}))
+    (testing "many levels deep"
+      (are [vars form] (= vars (free-vars-approximately form))
+        '#{a b c d e f g} '[a [b [c [d [e [f [g]]]]]]]
+        '#{a b c d}       (seq ['a (seq ['b (seq ['c (seq ['d])])])])))
+    (testing "filtering"
+      (are [vars form] (= vars (free-vars-approximately form))
+        '#{a b} '[a "filtered" b]
+        '#{a b} (seq '[a "filtered" b])
+        '#{a b} '{a ["filtered" b]}))))
