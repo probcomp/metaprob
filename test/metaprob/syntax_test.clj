@@ -1,6 +1,7 @@
 (ns metaprob.syntax-test
   (:require [clojure.test :refer :all]
             [metaprob.trace :refer :all]
+            [metaprob.state :as state]
             [metaprob.syntax :refer :all]
             [metaprob.builtin-impl :as impl]))
 
@@ -16,6 +17,21 @@
   (testing "are procedures named?"
     ;; Name would be something like "-1239293465-foo"
     (is (.contains (impl/procedure-name (named-generator foo [x] x)) "foo"))))
+
+(deftest gen-4
+  (testing "trace literal"
+    (testing "maps"
+      (is (trace? ((gen [] {}))))
+      (is (trace? ((gen [] {"a" {}}))))
+      (testing "nesting"
+        (is (trace? (trace-subtrace ((gen [] {"subtrace" {}}))
+                                    "subtrace")))))
+    (testing "lists"
+      (is (trace? ((gen [] (list)))))
+      (is (trace? ((gen [] (list 1 2 3)))))
+      (testing "nesting"
+        (is (trace? (trace-subtrace ((gen [] (list 1 (list 2))))
+                                    state/rest-marker)))))))
 
 (deftest block-1
   (testing "Smoke test 1 for block macro"

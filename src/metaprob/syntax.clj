@@ -126,7 +126,7 @@
                       '~(seq (map str names))
                       ~names)))
 
-(defn- build-list
+(defn- inline-list
   "Returns Metaprob code for building a trace with the same structure as the
   provided list."
   [xs]
@@ -137,7 +137,7 @@
                          ~(build-list (rest s)))
     `(trace)))
 
-(defn- build-map
+(defn- inline-map
   "Returns Metaprob code for building a trace with the same structure as the
   provided map."
   [x]
@@ -146,15 +146,15 @@
              `(trace)
              x))
 
-(defn- read
+(defn- inline-collection
   ""
   [x]
   (cond (map? x)
-        (build-map x)
+        (inline-map x)
 
         (and (seq? x)
-             (= 'quote (first x)))
-        (build-list (second x))
+             (= 'list (first x)))
+        (inline-list (rest x))
 
         :else x))
 
@@ -164,7 +164,7 @@
   [params & body]
   `(named-generator nil
                     ~params
-                    ~@(walk/postwalk read body)))
+                    ~@(walk/postwalk inline-collection body)))
 
 ;; Oddly, the source s-expressions don't seem to answer true to list?
 
