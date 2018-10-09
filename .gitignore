@@ -5,7 +5,6 @@ pom.xml.asc
 /lib/
 /classes/
 /target/
-/tutorial/resources/.ipynb_checkpoints
 /checkouts/
 .lein-deps-sum
 .lein-repl-history
@@ -13,6 +12,7 @@ pom.xml.asc
 .lein-failures
 .lein_classpath
 .nrepl-port
+.ipynb_checkpoints
 .idea
 TAGS
 parsings
@@ -23,4 +23,3 @@ parsings
 *#
 bin/lein
 /results/
-/tutorial/resources/.ipynb_checkpoints/Tutorial-checkpoint.ipynb
