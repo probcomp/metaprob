@@ -405,13 +405,11 @@
 ;; Side effects.
 
 (defn ^:private trace-set-direct-subtrace! [tr key sub]
-  (assert (mutable-trace? sub) sub)
   (trace-swap! tr
                (fn [state]
                  (trace-set-direct-subtrace state key sub))))
 
 (defn trace-set-subtrace! [tr adr sub]
-  (assert (mutable-trace? sub) sub)
   (if (seq? adr)
     (loop [tr tr adr adr]
       (let [[head & tail] adr]
@@ -429,14 +427,12 @@
     (trace-set-direct-subtrace! tr adr sub)))
 
 (defn ^:private trace-set-value! [tr val]
-  (assert (mutable-trace? tr) tr)
   (assert (ok-value? val) val)            ;REMOVE
   (trace-swap! tr
                (fn [state]
                  (state/set-value state val))))
 
 (defn ^:private trace-set-value-at! [tr adr val] ;cf. trace-get
-  (assert (mutable-trace? tr) tr)
   (let [adr (if (seq? adr) adr (list adr))]
     (loop [tr tr adr adr]
       (if (empty? adr)
@@ -499,7 +495,6 @@
     (trace-merge mutable tr trace-merge!-maybe)))
 
 (defn trace-merge! [mutable tr]
-  (assert (mutable-trace? mutable) mutable)
   (trace-merge!-maybe mutable tr))
 
 ;; -----------------------------------------------------------------------------

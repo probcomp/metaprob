@@ -14,6 +14,7 @@
   (:require [metaprob.syntax :refer :all])
   (:require [metaprob.builtin :refer :all])
   (:require [metaprob.prelude :refer :all])
+  (:require [metaprob.mem :refer :all])
   (:require [metaprob.distributions :refer :all])
   (:require [metaprob.interpreters :refer :all])
   (:require [metaprob.inference :refer :all])
