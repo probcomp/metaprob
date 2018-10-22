@@ -1,5 +1,6 @@
 (ns metaprob.examples.all-test
-  (:require [clojure.test :refer :all]
-            [metaprob.examples.all :as all]))
+  (:require [clojure.test :refer :all]))
 
-(defn foo [] 'hello)
+(deftest test-require
+  (testing "can the namespace be required"
+    (is (any? (require 'metaprob.examples.all)))))
