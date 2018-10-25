@@ -2,6 +2,18 @@
 all: bin/lein .lein_classpath
 	@echo "Good to go!"
 
+# Starts a ClojureScript REPL
+cljs:
+	clojure -Acljs -m cljs.main --repl-env nashorn --repl
+.PHONY: cljsrepl
+
+cljstest:
+	clojure -Acljs:cljstest
+.PHONY: cljstest
+
+cljsclean:
+	rm -Rf out
+
 # This target is referenced in README.md
 bin/lein:
 	wget "https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein"
