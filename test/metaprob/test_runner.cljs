@@ -4,6 +4,4 @@
 
 (defn -main
   [& args]
-  #_
-  (enable-console-print!)
   (test/run-tests 'metaprob.state-test))
