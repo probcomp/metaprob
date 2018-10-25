@@ -30,10 +30,16 @@ bin/lein:
 	bin/lein classpath > $@
 
 # Incudes long-running tests
-test:
-	clojure -Atest
-	time clojure -Atest -d src -n metaprob.examples.long-test
+test: cljtest cljtestlong cljstest
 .PHONY: test
+
+cljtest:
+	clojure -Atest
+.PHONY: cljtest
+
+cljtestlong:
+	time clojure -Atest -d src -n metaprob.examples.long-test
+.PHONY: cljtestlong
 
 # Create directory of .trace files from .vnts files.
 # Requires python-metaprob.
