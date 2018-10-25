@@ -6,6 +6,7 @@ pom.xml.asc
 /checkouts/
 /results/
 .nrepl-port
+.ipynb_checkpoints
 .idea
 TAGS
 parsings

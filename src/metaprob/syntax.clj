@@ -56,28 +56,17 @@
 
 ;; Run time
 
-;; This is incredibly crude, but it doesn't much matter if there are a
-;; few junk names in the result, since they'll get filtered out
-
-(defn free-vars-approximately [form]
-  (cond (symbol? form)
-        #{form}
-
-        (or (vector? form)
-            (seq? form))
-        (apply set/union
-               (map (fn [subform]
-                      (free-vars-approximately subform))
-                    form))
-
-        (map? form)
-        (apply set/union
-               (map (fn [keyform valform]
-                      (free-vars-approximately (set/union keyform valform)))
-                    form))
-
-        true
-        #{}))
+(defn free-vars-approximately
+  "Recursively descends through nested vectors, sequences, and maps and returns a
+  set of all the symbols found therein."
+  [form]
+  ;; This is incredibly crude, but it doesn't much matter if there are a
+  ;; few junk names in the result, since they'll get filtered out
+  (into #{}
+        (filter symbol?)
+        (tree-seq (some-fn vector? seq? map?)
+                  #(if (map? %) (sequence cat %) (seq %))
+                  form)))
 
 ;; This can fail with forward references to recursive functions
 
