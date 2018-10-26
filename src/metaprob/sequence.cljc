@@ -1,8 +1,8 @@
 
 (ns metaprob.sequence
-  (:require [metaprob.trace :refer :all])
-  (:require [metaprob.state :refer [empty-state?]])
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set]
+            [metaprob.state :as state]
+            [metaprob.trace :as trace]))
 
 ;; ----------------------------------------------------------------------------
 ;; Metaprob sequences (lists and tuples) (not same as Clojure seq)
@@ -16,56 +16,56 @@
   (and (map? state)
        (= (count state) 2)
        (contains? state :value)
-       (contains? state rest-marker)))
+       (contains? state state/rest-marker)))
 
 (defn metaprob-pair? [x]
-  (and (trace? x)
-       (let [state (trace-state x)]
+  (and (trace/trace? x)
+       (let [state (trace/trace-state x)]
          (if (seq? state)
            (not (empty? state))
            (pair-as-map? state)))))
 
 (defn metaprob-first [mp-list]
   (assert (metaprob-pair? mp-list) ["first" mp-list])
-  (trace-get mp-list))
+  (trace/trace-get mp-list))
 
 (defn metaprob-rest [mp-list]
   (assert (metaprob-pair? mp-list) ["rest" mp-list])
-  (trace-subtrace mp-list rest-marker))
+  (trace/trace-subtrace mp-list state/rest-marker))
 
 (defn pair [thing mp-list]              ;NEEDS ERROR CHECKING
-  (assert (ok-value? thing) ["wta" thing])
-  (assert (or (empty-trace? mp-list)
+  (assert (trace/ok-value? thing) ["wta" thing])
+  (assert (or (trace/empty-trace? mp-list)
               (metaprob-pair? mp-list))
           ["wanted empty or pair" mp-list])
   (if (seq? mp-list)
     (cons thing mp-list)                ;Keep it immutable
-    (make-mutable-trace {:value thing rest-marker mp-list})))
+    (trace/make-mutable-trace {:value thing state/rest-marker mp-list})))
 
 ;; 2. Metaprob tuples (implemented as Clojure vectors)
 
 (defn tuple [& inputs]
   (vec (map (fn [val]
-              (assert (ok-value? val))
+              (assert (trace/ok-value? val))
               val)
             inputs)))
 
 (defn tuple? [x]
-  (and (trace? x)
-       (let [state (trace-state x)]
+  (and (trace/trace? x)
+       (let [state (trace/trace-state x)]
          ;; [] can end up getting represented as () or {}
-         (or (vector? state) (empty-state? state)))))
+         (or (vector? state) (state/empty-state? state)))))
 
 ;; sequence-to-seq - convert metaprob sequence (list or tuple) to clojure seq.
 
 (defn sequence-to-seq [things]
-  (let [state (trace-state things)]
+  (let [state (trace/trace-state things)]
     (cond (seq? state) state
           (vector? state) (seq state)
           (map? state) (if (pair-as-map? state)
                          (cons (get state :value)
-                               (sequence-to-seq (get state rest-marker)))
-                         (if (empty-state? state)
+                               (sequence-to-seq (get state state/rest-marker)))
+                         (if (state/empty-state? state)
                            '()
                            (assert false ["not a sequence" state])))
           true (assert false ["sequence-to-seq wta" things state]))))
@@ -73,12 +73,12 @@
 ;; Length of list or tuple
 
 (defn length [tr]
-  (let [state (trace-state tr)]
+  (let [state (trace/trace-state tr)]
     (cond (seq? state) (count state)
           (vector? state) (count state)
           (map? state) (if (pair-as-map? state)
-                         (+ 1 (length (get state rest-marker)))
-                         (if (empty-state? state)
+                         (+ 1 (length (get state state/rest-marker)))
+                         (if (state/empty-state? state)
                            0
                            (assert false ["not a sequence" state])))
           true (assert false ["length wta" tr state]))))
@@ -93,7 +93,7 @@
 ;; Private except for tests
 
 (defn seq-to-mutable-tuple [things]
-  (trace-from-subtrace-seq (map new-trace things)))
+  (trace/trace-from-subtrace-seq (map trace/new-trace things)))
 
 ;; seq-to-mutable-list - convert clojure sequence to metaprob list.
 ;; used by: distributions.clj
@@ -101,18 +101,18 @@
 (defn seq-to-mutable-list [things]
   (let [things (seq things)]
     (if (empty? things)
-      (empty-trace)
+      (trace/empty-trace)
       (pair (first things)
             (seq-to-mutable-list (rest things))))))
 
 ;; It is in principle possible to create traces that look like lists
-;; but aren't (i.e. terminate in a nonempty, non-pair value).  
+;; but aren't (i.e. terminate in a nonempty, non-pair value).
 ;; The `pair` function rules this out on creation, but a list tail
 ;; can be clobbered by side effect to be a non-list.
 ;; Let's ignore this possibility.
 
 (defn metaprob-list? [x]
-  (or (empty-trace? x)
+  (or (trace/empty-trace? x)
       (metaprob-pair? x)))
 
 ;; list-to-tuple - convert metaprob list to metaprob tuple
@@ -140,10 +140,10 @@
         x
         (tuple? x)
         (letfn [(scan [i]
-                  (if (trace-has? x i)
+                  (if (trace/trace-has? x i)
                     ;; Cons always returns a clojure seq
                     ;;  and seqs are interpreted as metaprob lists
-                    (cons (trace-get x i) (scan (+ i 1)))
+                    (cons (trace/trace-get x i) (scan (+ i 1)))
                     '()))]
           (scan 0))
         ;; This is a kludge but it helps in dealing with [& foo]
@@ -166,7 +166,7 @@
 ;; nth - overrides original prelude (performance + generalization)
 
 (defn metaprob-nth [thing i]
-  (if (mutable-trace? thing)
+  (if (trace/mutable-trace? thing)
     (if (metaprob-pair? thing)
       (letfn [(re [l i]
                 (if (metaprob-pair? l)
@@ -175,7 +175,7 @@
                     (re (metaprob-rest l) (- i 1)))
                   (assert false [l i (length thing)])))]
         (re thing (int i)))
-      (trace-get thing i))
+      (trace/trace-get thing i))
     (nth thing i)))
 
 ;; prelude has: reverse, propose1, iterate, replicate, repeat
@@ -191,11 +191,11 @@
 
 (defn append [x y]
   ;; Mutable or immutable?
-  (if (or (mutable-trace? x) (mutable-trace? y))
-    (if (empty-trace? y)
+  (if (or (trace/mutable-trace? x) (trace/mutable-trace? y))
+    (if (trace/empty-trace? y)
       x
       (letfn [(re [x]
-                (if (empty-trace? x)
+                (if (trace/empty-trace? x)
                   y
                   (if (metaprob-pair? x)
                     (pair (metaprob-first x)
@@ -217,4 +217,3 @@
 
 (defn metaprob-sort [sq & more]
   (apply sort (sequence-to-seq sq) more))
-
