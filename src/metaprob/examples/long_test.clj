@@ -1,7 +1,6 @@
 (ns metaprob.examples.long-test
   (:require [clojure.test :refer :all]
             [metaprob.trace :refer :all]
-            [metaprob.sequence :refer :all]
             [metaprob.syntax :refer :all]
             [metaprob.distributions :refer :all]
             [metaprob.inference :refer :all]

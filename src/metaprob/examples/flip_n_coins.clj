@@ -19,42 +19,36 @@
 
 (define coin-flips-demo-n-flips
   (gen [n]
-    (define trace-with-n-flips (empty-trace))
-    (infer :procedure flip-n-coins
-           :inputs [n]
-           :output-trace trace-with-n-flips)
+    (define [_ trace-with-n-flips _]
+      (infer :procedure flip-n-coins
+             :inputs [n]))
     (pprint trace-with-n-flips)
-    ;; (*@\textit{=> ( ... )}@*)
     (infer :procedure flip-n-coins
            :inputs [n]
            :target-trace trace-with-n-flips
-           :output-trace? false)
+           :output-trace? false)))
     ;;  => value:score:
-    ))
 
 ;; make a partial trace that intervenes on flip-coins
 ;; to ensure the coin is tricky and the weight is 0.99
 ;; but the fourth flip comes up false
 
 (define ensure-tricky-and-biased
-  (trace 0 (** (trace "tricky" (** (trace "flip" true))))
-         1 (** (trace "weight" (** (trace "then" (** (trace "uniform" 0.99))))))
-         2 (** (trace "datum" (** (trace "map" (** (trace 3 (** (trace "flip" false))))))))))
+  {0 {"tricky" {"flip" {:value true}}},
+   1 {"weight" {"then" {"uniform" {:value 0.99}}}},
+   2 {"datum"  {"map"  {3  {"flip" {:value false}}}}}})
 
 (define coin-flips-demo-biased
   (gen [n]
-
     (print "--ensure-tricky-and-biased intervention trace--")
     (pprint ensure-tricky-and-biased)
 
-    (define output (empty-trace))
     ;; run  the  program  subject  to  these  interventions
-    (infer :procedure flip-n-coins
-           :inputs [n]
-           :intervention-trace ensure-tricky-and-biased
-           :output-trace output)
-    (pprint output)
+    (define [value output _]
+      (infer :procedure flip-n-coins
+             :inputs [n]
+             :intervention-trace ensure-tricky-and-biased))
+    (pprint value)
     (print "--output trace--")
-    (pprint output)
+    (pprint output)))
     ;;  => (true true true false true true true true true true)
-    ))

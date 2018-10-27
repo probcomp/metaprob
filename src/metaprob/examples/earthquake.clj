@@ -6,9 +6,13 @@
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
-            [metaprob.distributions :refer :all]
+            [metaprob.distributions :refer :all :exclude [flip]]
             [metaprob.inference :refer :all]
             [metaprob.interpreters :refer :all]))
+
+(define flip
+  (assoc metaprob.distributions/flip :support '(true false)))
+
 
 (define quake-env (make-top-level-env 'metaprob.examples.earthquake))
 
@@ -18,10 +22,10 @@
 (define booleans-to-binary
   (opaque "booleans-to-binary"          ;Do not score
    (gen [qu]
-     (define len (length qu))
+     (define len (count qu))
      (define luup
        (gen [i n]
-         (if (gte i len)
+         (if (>= i len)
            n
            (luup (+ i 1) (+ (* 2 n)
                             (if (nth qu i) 1 0))))))
@@ -51,71 +55,66 @@
       :sample-lower-bound 0
       :sample-upper-bound 32
       :number-of-intervals 32
-      :overlay-densities (list))))
+      :overlay-densities '())))
 
 ;; ----------------------------------------------------------------------------
 ;; Calculate exact probabilities
 
-(trace-set! flip "support" (list true false))
 
 ;; Returns a list of output traces
 
 (define joint-enumerate
   (gen [sites]
-    (if (pair? sites)
+    (if (not (empty? sites))
       (block
         (define others (joint-enumerate (rest sites)))
         (define site (first sites))
         (print ["site:" site])
-        (if (pair? site)
-          (block (define oper-name (last site))
-                 (define oper (top-level-lookup quake-env oper-name))
-                 (if (and (trace? oper)
-                          (trace-has? oper "support"))
+        (if (compound? site)
+          (block (define oper-name (clojure.core/last site))
+                 (define oper (top-level-lookup quake-env (clojure.core/symbol oper-name)))
+                 (if (and (compound? oper)
+                          (contains? oper :support))
                    (block
                     (define value-candidates
-                      (trace-get oper "support"))
+                      (get oper :support))
                     (define trace-lists
                       (map (gen [value]
                              (map (gen [t]
-                                    (define t1 (trace-copy t))
-                                    (trace-set! t1 site value)
-                                    t1)
+                                    (trace-set-value t site value))
                                   others))
                            value-candidates))
                     (concat trace-lists))
                    others))
           others))
-      (block (pair (empty-trace) (empty-trace))))))
+      ; No sites to enumerate: only the empty trace is possible
+      '({}))))
 
 ;; Returns list of [state score] where state is value returned by 
 ;;  earthquake-bayesian-network
 
 (define enumerate-executions
   (gen [proc inputs intervention-trace target-trace]
-    (print [(length (addresses-of intervention-trace)) "interventions"])
-    (define one-run (empty-trace))
-    (infer :procedure proc                   ;was trace-choices
-           :inputs inputs
-           :intervention-trace intervention-trace
-           :target-trace nil
-           :output-trace one-run)
+    (print [(count (addresses-of intervention-trace)) "interventions"])
+    (define [_ one-run _]
+      (infer :procedure proc
+             :inputs inputs
+             :intervention-trace intervention-trace))
     (define all-sites (addresses-of one-run))
-    (print [(length all-sites) "sites"])
+    (print [(count all-sites) "sites"])
     (define free-sites
       (set-difference
        (set-difference all-sites (addresses-of intervention-trace))
        (addresses-of target-trace)))
-    (print [(length free-sites) "free-sites"])
+    (print [(count free-sites) "free-sites"])
     (define candidates (joint-enumerate free-sites))
     (map (gen [candidate]
-           (trace-merge! candidate target-trace)
            ;; Returns [state nil score]
            (define [state _ score]
-             (infer :procedure proc                   ;was trace-choices
+             (infer :procedure proc
                     :inputs inputs
                     :intervention-trace intervention-trace
-                    :target-trace candidate
+                    :target-trace (trace-merge candidate target-trace)
                     :output-trace? false))
            [state score])
          candidates)))
@@ -129,9 +128,9 @@
   (gen [state-and-score-list multiplier]
     (concat (map (gen [[state score]]
                    ;; state will be a number from 0 to 31
-                   (define count (round (mul (exp score) multiplier)))
+                   (define count (round (* (exp score) multiplier)))
                    (print [state score (exp score) count])
-                   (map (gen [ignore] state)
+                   (map (gen [_] state)
                         (range count)))
                  state-and-score-list))))
 
@@ -144,30 +143,18 @@
   (gen [n-samples]
     (replicate n-samples
                (gen []
-                 (define output (empty-trace))
-                 ;; Was trace_choices
-                 (infer :procedure earthquake-bayesian-network
-                        :inputs []
-                        :intervention-trace nil
-                        :target-trace nil
-                        :output-trace output)
-                 output))))
+                 ((infer :procedure earthquake-bayesian-network) 1)))))
 
 ;; Test intervention
 
-(define alarm-went-off (empty-trace))
-(define alarm-address (addr 3 "alarm" "flip"))
-(trace-set! alarm-went-off alarm-address true)
+(define alarm-address '(3 "alarm" "flip"))
+(define alarm-went-off (trace-set-value {} alarm-address true))
 
 (define check-alarm-intervention
   (gen []
-    (define output (empty-trace))
-    (infer :procedure earthquake-bayesian-network
-           :inputs []
-           :intervention-trace (trace)
-           :target-trace nil
-           :output-trace output)
-    (assert (trace-has? output alarm-address)
+    (define [_ output _]
+      (infer :procedure earthquake-bayesian-network))
+    (assert (trace-has-value? output alarm-address)
             "check validity of alarm intervention")))
 
 (define eq-rejection-assay
@@ -176,7 +163,7 @@
      number-of-runs
      (gen []
        (print "rejection sample") ;Progress meter
-       (trace-get
+       (trace-value ; TODO: Why trace-value?
         (rejection-sampling earthquake-bayesian-network
                             []        ; inputs 
                             alarm-went-off ;intervention
@@ -187,11 +174,11 @@
     (replicate
      number-of-runs
      (gen []
-       (trace-get (importance-resampling
-                   earthquake-bayesian-network
-                   []  ; inputs
-                   alarm-went-off
-                   n-particles))))))
+       (trace-value (importance-resampling ; TODO: Why trace value?
+                    earthquake-bayesian-network
+                    []  ; inputs
+                    alarm-went-off
+                    n-particles))))))
 
 
 ;; TBD: importance sampling
@@ -202,7 +189,7 @@
 
     (print "Exact prior probabilities")
     (define exact-probabilities 
-      (enumerate-executions earthquake-bayesian-network [] (empty-trace) (empty-trace)))
+      (enumerate-executions earthquake-bayesian-network [] {} {}))
     (define fake-samples
       (fake-samples-for-enumerated-executions exact-probabilities 12240))
     (earthquake-histogram "exact bayesnet prior probabilities"
@@ -210,7 +197,7 @@
 
     (print "Exact alarm-went-off probabilities")
     (define exact-awo-probabilities 
-      (enumerate-executions earthquake-bayesian-network [] alarm-went-off (empty-trace)))
+      (enumerate-executions earthquake-bayesian-network [] alarm-went-off {}))
     (define fake-awo-samples
       (fake-samples-for-enumerated-executions exact-awo-probabilities 12240))
     (earthquake-histogram "exact bayesnet alarm-went-off probabilities"

@@ -16,11 +16,11 @@
 
 (define prior-density
   (gen [x]
-    (exp (score-gaussian x (tuple 0 1)))))
+    (exp (score-gaussian x [0 1]))))
 
 (define target-density
   (gen [x]
-    (exp (score-gaussian x (tuple 1.5 (div 1.0 (sqrt 2.0)))))))
+    (exp (score-gaussian x [1.5 (/ 1.0 (sqrt 2.0))]))))
 
 ;; Each sample is an output trace.
 
@@ -30,10 +30,10 @@
 (define peak-location
   (gen [samples]
     (define so (sort samples))
-    (define window (add 1 (clojure.core/quot (length so) 10)))
-    (define nthcdr (gen [x i] (if (= i 0) x (nthcdr (rest x) (sub i 1)))))
+    (define window (+ 1 (clojure.core/quot (count so) 10)))
+    (define nthcdr (gen [x i] (if (= i 0) x (nthcdr (rest x) (- i 1)))))
     (define lead (nthcdr so window))
-    (nth (first (sort (clojure.core/map (gen [x y] [(sub y x) (div (add x y) 2)])
+    (nth (first (sort (clojure.core/map (gen [x y] [(- y x) (/ (+ x y) 2)])
                                         so
                                         lead)))
          1)))
@@ -43,7 +43,7 @@
 (define analyze
   (gen [samples]
     (print (first samples))
-    (print ["average:" (div (apply clojure.core/+ samples) (length samples))
+    (print ["average:" (/ (apply clojure.core/+ samples) (count samples))
             "peak:" (peak-location samples)])
     samples))
 
@@ -52,8 +52,7 @@
     (binned-histogram
       :name    name
       :samples (analyze samples)
-      :overlay-densities (list ["prior" prior-density]
-                               ["target" target-density]))))
+      :overlay-densities `(["prior" ~prior-density] ["target" ~target-density]))))
 
 ;; Sample from prior & plot
 
@@ -62,15 +61,11 @@
     (replicate number-of-runs two-variable-gaussian-model)))
 
 (define target-trace
-  ;; (trace 1 (** (trace "y" (** (trace "gaussian" 3.0)))))
-  (block
-    (define tt (empty-trace))
-    (trace-set! tt (addr 1 "y" "gaussian") 3.0)
-    tt))
+  (trace-set-value {} '(1 "y" "gaussian") 3.0))
 
 (define gaussian-sample-value
   (gen [output-trace]
-    (trace-get output-trace (addr 0 "x" "gaussian"))))
+    (trace-value output-trace '(0 "x" "gaussian"))))
 
 (define rejection-assay
   (gen [number-of-runs]

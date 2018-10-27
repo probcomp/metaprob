@@ -1,7 +1,7 @@
 ;; A meta-circular Metaprob interpreter.
 
 (ns metaprob.compositional
-  (:refer-clojure :only [declare ns])
+  (:refer-clojure :only [declare ns name])
   (:require [metaprob.syntax :refer :all]
             [clojure.pprint :as pp]
             [metaprob.builtin :refer :all :exclude [infer-apply]]
@@ -13,6 +13,16 @@
 (declare infer-apply-native infer-apply-foreign
          infer-apply infer-eval infer-eval-sequence)
 
+
+
+
+(define compile-mp-proc
+  (clojure.core/fn [proc]
+    (clojure.core/with-meta
+      (clojure.core/fn [& args] (nth (infer-apply proc (clojure.core/vec args) {} {} false) 0))
+      (unbox proc))))
+
+
 ;; Main entry point: an `apply` that respects interventions
 ;; and constraints, records choices made, and computes scores.
 
@@ -20,17 +30,15 @@
 
 (define infer-apply
   (gen [proc inputs intervene target output?]
-    (assert (or (list? inputs) (tuple? inputs))
-            ["inputs neither list nor tuple" inputs])
     (assert (trace? intervene) ["bad intervene" intervene])
     (assert (trace? target) ["target" target])
     (assert (boolean? output?) output?)
 
-    (if (and (trace? proc) (trace-has? proc "implementation"))
+    (if (and (compound? proc) (contains? proc :implementation))
       ;; Proc is a special inference procedure returned by `inf`.
       ;; Return the value+output+score that the implementation computes.
       (block
-        (define imp (trace-get proc "implementation"))
+        (define imp (get proc :implementation))
         (imp inputs intervene target output?))
 
       (cond
@@ -38,9 +46,9 @@
         ;; necessary in order for map and apply to work properly; it might
         ;; be possible to remove this check now that we have
         ;; *ambient-interpreter*.
-        (and (foreign-procedure? proc)
-             (empty-trace? intervene)
-             (empty-trace? target)
+        (and (fn? proc)
+             (empty? intervene)
+             (empty? target)
              (not output?))
         (infer-apply-foreign proc inputs intervene target output?)
 
@@ -49,7 +57,7 @@
         (infer-apply-native proc inputs intervene target output?)
 
         ;; Foreign (opaque, compiled) procedure.
-        (foreign-procedure? proc)
+        (fn? proc)
         (infer-apply-foreign proc inputs intervene target output?)
 
         ;; Otherwise, this is not a procedure we can interpret.
@@ -64,45 +72,83 @@
   (gen [proc inputs intervene target output?]
     ;; 'Foreign' generative procedure
     (define value (generate-foreign proc inputs))
-    (define ivalue (if (trace-has? intervene) (trace-get intervene) value))
-    (if (and (trace-has? target) (not (same-states? (trace-get target) ivalue)))
-      [(trace-get target) (trace-set (trace) (trace-get target)) negative-infinity]
-      [ivalue (trace) 0])))
+    (define ivalue (if (trace-has-value? intervene) (trace-value intervene) value))
+    (if (and (trace-has-value? target) (not (= (trace-value target) ivalue)))
+      [(trace-value target) {:value (trace-value target)} negative-infinity]
+      [ivalue {} 0])))
 
 ;; Invoke a 'native' generative procedure, i.e. one written in
 ;; metaprob, with inference mechanics (traces and scores).
 (define infer-apply-native
   (gen [proc inputs intervene target output?]
-    (define source (trace-subtrace proc "generative-source"))
-    (define environment (trace-get proc "environment"))
+    ; (pprint proc)
+    (define source (get proc :generative-source))
+    (define environment (get proc :environment))
     (define new-env (make-env environment))
     ;; Extend the enclosing environment by binding formals to actuals
-    (match-bind! (trace-subtrace source "pattern")
+    (match-bind! (second source) ; pattern. (source is of form '(gen [...] ...)
                  inputs
                  new-env)
-    (infer-eval (trace-subtrace source "body")
+    (infer-eval (cons 'block (rest (rest source))) ; body with implicit `block`
                 new-env
                 intervene
                 target
                 output?)))
 
-;; Evaluate a subexpression (a subproblem)
-
 (define infer-subeval
-  (gen [exp key env intervene target output?]
-    (define [value output score]
-      (infer-eval (trace-subtrace exp key)
+  (gen [sub-exp adr env intervene target output?]
+    (define [v o s]
+      (infer-eval sub-exp
                   env
-                  (maybe-subtrace intervene key)
-                  (maybe-subtrace target key)
+                  (maybe-subtrace intervene adr)
+                  (maybe-subtrace target adr)
                   output?))
-    [value (maybe-set-subtrace (trace) key output) score]))
+    [v (maybe-set-subtrace {} adr o) s]))
+
+(define infer-eval-expressions
+  (gen [exp env intervene target output?]
+    (assert (> (count exp) 0) exp)
+    (define [_ answer]
+      (clojure.core/reduce
+        (gen [[i [v o s]] next]
+          (define [sub-v sub-o sub-s]
+            (infer-subeval next i env intervene target output?))
+          [(+ i 1) [(clojure.core/conj v sub-v)
+                    (trace-merge o sub-o)
+                    (+ s sub-s)]])
+        [0 [[] {} 0]]
+        exp))
+    answer))
+
+; Question:
+; In the code {(uniform-sample ["key1" "key2" "key3"]) (flip 0.5)}, does resampling the key change the "control flow"?
+; Or can we reuse the flip even after the key changes?
+
+(define infer-eval-map
+  (gen [exp env intervene target output?]
+    (assert (map? exp) exp)
+    (assert (not (empty? exp)) exp)
+    (define [_ answer]
+      (clojure.core/reduce-kv
+        (gen [[i [v o s]] next-key next-val]
+          (define [key-v key-o key-s]
+            (infer-subeval next-key (str "key" i) env intervene target output?))
+          (define [val-v val-o val-s]
+            (infer-subeval next-val (str key-v) env intervene target output?))
+          [(+ i 1)
+           [(clojure.core/conj v [key-v val-v])
+            (trace-merge (trace-merge o key-o) val-o)
+            (+ s key-s val-s)]])
+        [0 [{} {} 0]]
+        exp))
+    answer))
+
 
 ;; Evaluate a subexpression (by reduction)
-
 (define infer-eval
   (gen [exp env intervene target output?]
-    (assert (trace? exp) ["bad expression - eval" exp])
+    ; (pprint [exp env intervene target output?])
+    ; (assert (trace? exp) ["bad expression - eval" exp])
     (assert (environment? env) ["bad env - eval" env])
     (assert (trace? intervene) ["bad intervene" intervene])
     (assert (trace? target) ["bad target" target])
@@ -110,15 +156,89 @@
 
     (define [v output score]
       ;; Dispatch on type of expression
-      (case (trace-get exp)
+      (cond
+        ; is it a variable?
+        (symbol? exp)
+        [(env-lookup env exp) {} 0] ; TODO: strip namespace?
 
-        ;; Application of a procedure to inputs (call)
-        "application"
+        ; is it a literal?
+        (or (not (compound? exp)) (empty? exp))
+        [exp {} 0]
+
+        ; is it a vector?
+        (vector? exp)
+        (infer-eval-expressions exp env intervene target output?)
+
+        ; is it a map?
+        (map? exp)
+        (infer-eval-map exp env intervene target output?)
+
+        ; is it a quote?
+        (= (first exp) 'quote)
+        [(second exp) {} 0]
+
+        ; is it an if?
+        (= (first exp) 'if)
+        (block
+          (define [pred-val pred-output pred-score]
+            (infer-subeval
+              (second exp)
+              "predicate" env intervene target output?))
+          (define [key subexp] (if pred-val ["then" (third exp)] ["else" (fourth exp)]))
+          (define [val output score]
+            (infer-subeval
+              subexp key
+              env intervene target output?))
+
+          [val
+           (trace-merge pred-output output)
+           (+ pred-score score)])
+
+        ; is it a definition?
+        (= (name (first exp)) "define")
+        ; '(define pattern exp)
+        (block
+          (define key (name-for-definiens (second exp)))
+            (define [val output score]
+              (infer-subeval (third exp) key env intervene target output?))
+            [(match-bind! (second exp) val env)
+                output
+                score])
+
+        ; is it a block?
+        (= (name (first exp)) "block")
+        (block
+          (define [values output score]
+            (infer-eval-expressions (rest exp) (make-env env) intervene target output?))
+          [(clojure.core/last values) output score])
+
+        ; is it a gen?
+        (= (name (first exp)) "gen")
+        [(compile-mp-proc
+           {:name (trace-name exp)
+            :generative-source exp, ; (cons 'gen (cons (second exp) (map mp-expand (rest (rest exp)))))
+            :environment env})
+
+           ;(clojure.core/with-meta
+           ;(clojure.core/fn [& args]
+           ;  (nth (infer-apply {:name (trace-name exp),
+           ;                :generative-source (mp-expand exp),
+           ;                :environment env} (clojure.core/vec args)
+           ;               {} {} false) 0))
+           ;{:name (trace-name exp)
+           ;:generative-source (mp-expand exp)
+           ;:environment env})
+         {}
+         0]
+
+
+        ; otherwise, it must be an application
+        true
         (block (define [values output score]
-                 (infer-eval-sequence exp env intervene target output?))
+                 (infer-eval-expressions exp env intervene target output?))
 
                (define result-key
-                 (application-result-key (trace-subtrace exp 0)))
+                 (application-result-key (first exp)))
 
                (define [result suboutput subscore]
                  (infer-apply (first values)
@@ -130,107 +250,29 @@
                 (if output?
                   (maybe-set-subtrace output result-key suboutput)
                   output)
-                (+ subscore score)])
-
-        "variable"
-        [(env-lookup env (trace-get exp "name")) (trace) 0]
-
-        "literal"
-        [(trace-get exp "value") (trace) 0]
-
-        ;; Gen-expression yields a generative procedure
-        "gen"
-        [(mutable-trace :value "prob prog"
-                        "name" (trace-name exp)
-                        "generative-source" (** exp)
-                        "environment" env)
-         (trace)
-         0]
-
-        ;; Conditional
-        "if"
-        (block
-         (define [pred-val pred-output pred-score]
-           (infer-subeval exp "predicate"
-                          env intervene target output?))
-         (define key
-           (if pred-val "then" "else"))
-         (define [val output score]
-           (infer-subeval exp key
-                          env intervene target output?))
-
-         [val
-          (trace-merge pred-output output)
-          (+ pred-score score)])
-
-        ;; Sequence of expressions and definitions
-        "block"
-        (block (define [values output score]
-                 (infer-eval-sequence exp (make-env env) intervene target output?))
-
-               [(last values) output score])
-
-        ;; Definition: bind a variable to some value
-        "definition"
-        (block (define key
-                 (name-for-definiens (trace-subtrace exp "pattern")))
-               (define [val output score]
-                 (infer-subeval exp key env intervene target output?))
-               [(match-bind! (trace-subtrace exp "pattern") val env)
-                output
-                score])
-
-        (block (pprint exp)
-               (error "Not a code expression"))))
+                (+ subscore score)])))
 
     (assert (trace? output) output)
 
-    (define ivalue (if (trace-has? intervene) (trace-get intervene) v))
-    (define tvalue (if (trace-has? target) (trace-get target) v))
+    (define ivalue (if (trace-has-value? intervene) (trace-value intervene) v))
+    (define tvalue (if (trace-has-value? target) (trace-value target) v))
 
     (cond
       ; intervention with no disagreeing target
-      (and (trace-has? intervene)
-           (or (not (trace-has? target))
-               (same-states? ivalue tvalue)))
+      (and (trace-has-value? intervene)
+           (or (not (trace-has-value? target))
+               (= ivalue tvalue)))
       [ivalue
-       (if (empty-trace? output) output (trace-set (trace) ivalue))
+       (if (empty? output) {} {:value ivalue})
        0]
 
       ; target and value (from intervention or execution) disagree
-      (and (trace-has? target)
-           (not (same-states? ivalue tvalue)))
+      (and (trace-has-value? target)
+           (not (= ivalue tvalue)))
       [tvalue
-       (trace-set output tvalue)
+       (trace-set-value output tvalue)
        negative-infinity]
 
       ; in all other cases, the existing values work fine:
       true
       [v output score])))
-
-(define z (gen [n v]
-  (assert (tuple? v) ["tuple" v])
-  (assert (= (length v) n) ["tuple length" n v])
-  v))
-
-(define infer-eval-sequence
-  (gen [exp env intervene target output?]
-    (assert (trace? exp) exp)
-    (assert (gte (trace-count exp) 1) exp)
-
-    (define luup
-      (gen [i values output score]
-        (if (trace-has? exp i)
-          (block (define [val suboutput subscore]
-                   (infer-subeval exp
-                                  i
-                                  env
-                                  intervene
-                                  target
-                                  output?))
-                 (luup (+ i 1)
-                       (pair val values)
-                       (trace-merge output suboutput)
-                       (+ score subscore)))
-          [(reverse values) output score])))
-    (luup 0 (list) (trace) 0)))

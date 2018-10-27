@@ -12,8 +12,8 @@
 
 (defn trace-as-json
   [tr]
-  (let [base (if (builtin/trace-has? tr)
-               (let [v (builtin/trace-get tr)]
+  (let [base (if (builtin/trace-has-value? tr)
+               (let [v (builtin/trace-value tr)]
                  {:value (if (float? v)
                            (format "%f" v)
                            (pr-str v))})

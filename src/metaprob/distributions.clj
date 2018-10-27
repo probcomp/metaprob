@@ -14,20 +14,25 @@
          sampler                        ;model ?
          (gen [inputs intervene target output?]
            (define [value score]
-             (if (trace-has? intervene)
+             (if (trace-has-value? intervene)
                ;; Deterministic, so score is 0
-               [(trace-get intervene) 0]
-               (if (trace-has? target)
-                 [(trace-get target)
-                  (scorer (trace-get target) inputs)]
+               [(trace-value intervene) 0]
+               (if (trace-has-value? target)
+                 [(trace-value target)
+                  (scorer (trace-value target) inputs)]
                  [(apply sampler inputs) 0])))
            [value
             (if output?
-              (trace-set (trace) value)
-              (trace))
+              {:value value}
+              {})
             score]))))
 
-                  
+
+(gen [inputs]
+  (define [value score]
+      [(apply (gen [weight] (< (sample-uniform) weight)) inputs) 0])
+  value)
+
 
 ;; Uniform
 
@@ -45,11 +50,11 @@
    "uniform-sample"
    (gen [items]
      ;; items is a metaprob list (or tuple??)
-     (define n (uniform 0 (length items)))
+     (define n (uniform 0 (count items)))
      (nth items (floor n)))
    (gen [item [items]]
-     (sub (log (length (clojure.core/filter (gen [x] (= x item)) items)))
-        (log (length items))))))
+     (- (log (count (clojure.core/filter (gen [x] (= x item)) items)))
+        (log (count items))))))
 
 ;; Code translated from class BernoulliOutputPSP(DiscretePSP):
 ;;
@@ -58,12 +63,11 @@
 (define flip
   (make-inference-procedure-from-sampler-and-scorer
     "flip"
-    (gen [weight] (lt (uniform 0 1) weight))
-    (gen [value inputs]
-      (define weight (nth inputs 0))
+    (gen [weight] (< (uniform 0 1) weight))
+    (gen [value [weight]]
       (if value
         (log weight)
-        (log1p (sub 0 weight))))))
+        (log1p (- 0 weight))))))
 
 ;; Cf. CategoricalOutputPSP from discrete.py in Venturecxx
 ;; This is just the one-argument form, so is simpler than what's in Venture.
@@ -79,13 +83,13 @@
      (define threshold (uniform 0 1))
      ;; iterate over probabilities, accumulate running sum, stop when cumu prob > threshold.
      (define scan (gen [i probs running-prob]
-                    (if (empty-trace? probs)
+                    (if (empty? probs)
                       (- i 1)
                       (block (define next-prob (+ (first probs) running-prob))
                              (if (> next-prob threshold)
                                i
                                (scan (+ i 1) (rest probs) next-prob))))))
-     (scan 0 (to-list probabilities) 0.0))
+     (scan 0 probabilities 0.0))
    (gen [i [probabilities]]
      ;; return logDensityCategorical(val, vals[0],
      ;;   [VentureInteger(i) for i in range(len(vals[0]))])
@@ -120,9 +124,8 @@
 ;;  ^:private
 (define scores-to-probabilities
   (gen [scores]
-    (define weights (map exp (to-immutable-list scores)))
-    ;; reduce probably won't work
-    (define normalizer (apply add (to-immutable-list weights)))
+    (define weights (map exp scores))
+    (define normalizer (apply + weights))
     (map (gen [w] (/ w normalizer)) weights)))
 
 
