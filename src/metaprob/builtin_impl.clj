@@ -78,13 +78,23 @@
             (vector? x)
             (vec (map freeze (seq x)))
 
-            true
-            (let [keys (trace-keys x)
-                  result (into {} (for [key keys] [key (freeze (trace-subtrace x key))]))]
-              (if (trace-has? x)
-                (assoc result :value (freeze (trace-get x)))
-                result))))
-    x))
+(defn assoc
+  ([m k v] (metaprob.compound/assoc m k v))
+  ([m k v & kvs]
+   (let [ret (metaprob.compound/assoc m k v)]
+     (if kvs
+       (if (next kvs)
+         (recur ret (first kvs) (second kvs) (nnext kvs))
+         (throw (IllegalArgumentException. "assoc expects an even number of arguments after the collection; found odd number")))
+       ret))))
+
+(defn dissoc
+  ([m k] (metaprob.compound/dissoc m k))
+  ([m k & ks]
+   (let [ret (metaprob.compound/dissoc m k)]
+     (if ks
+       (recur ret (first ks) (next ks))
+       ret))))
 
 ;; This is for computing a name for a procedure at its point of creation.
 ;; Careful, this loses if there's a cycle.  Don't include a lexical
