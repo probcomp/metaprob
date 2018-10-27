@@ -204,5 +204,5 @@
                       l))
     (clojure.core/print
      (clojure.core/format "%s\n"
-                          (to-tuple (map (gen [p] (Math/round (* p 100)))
+                          (clojure.core/vec (map (gen [p] (round (* p 100)))
                                          trimmed))))))

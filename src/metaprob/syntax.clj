@@ -283,6 +283,7 @@
                    (and (seq? rhs)
                         (symbol? (first rhs))
                         (or (= (name (first rhs)) "gen") (= (name (first rhs)) "gen-no-expand"))))))
+          (qons [x y] ;huh?
             (if (list? y)
               (conj y x)
               (conj (concat (list) y) x)))
