@@ -10,9 +10,7 @@
   ([tr] (trace-value tr '()))
   ([tr adr]
     (let [subtrace (get-in tr adr)]
-      (if (contains? subtrace :value)
-        (get subtrace :value)
-        (throw (IndexOutOfBoundsException. "No value at this address in trace."))))))
+      (get subtrace :value))))
 
 (defn trace-has-subtrace? [tr adr]
   (if (seq? adr)
@@ -42,6 +40,7 @@
   ([tr val] (assoc tr :value val))
   ([tr adr val]
    (trace-set-subtrace tr adr (trace-set-value (trace-subtrace tr adr) val))))
+; TODO: Only traverse once?
 
 (defn trace-clear-value
   ([tr] (dissoc tr :value))
@@ -51,10 +50,12 @@
   (if (seq? adr)
     (if (empty? adr)
       {}
-      (trace-set-subtrace
-        tr
-        (first adr)
-        (trace-clear-subtrace (trace-subtrace tr (first adr)) (rest adr))))
+      (if (empty? (rest adr))
+        (dissoc tr (first adr))
+        (trace-set-subtrace
+         tr
+          (first adr)
+          (trace-clear-subtrace (trace-subtrace tr (first adr)) (rest adr)))))
     (dissoc tr adr)))
 
 (defn value-only-trace? [tr]

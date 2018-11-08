@@ -91,8 +91,7 @@
       (infer :procedure model-procedure
              :inputs   inputs
              :intervention-trace restoring-trace
-             :target-trace new-target-rev
-             :output-trace? false))
+             :target-trace new-target-rev))
 
     (define log-acceptance-probability
       (- (+ forward-score (log new-num-choices))

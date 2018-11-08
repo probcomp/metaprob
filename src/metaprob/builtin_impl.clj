@@ -213,7 +213,7 @@
     ;; When called from Clojure:
     (fn [& inputs]
       (let [inputs (if (= inputs nil) (list) inputs)]
-        (nth (implementation inputs {} {} false)
+        (nth (implementation inputs {:tracing-context? true :active? false :current-address '() :trace {} :target {}})
              0)))
     ;; Annotations:
     :name (str "inf-" name),

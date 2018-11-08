@@ -11,12 +11,12 @@
   (dissoc [thing k] "Returns a version of this data structure without key k")
   (representation [thing] "Returns what kind of MP data structure this `thing` is"))
 
-(defn compound? [x]
-  (and (not (nil? x)) (satisfies? MPCompound x)))
-
 (defn empty? [m]
   (clojure.core/empty? (unbox m)))
   ;(clojure.core/empty? (keys m)))
+
+(defn compound? [x]
+  (and (satisfies? MPCompound x) (not (empty? x))))
 
 (defn procedure? [x]
   (fn? x))
@@ -47,7 +47,7 @@
 
 (defn to-list [m]
   (cond
-    (not (compound? m)) (throw (IllegalArgumentException. "Cannot convert primitives to lists."))
+    (not (satisfies? MPCompound m)) (throw (IllegalArgumentException. "Cannot convert primitives to lists."))
     (= (representation m) :list) m
     (= (representation m) :vector) (seq m)
     (and (= (representation m) :map) (= (keys m) '(:first :rest))) (cons (get m :first) (to-list (get m :rest)))
@@ -95,7 +95,7 @@
   {:get (fn [f k] (get (meta f) k)),
    :contains? (fn [f k] (contains? (meta f) k)),
    :keys (fn [f] (keys (meta f))),
-   :unbox meta,
+   :unbox (fn [f] (if (meta f) (unbox (meta f)) nil)), ; (comp unbox meta),
    :assoc (fn [f k v] (vary-meta f assoc k v)),
    :dissoc (fn [f k] (vary-meta f dissoc k)),
    :representation (fn [f] (representation (meta f)))})
@@ -105,7 +105,7 @@
   {:get (fn [a k] (get (deref a) k)),
    :contains? (fn [a k] (contains? (deref a) k)),
    :keys (fn [a] (keys (deref a))),
-   :unbox deref,
+   :unbox (fn [a] (if (deref a) (unbox (deref a)) (deref a))),
    :assoc (fn [a k v] (assoc (deref a) k v)),
    :dissoc (fn [a k] (dissoc (deref a) k)),
    :representation (fn [a] (representation (deref a)))})
@@ -115,7 +115,7 @@
   {:get (fn [_ _] nil),
    :contains? (fn [_ _] false),
    :keys (fn [_] '()),
-   :unbox identity,
+   :unbox (fn [_] nil),
    :assoc clojure.core/assoc,
    :dissoc clojure.core/dissoc,
    :representation (fn [_] :list)}) ; should nil be a list, a vector, or...?

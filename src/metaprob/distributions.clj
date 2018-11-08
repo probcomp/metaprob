@@ -3,6 +3,7 @@
   (:require [metaprob.syntax :refer :all])
   (:require [metaprob.builtin :refer :all])
   (:require [metaprob.prelude :refer :all])
+  (:require [metaprob.context :refer :all])
   (:require [metaprob.interpreters :refer :all]))
 
 ;; -----------------------------------------------------------------------------
@@ -11,22 +12,23 @@
 (define make-inference-procedure-from-sampler-and-scorer
   (gen [name sampler scorer]
     (inf name
-         sampler                        ;model ?
-         (gen [inputs intervene target output?]
-           (define [value score]
-             (if (trace-has-value? intervene)
-               ;; Deterministic, so score is 0
-               [(trace-value intervene) 0]
-               (if (trace-has-value? target)
-                 [(trace-value target)
-                  (scorer (trace-value target) inputs)]
-                 [(apply sampler inputs) 0])))
-           [value
-            (if output?
-              {:value value}
-              {})
-            score]))))
-
+         sampler
+         ; The thing run by the interpreter should *also* be an inf
+         ; but then its implementation should be an inf... etc., all the way down.
+         ; Can this be done by recursively calling make-inference-procedure-from-sampler-and-scorer?
+         (gen [inputs ctx]
+           (if
+             (not (get ctx :active?))
+             [(apply sampler inputs) ctx 0]
+             (block
+               (define ivalue (direct-recorded-value ctx))
+               (define tvalue (target-value ctx '()))
+               (cond
+                  (not (clojure.core/nil? ivalue)) [ivalue ctx 0]
+                  (not (clojure.core/nil? tvalue)) [tvalue (direct-record-or-use-constrained! ctx tvalue) (scorer tvalue inputs)]
+                  :true (block (define sample (apply sampler inputs))
+                               (define ctx' (direct-record-or-use-constrained! ctx sample))
+                               [sample ctx' 0]))))))))
 
 (gen [inputs]
   (define [value score]
@@ -90,10 +92,35 @@
                                i
                                (scan (+ i 1) (rest probs) next-prob))))))
      (scan 0 probabilities 0.0))
+
    (gen [i [probabilities]]
      ;; return logDensityCategorical(val, vals[0],
      ;;   [VentureInteger(i) for i in range(len(vals[0]))])
      (log (nth probabilities i)))))
+
+
+(define labeled-categorical
+  (make-inference-procedure-from-sampler-and-scorer
+    "labeled-categorical"
+    (gen [labels probabilities]
+      ;; Returns a label.
+      ;; Assume that probabilities add to 1.
+      ;; return simulateCategorical(vals[0], args.np_prng(),
+      ;;   [VentureInteger(i) for i in range(len(vals[0]))])
+      (define threshold (uniform 0 1))
+      ;; iterate over probabilities, accumulate running sum, stop when cumu prob > threshold.
+      (define scan (gen [i probs running-prob]
+                     (if (empty? probs)
+                       (nth labels (- i 1))
+                       (block (define next-prob (+ (first probs) running-prob))
+                              (if (> next-prob threshold)
+                                (nth labels i)
+                                (scan (+ i 1) (rest probs) next-prob))))))
+      (scan 0 probabilities 0.0))
+    (gen [l [labels probabilities]]
+      ;; return logDensityCategorical(val, vals[0],
+      ;;   [VentureInteger(i) for i in range(len(vals[0]))])
+      (log (apply + (map (gen [i] (if (= l (nth labels i)) (nth probabilities i) 0)) (range (count probabilities))))))))
 
 (declare scores-to-probabilities)
 

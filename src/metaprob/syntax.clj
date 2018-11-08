@@ -21,8 +21,8 @@
           ;; Insert name into function expression, if any
           (form-def [name rhs]
             (let [rhs (if (and (seq? rhs)
-                               (or (= (first rhs) 'gen) (= (first rhs) 'gen-no-expand)))
-                        `(~'named-generator ~name ~(= (first rhs) 'gen) ~@(rest rhs))
+                               (= (first rhs) 'gen))
+                        `(~'named-generator ~name ~(not (:no-expand? (meta &form))) ~@(rest rhs))
                         rhs)]
               `(def ~name ~rhs)))
 
@@ -105,20 +105,25 @@
          (~'define ~name ~gen-expr) ~name)
       gen-expr)))
 
+(defmacro or-nil?
+  ([] nil)
+  ([x] x)
+  ([x & next] `(let [or# ~x] (if (nil? or#) (or-nil? ~@next) or#))))
+
+
 (defn mp-expand [form]
-  ; (println (str "expanding: " form))
   (cond
-    ; TODO: nil probably shouldn't be considered compound data
-    (or (nil? form) (not (compound? form)))
-    form
     (vector? form) (vec (map mp-expand form))
     (map? form) (into {} (map (fn [[k v]] [(mp-expand k) (mp-expand v)]) form))
-    (not (seq? form)) (throw (IllegalArgumentException. (str "mp-expand encountered invalid Metaprob code: " form)))
+    ; TODO: nil probably shouldn't be considered compound data
+    (or (nil? form) (not (seq? form)))
+    form
     true
     (case (first form)
       ; Metaprob special forms
       quote form
       gen   (cons 'gen (cons (second form) (map mp-expand (rest (rest form)))))
+      with-explicit-tracer (cons 'with-explicit-tracer (cons (second form) (map mp-expand (rest (rest form)))))
       (block do) (cons 'block (map mp-expand (rest form)))
       define (list 'define (second form) (mp-expand (nth form 2)))
       if (map mp-expand form)
@@ -133,7 +138,8 @@
       loop* (throw (IllegalArgumentException. "Cannot use loop* in Metaprob."))
       case* (throw (IllegalArgumentException. "Cannot use case* in Metaprob."))
       throw `(~'assert false (str "Clojure throw statement encountered: " ~form))
-      (new monitor-exit monitor-enter try finally clojure.core/import* deftype* set! . var catch def reify*)
+      . (cons '. (map mp-expand (rest form)))
+      (new monitor-exit monitor-enter try finally clojure.core/import* deftype* set! var catch def reify*)
       (throw (IllegalArgumentException. (str "mp-expand encountered unsupported Clojure special form" form)))
 
       ; It's a function or macro...
@@ -144,7 +150,7 @@
 
 ;; This can fail with forward references to recursive functions
 (defn make-generative [fun name exp top-env names values]
-  (clojure.core/with-meta
+  (p ::making-generative (clojure.core/with-meta
     fun
     {:name (impl/trace-name exp name)
     :generative-source exp
@@ -152,7 +158,7 @@
     (if (empty? names)
       top-env
       (into {:parent top-env}
-            (map (fn [name value] [name value]) names values)))}))
+            (map (fn [name value] [name value]) names values)))})))
 
 ; Takes in a Metaprob environment and a Clojure
 ; fn expression, and evaluates the fn expression
@@ -214,8 +220,9 @@
     (map? form) (into {} (map (fn [[k v]] [(change-gens k) (change-gens v)]) form))
     (not (seq? form)) (throw (IllegalArgumentException. (str "Weird form: " form "--of type--" (type form))))
     (= (first form) 'quote) (cons 'quote (rest form))
-    (= (first form) 'gen)
-    (cons 'gen-no-expand (cons (second form) (map change-gens (rest (rest form)))))
+    (or (= (first form) 'gen) (= (first form) 'define))
+    (vary-meta (cons (first form) (cons (second form) (map change-gens (rest (rest form))))) assoc :no-expand? true)
+    ; (cons 'gen-no-expand (cons (second form) (map change-gens (rest (rest form)))))
     true
     (map change-gens form)))
 
@@ -227,8 +234,8 @@
 ;; Compile time
 (defmacro named-generator [name expand? params & body]
   {:style/indent 2}
-  (let [expanded-body (if expand? (map mp-expand body) body)
-        gen-changed-body (if expand? (map change-gens expanded-body) expanded-body)
+  (let [expanded-body (if expand? (p ::expanding (map mp-expand body)) body)
+        gen-changed-body (if expand? (p ::change-genning (map change-gens expanded-body)) expanded-body)
         fn-body (if (some #(= '& %) params)
                   (let [screwy (last params)]
                     `(let [~screwy (if (= ~screwy nil) '() ~screwy)]
@@ -238,10 +245,11 @@
                   ~params
                   ~fn-body)
         exp-trace `(~'gen ~params ~@expanded-body) ; TODO: profile
-        names (vec (set/intersection (free-vars-approximately fn-exp)
-                                     (set (keys &env))))]
+        names (p ::analyzing-free-vars (vec (set/intersection (free-vars-approximately fn-exp)
+                                      (set (keys &env)))))]
     ;;(if (not (empty? names))
     ;;  (impl/metaprob-print ["the names are:" names]))
+
     `(make-generative ~fn-exp
                       '~name
                       '~exp-trace
@@ -254,7 +262,7 @@
   "like fn, but for metaprob procedures"
   {:style/indent 1}
   [params & body]
-  `(named-generator nil true ~params ~@body))
+  `(named-generator nil ~(not ((meta &form) :no-expand?)) ~params ~@body))
 
 (defmacro gen-no-expand
   {:style/indent 1}
@@ -262,6 +270,11 @@
   `(named-generator nil false ~params ~@body))
 
 ;; Oddly, the source s-expressions don't seem to answer true to list?
+
+(defmacro with-explicit-tracer
+  [t & body]
+  `(let [~t (fn [~'_ ~'f & ~'args] (apply ~'f ~'args))] (block ~@body)))
+
 
 (defmacro block
   "like do, but for metaprob - supports local definitions"
@@ -282,7 +295,7 @@
                  (let [rhs (definition-rhs form)]
                    (and (seq? rhs)
                         (symbol? (first rhs))
-                        (or (= (name (first rhs)) "gen") (= (name (first rhs)) "gen-no-expand"))))))
+                        (= (name (first rhs)) "gen")))))
           (qons [x y] ;huh?
             (if (list? y)
               (conj y x)
@@ -361,4 +374,4 @@
 
 ;; Don't create variables with these names...
 ;;   (tbd: look for :meta on a Var in this namespace ??)
-(def prohibited-names #{"block" "gen" "gen-no-expand" "define" "if" "quote"})
+(def prohibited-names #{"block" "gen" "define" "if" "quote"})
