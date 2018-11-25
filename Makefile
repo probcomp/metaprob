@@ -79,7 +79,7 @@ tags:
 
 .PHONY: bash
 bash:
-	@NB_UID=${NB_UID} docker-compose -p ${USER} exec notebook bash
+	@NB_UID=${NB_UID} docker-compose -p ${USER} exec notebook sudo -E -u jovyan -s
 
 .PHONY: build
 build:
@@ -97,6 +97,10 @@ up:
 down:
 	@NB_UID=${NB_UID} docker-compose -p ${USER} down
 
+.PHONY: repl
+repl:
+	@NB_UID=${NB_UID} docker-compose -p ${USER} exec notebook sudo -E -u jovyan bash -c "sleep 1;clj"
+
 
 ####
 docker-build:
@@ -106,23 +110,3 @@ docker-build:
 docker-test:
 	docker run -t probcomp/metaprob-clojure:latest bash -c "make test"
 .PHONY: docker-test
-
-docker-bash:
-	docker run \
-		-it \
-		--mount type=bind,source=${HOME}/.m2,destination=/home/metaprob/.m2 \
-		--mount type=bind,source=${CURDIR},destination=/home/metaprob/projects/metaprob-clojure \
-		probcomp/metaprob-clojure:latest \
-		bash
-.PHONY: docker-cider
-
-docker-repl:
-	docker run \
-		-it \
-		--mount type=bind,source=${HOME}/.m2,destination=/home/metaprob/.m2 \
-		--mount type=bind,source=${CURDIR},destination=/home/metaprob/projects/metaprob-clojure \
-		probcomp/metaprob-clojure:latest \
-		bash -c "sleep 1;clj"
-# For more information on why this sleep is necessary see this pull request:
-# https://github.com/sflyr/docker-sqlplus/pull/2
-.PHONY: docker-repl

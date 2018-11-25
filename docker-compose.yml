@@ -1,4 +1,7 @@
 version: "2"
+volumes:
+  m2-cache:
+    driver: local
 
 services:
   notebook:
@@ -12,3 +15,4 @@ services:
       NB_UID: ${NB_UID}
     volumes:
       - .:/home/jovyan/metaprob:rw
+      - m2-cache:/home/jovyan/.m2:rw
