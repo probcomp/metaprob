@@ -2,11 +2,13 @@ version: "2"
 
 services:
   notebook:
-    image: probcomp/metaprob-clojure:latest
+    build: .
     ports:
       - 8888:8888
     hostname: ${USER}-notebook
+    user: root
     environment:
+      GRANT_SUDO: 'yes'
       NB_UID: ${NB_UID}
     volumes:
-      - .:/home/jovyan/metaprob-clojure:rw
+      - .:/home/jovyan/metaprob:rw

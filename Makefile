@@ -1,3 +1,6 @@
+# env vars
+NB_UID := $(shell id -u)
+
 all: bin/lein .lein_classpath
 	@echo "Good to go!"
 
@@ -73,6 +76,29 @@ tags:
 	etags --language=lisp `find src -name "[a-z]*.clj"` `find test -name "[a-z]*.clj"`
 
 # Targets for manipulating Docker below.
+
+.PHONY: bash
+bash:
+	@NB_UID=${NB_UID} docker-compose -p ${USER} exec notebook bash
+
+.PHONY: build
+build:
+	@NB_UID=${NB_UID} docker-compose -p ${USER} build
+
+.PHONY: lab
+lab:
+	@NB_UID=${NB_UID} docker-compose -f docker-compose.yml -f docker-compose.lab.yml -p ${USER} up
+
+.PHONY: up
+up:
+	@NB_UID=${NB_UID} docker-compose -p ${USER} up
+
+.PHONY: down
+down:
+	@NB_UID=${NB_UID} docker-compose -p ${USER} down
+
+
+####
 docker-build:
 	docker build -t probcomp/metaprob-clojure:latest .
 .PHONY: docker-build
@@ -100,13 +126,3 @@ docker-repl:
 # For more information on why this sleep is necessary see this pull request:
 # https://github.com/sflyr/docker-sqlplus/pull/2
 .PHONY: docker-repl
-
-docker-notebook:
-	docker run \
-		-it \
-		--mount type=bind,source=${HOME}/.m2,destination=/home/metaprob/.m2 \
-		--mount type=bind,source=${CURDIR},destination=/home/metaprob/projects/metaprob-clojure \
-		--publish 8888:8888/tcp \
-		probcomp/metaprob-clojure:latest \
-		bash -c "lein jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --notebook-dir ./src/metaprob/tutorial"
-.PHONY: docker-notebook

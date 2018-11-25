@@ -1,0 +1,5 @@
+version: "2"
+
+services:
+  notebook:
+    command: start.sh lein jupyter lab --NotebookApp.custom_display_url=http://localhost:8888
