@@ -1,4 +1,4 @@
-# Metaprob
+# Metaprob [![Build Status](https://travis-ci.org/probcomp/metaprob.svg?branch=master)](https://travis-ci.org/probcomp/metaprob)
 
 A language for probabilistic programming and metaprogramming, embedded in [Clojure](https://clojure.org/).
 
