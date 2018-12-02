@@ -1,6 +1,6 @@
 # Metaprob
 
-A language for probabilistic programming and metaprogramming, embedded in Clojure.
+A language for probabilistic programming and metaprogramming, embedded in [Clojure](https://clojure.org/).
 
 ## Key features
 
@@ -16,14 +16,14 @@ A language for probabilistic programming and metaprogramming, embedded in Clojur
 ## Motivations
 
 * Lightweight embeddings of probabilistic programming and inference metaprogramming
-  * Interactive, browser-based data analysis tools (via ClojureScript)
+  * Interactive, browser-based data analysis tools (via [ClojureScript](https://clojurescript.org/))
   * Smart data pipelines suitable for enterprise deployment (via Clojure on the JVM)
 * “Small core” language potentially suitable for formal specification and verification
 * Teaching
   * Undergraduates and graduate students interested in implementing their own minimal PPL
   * Software engineers and data engineers interested in probabilistic modeling and inference
 * Research in artificial intelligence and cognitive science
-  * Combining symbolic and probabilistic reasoning, e.g. via integration with Clojure’s core.logic
+  * Combining symbolic and probabilistic reasoning, e.g. via integration with Clojure’s [core.logic](https://github.com/clojure/core.logic)
   * “Theory of mind” models, where an agent’s reasoning is modeled as an inference metaprogram acting on a generative model
   * Reinforcement learning and other “nested” applications of modeling and approximate inference
   * Causal reasoning, via a notion of interventions that extends Pearl's “do” operator
