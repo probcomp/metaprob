@@ -1,5 +1,7 @@
 (ns metaprob.trace
-  (:require [metaprob.state :as state]))
+  #?(:clj (:import [clojure.lang Atom]))
+  (:require #?(:cljs [cljs.core :refer [Atom]])
+            [metaprob.state :as state]))
 
 ;; There are three kinds of generic traces:
 ;;   1. trace-state (immutable)
@@ -13,7 +15,7 @@
 ;; Clojure function ~= Metaprob procedure
 
 (defn proper-function? [x]
-  (and (instance? clojure.lang.IFn x)
+  (and (ifn? x)
        (not (seq? x))
        (not (vector? x))
        (not (map? x))
@@ -37,7 +39,7 @@
 (defn make-cell [x] (atom x))
 
 (defn cell? [x]
-  (instance? clojure.lang.Atom x))
+  (instance? Atom x))
 
 (defn trace? [tr]
   (or (get (meta tr) :trace)
@@ -143,7 +145,7 @@
   (proper-function? x))
 
 (defn trace-as-procedure [tr ifn]
-  (do (assert (instance? clojure.lang.IFn ifn) ifn)
+  (do (assert (ifn? ifn))
       (assert (trace? tr) tr)
       (with-meta ifn {:trace tr})))
 
@@ -485,15 +487,10 @@
            ;; Did not delete, it wasn't there in the first place
            ))))))
 
-(defn trace-set!
-  ([tr val] (trace-set-value! tr val))
-  ([tr adr val]
-   (trace-set-value-at! tr adr val)))
-
 (defn trace-merge!-maybe [mutable tr]
   (if (mutable-trace? mutable)
     (do (trace-swap! mutable
-                     (fn [s1] 
+                     (fn [s1]
                        (trace-merge s1 tr trace-merge!-maybe)))
         mutable)
     (trace-merge mutable tr trace-merge!-maybe)))
@@ -691,7 +688,7 @@
 (declare pprint-indented)
 
 (defn  ^:private princ [x out]
-  (.write out (if (string? x) x (format "%s" x))))
+  (.write out (if (string? x) x (str x))))
 
 ;; Print a key or a value, on one line
 
@@ -700,13 +697,13 @@
     (let [keyseq (trace-keys x)]
       (if (trace-has? x)
         (if (empty? keyseq)
-          (princ (format "{:value %s}" (trace-get x))
+          (princ (str "{:value " (trace-get x) "}")
                  out)    ;should pprint-value
-          (princ (format "{:value %s, %s: ...}}" (trace-get x) (first keyseq))
+          (princ (str "{:value " (trace-get x) ", " (first keyseq) ": ...}}")
                  out))
         (if (empty? keyseq)
           (princ "{}" out)
-          (princ (format "{%s: ...}" (first keyseq)) out))))
+          (princ (str "{" (first keyseq) ": ...}") out))))
     (pr x)))
 
 ;; x is a seq
