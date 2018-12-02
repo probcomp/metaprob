@@ -2,6 +2,8 @@
 
 A language for probabilistic programming and metaprogramming, embedded in [Clojure](https://clojure.org/).
 
+Metaprob is currently alpha software, and everything about it is subject to change.
+
 ## Key features
 
 * Models can be represented via generative code, i.e. ordinary code that makes stochastic choices
