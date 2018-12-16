@@ -4,7 +4,7 @@ volumes:
     driver: local
 
 services:
-  notebook:
+  notebook: &app_base
     build: .
     ports:
       - 8888:8888
@@ -16,3 +16,8 @@ services:
     volumes:
       - .:/home/jovyan/metaprob:rw
       - m2-cache:/home/jovyan/.m2:rw
+  repl:
+    <<: *app_base
+    ports:
+      - 4001:4001
+    command: start.sh clj

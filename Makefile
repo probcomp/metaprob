@@ -99,7 +99,7 @@ down:
 
 .PHONY: repl
 repl:
-	@NB_UID=${NB_UID} docker-compose -p ${USER} exec notebook sudo -E -u jovyan bash -c "sleep 1;clj"
+	@NB_UID=${NB_UID} docker-compose -p ${USER} run --service-ports repl
 
 
 ####

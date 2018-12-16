@@ -3,4 +3,8 @@
   :plugins [[lein-tools-deps "0.4.1"]
             [lein-jupyter "0.1.16"]]
   :middleware [lein-tools-deps.plugin/resolve-dependencies-with-deps-edn]
-  :lein-tools-deps/config {:config-files [:install :user :project]})
+  :lein-tools-deps/config {:config-files [:install :user :project]}
+  :repl-options {
+                 :host "0.0.0.0"
+                 :port 4001})
+                 
