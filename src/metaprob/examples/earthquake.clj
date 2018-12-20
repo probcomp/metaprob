@@ -20,7 +20,7 @@
 ;; Tuple element 0 determines the highest order bit.
 
 (define booleans-to-binary
-  (opaque "booleans-to-binary"          ;Do not score
+  (opaque        ;Do not score
    (gen [qu]
      (define len (count qu))
      (define luup

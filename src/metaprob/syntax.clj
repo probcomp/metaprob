@@ -110,7 +110,6 @@
   ([x] x)
   ([x & next] `(let [or# ~x] (if (nil? or#) (or-nil? ~@next) or#))))
 
-
 (defn mp-expand [form]
   (cond
     (vector? form) (vec (map mp-expand form))
@@ -138,6 +137,7 @@
       loop* (throw (IllegalArgumentException. "Cannot use loop* in Metaprob."))
       case* (throw (IllegalArgumentException. "Cannot use case* in Metaprob."))
       throw `(~'assert false (str "Clojure throw statement encountered: " ~form))
+      ; TOTAL HACK and should be removed or made to work:
       . (cons '. (map mp-expand (rest form)))
       (new monitor-exit monitor-enter try finally clojure.core/import* deftype* set! var catch def reify*)
       (throw (IllegalArgumentException. (str "mp-expand encountered unsupported Clojure special form" form)))
@@ -150,7 +150,7 @@
 
 ;; This can fail with forward references to recursive functions
 (defn make-generative [fun name exp top-env names values]
-  (p ::making-generative (clojure.core/with-meta
+  (clojure.core/with-meta
     fun
     {:name (impl/trace-name exp name)
     :generative-source exp
@@ -158,7 +158,7 @@
     (if (empty? names)
       top-env
       (into {:parent top-env}
-            (map (fn [name value] [name value]) names values)))})))
+            (map (fn [name value] [name value]) names values)))}))
 
 ; Takes in a Metaprob environment and a Clojure
 ; fn expression, and evaluates the fn expression
@@ -234,8 +234,8 @@
 ;; Compile time
 (defmacro named-generator [name expand? params & body]
   {:style/indent 2}
-  (let [expanded-body (if expand? (p ::expanding (map mp-expand body)) body)
-        gen-changed-body (if expand? (p ::change-genning (map change-gens expanded-body)) expanded-body)
+  (let [expanded-body (if expand? (map mp-expand body) body)
+        gen-changed-body (if expand? (map change-gens expanded-body) expanded-body)
         fn-body (if (some #(= '& %) params)
                   (let [screwy (last params)]
                     `(let [~screwy (if (= ~screwy nil) '() ~screwy)]
@@ -245,8 +245,8 @@
                   ~params
                   ~fn-body)
         exp-trace `(~'gen ~params ~@expanded-body) ; TODO: profile
-        names (p ::analyzing-free-vars (vec (set/intersection (free-vars-approximately fn-exp)
-                                      (set (keys &env)))))]
+        names (vec (set/intersection (free-vars-approximately fn-exp)
+                                      (set (keys &env))))]
     ;;(if (not (empty? names))
     ;;  (impl/metaprob-print ["the names are:" names]))
 

@@ -5,8 +5,10 @@
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
+            [metaprob.context :refer :all]
             [metaprob.distributions :refer :all]
-            [metaprob.interpreters :refer :all]))
+            [metaprob.interpreters :refer :all]
+            [metaprob.compositional :as comp]))
 
 ;; Probabilistic inference methods
 
@@ -63,9 +65,7 @@
     (define new-target (trace-clear-value trace target-address))
 
     (define [_ new-trace forward-score]
-      (infer :procedure model-procedure
-             :inputs inputs
-             :target-trace new-target))
+      (comp/infer-apply model-procedure inputs (make-top-level-tracing-context {} new-target)))
     (define new-value (trace-value new-trace target-address))
 
     ;; the proposal is to move from trace to new-trace
@@ -97,7 +97,7 @@
       (- (+ forward-score (log new-num-choices))
          (+ reverse-score (log initial-num-choices))))
 
-    (if (< (log (uniform 0 1)) log-acceptance-probability)
+    (if (flip (exp log-acceptance-probability))
       new-trace
       trace)))
 

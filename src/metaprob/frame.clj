@@ -71,8 +71,8 @@
 
                        ;; The pattern [& x] matches anything
                        (and (= i (- n 2))
-                            (= (pattern i) '&))
-                       (match-bind! (pattern (+ i 1))
+                            (= (nth pattern i) '&))
+                       (match-bind! (nth pattern (+ i 1))
                                     cursor
                                     env)
 
@@ -88,7 +88,7 @@
 
                        ;; Bind pattern to input, and continue
                        true
-                       (block (match-bind! (pattern i) (first cursor) env)
+                       (block (match-bind! (nth pattern i) (first cursor) env)
                               (loup (+ i 1) (rest cursor))))))
              (loup 0 (to-list input)))
 

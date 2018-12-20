@@ -28,7 +28,7 @@
     true (into {} (map (fn [k] [k (get m k)]) (keys m)))))
 
 
-; Recursively transforms an AMPData
+; Recursively transforms an MPData
 (defn unbox-all [m]
   (clojure.walk/prewalk
     (fn [x] (if (satisfies? MPCompound x)

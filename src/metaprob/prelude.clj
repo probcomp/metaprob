@@ -45,14 +45,6 @@
 ;; -----------------------------------------------------------------------------
 ;; Inf-based utilities.
 
-(define opaque
-  (gen [name proc]
-    (inf name
-         proc   ;model (generative procedure)
-         (gen [inputs ctx]
-           ;; Ignore the traces.
-           (infer-apply proc inputs {} {} false)))))
-
 
 (define apply
   (clojure.core/with-meta
@@ -76,7 +68,11 @@
     ;        ; (assert false "Tracing `apply` is currently unimplemented."))))))
     ;        ;(infer-apply (first inputs) (second inputs) ctx))))))
 
-;
+
+(define opaque
+  (gen [proc]
+    (gen [& args] (with-explicit-tracer _ (apply proc args)))))
+
 ;;; map defined using inf (instead of with-address)
 ;
 ;; TODO: This also depends on the ability to call infer-apply
@@ -137,3 +133,10 @@
 (define replicate
   (gen [n f]
     (map (gen [_] (f)) (range n))))
+
+(define reduce
+  (gen [f start coll]
+    (with-explicit-tracer t
+      (second
+        (clojure.core/doall
+          (clojure.core/reduce (gen [[i x] y] [(+ i 1) (t i f x y)]) [0 start] coll))))))

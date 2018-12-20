@@ -11,24 +11,16 @@
 
 (define make-inference-procedure-from-sampler-and-scorer
   (gen [name sampler scorer]
-    (inf name
-         sampler
-         ; The thing run by the interpreter should *also* be an inf
-         ; but then its implementation should be an inf... etc., all the way down.
-         ; Can this be done by recursively calling make-inference-procedure-from-sampler-and-scorer?
-         (gen [inputs ctx]
-           (if
-             (not (get ctx :active?))
-             [(apply sampler inputs) ctx 0]
-             (block
-               (define ivalue (direct-recorded-value ctx))
-               (define tvalue (target-value ctx '()))
-               (cond
-                  (not (clojure.core/nil? ivalue)) [ivalue ctx 0]
-                  (not (clojure.core/nil? tvalue)) [tvalue (direct-record-or-use-constrained! ctx tvalue) (scorer tvalue inputs)]
-                  :true (block (define sample (apply sampler inputs))
-                               (define ctx' (direct-record-or-use-constrained! ctx sample))
-                               [sample ctx' 0]))))))))
+    (assoc
+      (inf name
+           sampler
+           (gen [inputs ctx]
+             (cond
+               (not (get ctx :active?)) [(apply sampler inputs) {} 0]
+               (intervened? ctx '()) [(intervene-value ctx '()) (get ctx :intervene) 0]
+               (targeted? ctx '()) (block (define tvalue (target-value ctx '())) [tvalue {:value tvalue} (scorer tvalue inputs)])
+               true (block (define sample (apply sampler inputs)) [sample {:value sample} 0]))))
+      :primitive? true)))
 
 (gen [inputs]
   (define [value score]

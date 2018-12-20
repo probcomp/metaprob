@@ -208,24 +208,22 @@
 
 ;; This could go in prelude.clj, with some effort.
 
+
 (defn inf [name model implementation]
   (assoc
     ;; When called from Clojure:
     (fn [& inputs]
       (let [inputs (if (= inputs nil) (list) inputs)]
-        (nth (implementation inputs {:tracing-context? true :active? false :current-address '() :trace {} :target {}})
-             0)))
+        ;(if (fn? model)
+        ;  (apply model inputs)
+          (nth (implementation inputs {:intervene {} :interpretation-id (gensym) :target {}}) 0)))
     ;; Annotations:
     :name (str "inf-" name),
     :model model,
     :implementation implementation))
 
-(defn clojure-interpreter [proc inputs
-                           intervention-trace target-trace output-trace?]
+(defn clojure-interpreter [proc inputs ctx]
   (assert (fn? proc))
-  (assert (empty? intervention-trace))
-  (assert (empty? target-trace))
-  (assert (not output-trace?))
   [(clojure.core/apply proc inputs) {} 0])
 
 (def ^:dynamic *ambient-interpreter* clojure-interpreter)
@@ -240,11 +238,14 @@
     [(generate-foreign proc inputs) {} 0]
 
     (let [[value output score]
-          (*ambient-interpreter* proc inputs intervention-trace
-                                 target-trace output-trace?)]
+          (*ambient-interpreter*
+            proc inputs
+            {:intervene intervention-trace, :target target-trace,
+             :interpretation-id (gensym), :active? true})]
       (assert (number? score) ["bad score"
                                score proc
                                *ambient-interpreter*])
+
       ;(assert (if output-trace?
       ;          (trace? output)
       ;          true)
