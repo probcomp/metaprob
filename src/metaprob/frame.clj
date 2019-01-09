@@ -1,12 +1,9 @@
 (ns metaprob.frame
+  "Lexical environments, needed by gen macro."
   (:refer-clojure :only [declare ns])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]))
-
-;; ----------------------------------------------------------------------------
-;; Lexical environments, needed by gen macro.
-;; TBD: Move to prelude?
 
 (define frame?
   (gen [obj]
@@ -43,13 +40,13 @@
       (trace-set! env name val)
       (assert false "bad env-bind!"))))
 
-;; match-bind! - overrides original prelude.
-;; Liberal in what it accepts: the input can be either a list or a
-;; tuple, at any level.
-
+;; match-bind! -
 (define match-bind!
-  ;; pattern is a parse-tree trace (variable or tuple expression) - not a tuple.
-  ;; input is anything.
+  "Overrides original prelude. Liberal in what it accepts: the input
+  can be either a list or a tuple, at any level.
+  `pattern` is a parse-tree trace (variable or tuple expression) - not a tuple.
+  `input` is anything."
+
   (gen [pattern input env]
     (case (trace-get pattern)
       "variable"
@@ -96,4 +93,3 @@
       (do (pprint pattern)
           (assert false ["bad pattern" pattern input])))
     "return value of match-bind!"))
-
