@@ -63,11 +63,12 @@ A typical Metaprob program `require`s the following namespaces:
 
   * `syntax` - structual macros like `gen`, `block`, `define`
   * `builtin` - primitive deterministic procedures like `trace-get`;
-       this mainly re-exports procedures defined in `trace` and `builtin-impl`.
+       this mainly re-exports procedures defined in `trace` and
+       `builtin-impl`.
        If you're at the REPL you should require `trace` and/or `builtin-impl` since otherwise
        there will be collisions with `clojure.core` (`first`, `rest`, `nth`, and so on).
   * `prelude` - utility procedures like `map` that are written in Metaprob ('user mode')
-  * `infer` - the score- and trace-conscious interpreter, usually entered 
+  * `infer` - the score- and trace-conscious interpreter, usually entered
         via `infer-apply` (also 'user mode').  Also defines `inf`.
   * `distributions` - nondeterministic procedures like `flip` and `uniform` (also 'user mode')
 
@@ -100,7 +101,7 @@ So a typical Metaprob source file might start like this:
   Deterministic procedures are a special case, but in general a
   generative procedure will sample from some distribution.
   If body is multiple forms, a `block` is added to wrap them.
-* `(block f0 f1 ...)`  - evaluates forms f0 ... in sequence; a form 
+* `(block f0 f1 ...)`  - evaluates forms f0 ... in sequence; a form
   can be a `define` form in which case the lexical environment is extended
 * `(define x v)`  - for use with `block` or at top level
 * `and`, `or`, `case` - as in Clojure
@@ -213,11 +214,11 @@ Metaprob has three basic kinds of procedure:
    written in Clojure, that are simply invoked to get a value, with
    no reference to interpretation.
 1. Special inference procedures.  These are procedure that implement
-   specialized inference methods, such as score computation for 
+   specialized inference methods, such as score computation for
    distributions.
    Special inference procedures are created using the `inf` combinator.
 
-* `(infer-apply p arg ...)` - after a dispatch, this typically invokes 
+* `(infer-apply p arg ...)` - after a dispatch, this typically invokes
   the interpreter (or a configured interpreter, if there is more than one).
 * `(inf name p)` - promotes a generative procedure p to a procedure
   performing inference according to p.  p must be a procedure of four
@@ -228,14 +229,17 @@ Metaprob has three basic kinds of procedure:
   interpreter is maintaining in the interpretation of the call to q.
   The nominal value becomes the result of the call to q, and the
   accompanying score is used by the interpreter
+  - note jmt, `inf` seems to have changed signature to be 3-arity:
+    `(defn inf [name model implementation] ...)` where
+    `implementation` is a procedure
 * `(opaque name p)` - returns a procedure that acts the same as p when
   called outside the Metaprob interpreter, and acts like a 'compiled'
   procedure when called within the Metaprob interpreter.  That means
   its body won't be subject to intervention, scoring, output, etc.
   This is a performance feature, and also reduces clutter in output
   traces.  name is just a comment, and can be nil.
-* `(trace-as-procedure t w)` - this is an internal utility used 
-  in only a few places, documented here for completeness, not because 
+* `(trace-as-procedure t w)` - this is an internal utility used
+  in only a few places, documented here for completeness, not because
   we expect new uses of it.  t should be a trace, and w should be a
   procedure.  This returns a procedure, say p.  When p is called using
   `infer-apply` or from within the interpreter, the interpreter
@@ -254,7 +258,7 @@ Metaprob has three basic kinds of procedure:
 `bin/gnuplot-hist` is a shell script that uses gnuplot to create a
 .png file from a samples file written by `binned-histogram`.  E.g.
 
-    bin/gnuplot-hist results/samples_from_the_prior.samples 
+    bin/gnuplot-hist results/samples_from_the_prior.samples
     open results/samples_from_the_prior.samples.png
 
 (where `open` is the MacOS command for opening a file using the
@@ -279,9 +283,9 @@ output tracing.
 
 * `(infer-apply proc inputs intervene target output)`  -
      apply proc to inputs using the Metaprob interpreter, returning [answer score],
-     respecting interventions, and recording to output.  Any or all of the three 
+     respecting interventions, and recording to output.  Any or all of the three
      traces may be nil meaning do not deal with that trace.
-* `(inf name proc)`  - promote an ordinary (generative) procedure to an 
+* `(inf name proc)`  - promote an ordinary (generative) procedure to an
   inference procedure.  name is a comment and can be nil.
 
 ## `distributions` namespace
@@ -293,4 +297,3 @@ output tracing.
 * `(uniform-sample items)`  - one of the members of items (a list)
 * `(categorical probabilities)`  - returns 0, 1, ... with probability of i equal to probabilities[i]
 * `(log-categorical scores)`  - returns 0, 1, ... with probability of i proportional to exp(score[i])
-

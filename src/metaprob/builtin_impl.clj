@@ -113,9 +113,9 @@
   [pp]
   (if (trace? pp)
     (if (trace-has? pp "name")
-      (trace-get pp "name")          ;Cached
-      (str "?-" (trace-name pp)))    ;???
-    (foreign-procedure-name pp)))    ;E.g. "clojure.core$str@1593f8c5"
+      (trace-get pp "name")          ; Cached
+      (str "?-" (trace-name pp)))    ; ???
+    (foreign-procedure-name pp)))    ; E.g. "clojure.core$str@1593f8c5"
 
 ;; prelude has: trace_of lookup_chain lookup_chain_with_exactly
 
@@ -225,7 +225,6 @@
 
 ;; -----------------------------------------------------------------------------
 ;; Graphical output (via gnuplot or whatever)
-
 (defn binned-histogram [& {:keys [name samples overlay-densities
                                   sample-lower-bound sample-upper-bound
                                   number-of-intervals]}]
@@ -236,7 +235,8 @@
         fname (clojure.string/replace name " " "_")
         path (str "results/" fname ".samples")
         commands-path (str path ".commands")]
-    (print (format "Writing commands to %s for histogram generation\n" commands-path))
+    (print
+     (format "Writing commands to %s for histogram generation\n" commands-path))
     ;;(print (format " overlay-densities = %s\n" (freeze overlay-densities)))
     (with-open [writor (io/writer commands-path)]
       (.write writor (format "reset\n"))
@@ -252,8 +252,6 @@
       (.close writor))))
 
 ;; Maybe this should print (i.e. princ) instead of pr (i.e. prin1)?
-
-;!!
 (defn metaprob-print [x]
   (print x)
   (newline)
@@ -264,7 +262,10 @@
 
 ;; This could go in prelude.clj, with some effort.
 
-(defn inf [name model implementation]
+(defn inf
+  "Promotes a generative procedure `implementation` to a procedure
+  performing inference according to `implementation`"
+  [name model implementation]
   (assert (procedure? implementation) implementation)
   (trace-as-procedure (mutable-trace "name" (str "inf-" name)
                                      "model" model
@@ -275,8 +276,8 @@
                           (nth (implementation inputs (trace) (trace) false)
                                0)))))
 
-(defn clojure-interpreter [proc inputs
-                           intervention-trace target-trace output-trace?]
+(defn clojure-interpreter [proc inputs intervention-trace
+                           target-trace output-trace?]
   (assert (foreign-procedure? proc))
   (assert (empty-trace? intervention-trace))
   (assert (empty-trace? target-trace))
@@ -285,8 +286,10 @@
 
 (def ^:dynamic *ambient-interpreter* clojure-interpreter)
 
-(defn infer-apply [proc inputs intervention-trace
-                   target-trace output-trace?]
+(defn infer-apply
+  "After a dispatch, this typically invokes the interpreter (or a
+  configured interpreter, if there is more than one)"
+  [proc inputs intervention-trace target-trace output-trace?]
   (if (and (foreign-procedure? proc)
            (empty-trace? intervention-trace)
            (empty-trace? target-trace)

@@ -1,6 +1,8 @@
 (ns metaprob.builtin
-  "This module is intended for import by metaprob code.
-  To be used in conjunction with the syntax module."
+  "This module contains primitive deterministic procedures, and mainly
+  re-exports procedures defined in `trace` and `builtin-impl`. It's
+  intended for import by metaprob code. To be used in conjunction with
+  the syntax module."
   (:refer-clojure :exclude
                   [newline not + = boolean? > >= < <= - * / number?
                    and or case cond assert print apply list list?
