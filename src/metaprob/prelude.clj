@@ -1,9 +1,8 @@
-;; See doc/about-the-prelude.md
-
 (ns metaprob.prelude
+  "Utility procedures like `map` that are written in Metaprob ('user mode')."
   (:refer-clojure :only [declare ns])
-  (:require [metaprob.syntax :refer :all])
-  (:require [metaprob.builtin :refer :all]))
+  (:require [metaprob.syntax :refer :all]
+            [metaprob.builtin :refer :all]))
 
 (declare
   drop

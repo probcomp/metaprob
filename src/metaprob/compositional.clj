@@ -1,6 +1,5 @@
-;; A meta-circular Metaprob interpreter.
-
 (ns metaprob.compositional
+  "A meta-circular Metaprob interpreter."
   (:refer-clojure :only [declare ns])
   (:require [metaprob.syntax :refer :all]
             [clojure.pprint :as pp]
@@ -13,12 +12,10 @@
 (declare infer-apply-native infer-apply-foreign
          infer-apply infer-eval infer-eval-sequence)
 
-;; Main entry point: an `apply` that respects interventions
-;; and constraints, records choices made, and computes scores.
-
-;; Output-in-not-an-input version
-
 (define infer-apply
+  "Main entry point: an `apply` that respects interventions and
+  constraints, records choices made, and computes scores."
+
   (gen [proc inputs intervene target output?]
     (assert (or (list? inputs) (tuple? inputs))
             ["inputs neither list nor tuple" inputs])
@@ -57,21 +54,25 @@
         (block (pprint proc)
                (error "infer-apply: not a procedure" proc))))))
 
-;; Invoke a 'foreign' generative procedure, i.e. one written in
-;; clojure (or Java)
-
 (define infer-apply-foreign
+  "Invoke a 'foreign' generative procedure, i.e. one written in
+  clojure (or Java)"
   (gen [proc inputs intervene target output?]
     ;; 'Foreign' generative procedure
     (define value (generate-foreign proc inputs))
-    (define ivalue (if (trace-has? intervene) (trace-get intervene) value))
-    (if (and (trace-has? target) (not (same-states? (trace-get target) ivalue)))
-      [(trace-get target) (trace-set (trace) (trace-get target)) negative-infinity]
+    (define ivalue (if (trace-has? intervene)
+                     (trace-get intervene)
+                     value))
+    (if (and (trace-has? target)
+             (not (same-states? (trace-get target) ivalue)))
+      [(trace-get target)
+       (trace-set (trace) (trace-get target))
+       negative-infinity]
       [ivalue (trace) 0])))
 
-;; Invoke a 'native' generative procedure, i.e. one written in
-;; metaprob, with inference mechanics (traces and scores).
 (define infer-apply-native
+  "Invoke a 'native' generative procedure, i.e. one written in
+  metaprob, with inference mechanics (traces and scores)."
   (gen [proc inputs intervene target output?]
     (define source (trace-subtrace proc "generative-source"))
     (define environment (trace-get proc "environment"))
@@ -86,9 +87,8 @@
                 target
                 output?)))
 
-;; Evaluate a subexpression (a subproblem)
-
 (define infer-subeval
+  "Evaluate a subexpression (a subproblem)"
   (gen [exp key env intervene target output?]
     (define [value output score]
       (infer-eval (trace-subtrace exp key)
@@ -98,9 +98,8 @@
                   output?))
     [value (maybe-set-subtrace (trace) key output) score]))
 
-;; Evaluate a subexpression (by reduction)
-
 (define infer-eval
+  "Evaluate a subexpression (by reduction)"
   (gen [exp env intervene target output?]
     (assert (trace? exp) ["bad expression - eval" exp])
     (assert (environment? env) ["bad env - eval" env])
@@ -189,7 +188,7 @@
     (define tvalue (if (trace-has? target) (trace-get target) v))
 
     (cond
-      ; intervention with no disagreeing target
+      ;; intervention with no disagreeing target
       (and (trace-has? intervene)
            (or (not (trace-has? target))
                (same-states? ivalue tvalue)))
@@ -197,23 +196,25 @@
        (if (empty-trace? output) output (trace-set (trace) ivalue))
        0]
 
-      ; target and value (from intervention or execution) disagree
+      ;; target and value (from intervention or execution) disagree
       (and (trace-has? target)
            (not (same-states? ivalue tvalue)))
       [tvalue
        (trace-set output tvalue)
        negative-infinity]
 
-      ; in all other cases, the existing values work fine:
+      ;; in all other cases, the existing values work fine:
       true
       [v output score])))
 
-(define z (gen [n v]
-  (assert (tuple? v) ["tuple" v])
-  (assert (= (length v) n) ["tuple length" n v])
-  v))
+;; XXX jmt unused?
+;; (define z (gen [n v]
+;;   (assert (tuple? v) ["tuple" v])
+;;   (assert (= (length v) n) ["tuple length" n v])
+;;   v))
 
 (define infer-eval-sequence
+  "Evaluate a sequence of expressions."
   (gen [exp env intervene target output?]
     (assert (trace? exp) exp)
     (assert (gte (trace-count exp) 1) exp)
