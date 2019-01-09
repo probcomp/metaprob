@@ -1,16 +1,11 @@
-;; 4.
-
 (ns metaprob.inference
+  "Probabilistic inference methods."
   (:refer-clojure :only [ns declare])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
             [metaprob.distributions :refer :all]
             [metaprob.interpreters :refer :all]))
-
-;; Probabilistic inference methods
-
-;; ----------------------------------------------------------------------------
 
 (define rejection-sampling
   (gen [model-procedure inputs target-trace log-bound]
@@ -19,54 +14,45 @@
              :inputs inputs
              :intervention-trace (empty-trace)
              :target-trace       target-trace))
-    (if (lt (log (uniform 0 1)) (sub score log-bound))
+    (if (lt (log (uniform 0 1))
+            (sub score log-bound))
       candidate-trace
-      (rejection-sampling
-	model-procedure inputs target-trace log-bound)) ))
-
-;; ----------------------------------------------------------------------------
+      (rejection-sampling model-procedure inputs target-trace log-bound))))
 
 (define importance-resampling
   (gen [model-procedure inputs target-trace N]
-
-    ;; generate N candidate traces, called particles, each
-    ;; with a score
-    
+    ;; generate N candidate traces, called particles, each with a score
     (define particles
-    	    (replicate N
-	      (gen []
-                (define candidate-trace (mutable-trace))
-                (define [_ _ score]
-                  (infer :procedure model-procedure
-                         :inputs inputs
-                         :intervention-trace nil
-                         :target-trace target-trace
-                         :output-trace candidate-trace))
-                [candidate-trace score])))
+      (replicate N
+        (gen []
+             (define candidate-trace (mutable-trace))
+             (define [_ _ score]
+               (infer :procedure model-procedure
+                      :inputs inputs
+                      :intervention-trace nil
+                      :target-trace target-trace
+                      :output-trace candidate-trace))
+             [candidate-trace score])))
+
     (define scores
       (map (gen [p] (nth p 1)) particles))
+
     ;; return a trace with probability proportional to (exp score)
     (define which (log-categorical scores))
 
-    (define particle (nth particles which)) ;; [candidate-trace score]
+    (define particle (nth particles which))
     (nth particle 0)))
 
-;; ----------------------------------------------------------------------------
-;; Metropolis-Hastings
-
-;; trace is both an input and (by side effect) an output.
-
 (define single-site-metropolis-hastings-step
+  "Metropolis-Hastings. `trace` is both an input and (by side effect) an output."
   (gen [model-procedure inputs trace constraint-addresses]
 
     ;; choose an address to modify, uniformly at random
-    
     (define choice-addresses (addresses-of trace))
     (define candidates (set-difference choice-addresses constraint-addresses))
     (define target-address (uniform-sample candidates))
 
     ;; generate a proposal trace
-
     (define initial-value (trace-get trace target-address))
     (define initial-num-choices (length candidates))
     (trace-delete! trace target-address)
@@ -82,17 +68,16 @@
 
     ;; the proposal is to move from trace to new-trace
     ;; now calculate the Metropolis-Hastings acceptance ratio
-
     (define new-choice-addresses (addresses-of new-trace))
-    (define new-candidates (set-difference new-choice-addresses constraint-addresses))
+    (define new-candidates (set-difference new-choice-addresses
+                                           constraint-addresses))
     (define new-num-choices (length new-candidates))
 
     ;; make a trace that can be used to restore the original trace
-    
     (define restoring-trace (empty-trace))
     (trace-set! restoring-trace target-address initial-value)
     (for-each (set-difference choice-addresses new-choice-addresses)
-    	      (gen [initial-addr] ;; initial-addr in original but not proposed trace
+              (gen [initial-addr] ; initial-addr in original but not proposed trace
                 (trace-set! restoring-trace
                            initial-addr
                            (trace-get trace initial-addr))))
@@ -106,47 +91,48 @@
              :intervention-trace restoring-trace
              :target-trace new-trace
              :output-trace? false))
-    
+
     (trace-set! new-trace target-address new-value)
-    (define log-acceptance-probability (sub (add forward-score (log new-num-choices))
-    	    			       	    (add reverse-score (log initial-num-choices))))
+
+    (define log-acceptance-probability (sub (add forward-score
+                                                 (log new-num-choices))
+                                            (add reverse-score
+                                                 (log initial-num-choices))))
+
     (if (lt (log (uniform 0 1)) log-acceptance-probability)
-        (block
-	    (for-each (set-difference choice-addresses new-choice-addresses)
-	              (gen [initial-addr] (trace-delete! trace initial-addr)))
-	    (for-each new-choice-addresses
-	    	      (gen [new-addr]
-                        (trace-set! trace
-                                   new-addr
-                                   (trace-get new-trace new-addr)))))
-	(trace-set! trace target-address initial-value))))
+      (block
+       (for-each (set-difference choice-addresses new-choice-addresses)
+                 (gen [initial-addr] (trace-delete! trace initial-addr)))
+       (for-each new-choice-addresses
+                 (gen [new-addr]
+                      (trace-set! trace
+                                  new-addr
+                                  (trace-get new-trace new-addr)))))
+      (trace-set! trace target-address initial-value))))
 
 
 (define immutable-single-site-metropolis-hastings-step
   (gen [model-procedure inputs trace constraint-addresses]
 
     ;; choose an address to modify, uniformly at random
-
     (define choice-addresses (addresses-of trace))
     (define candidates (set-difference choice-addresses constraint-addresses))
     (define target-address (uniform-sample candidates))
 
     ;; generate a proposal trace
-
     (define initial-value (trace-get trace target-address))
     (define initial-num-choices (length candidates))
     (define new-target (trace-delete trace target-address))
 
     (define [_ new-trace forward-score]
-      (infer :procedure model-procedure
-             :inputs inputs
+      (infer :procedure          model-procedure
+             :inputs             inputs
              :intervention-trace nil
-             :target-trace new-target))
+             :target-trace       new-target))
     (define new-value (trace-get new-trace target-address))
 
     ;; the proposal is to move from trace to new-trace
     ;; now calculate the Metropolis-Hastings acceptance ratio
-
     (define new-choice-addresses (addresses-of new-trace))
     (define new-candidates (set-difference new-choice-addresses constraint-addresses))
     (define new-num-choices (length new-candidates))
@@ -155,30 +141,35 @@
     (define restoring-trace
       (trace-set
         (clojure.core/reduce
-          (gen [so-far next-adr] (trace-set so-far next-adr (trace-get trace next-adr)))
-          (empty-trace)
-          (to-immutable-list (set-difference choice-addresses new-choice-addresses)))
+         (gen [so-far next-adr]
+            (trace-set so-far next-adr (trace-get trace next-adr)))
+
+         (empty-trace)
+         (to-immutable-list
+          (set-difference choice-addresses new-choice-addresses)))
+
         target-address initial-value))
 
     ;; remove the new value
     (define new-target-rev (trace-delete new-trace target-address))
 
     (define [_ _ reverse-score]
-      (infer :procedure model-procedure
-             :inputs   inputs
+      (infer :procedure          model-procedure
+             :inputs             inputs
              :intervention-trace restoring-trace
-             :target-trace new-target-rev
-             :output-trace? false))
+             :target-trace       new-target-rev
+             :output-trace?      false))
 
-    (define log-acceptance-probability (sub (add forward-score (log new-num-choices))
-                                            (add reverse-score (log initial-num-choices))))
+    (define log-acceptance-probability (sub (add forward-score
+                                               (log new-num-choices))
+                                            (add reverse-score
+                                               (log initial-num-choices))))
     (if (lt (log (uniform 0 1)) log-acceptance-probability)
       new-trace
       trace)))
 
 
 ;; Should return [output-trace value] ...
-
 (define lightweight-single-site-MH-sampling
   (gen [model-procedure inputs target-trace N]
     (define state (empty-trace))
@@ -209,7 +200,8 @@
     (define nsamples (* (apply + (map length bins)) 1.0))
     (define abs (gen [x] (if (< x 0) (- 0 x) x)))
     (define bin-p (map (gen [bin]
-                         ;; Probability that a sample is in this bin, as inferred from sample set
+                         ;; Probability that a sample is in this bin,
+                         ;; as inferred from sample set
                          (/ (length bin) nsamples))
                        bins))
     (define bin-q (map (gen [bin]
@@ -227,7 +219,7 @@
                                   (* bincount 1.0)))))
                        bins))
     (define discrepancies (clojure.core/map (gen [p q] (abs (- p q))) bin-p bin-q))
-    ;; Trim off first and last bins, since their pdf estimate is 
+    ;; Trim off first and last bins, since their pdf estimate is
     ;; likely to be way off
     (define trimmed (rest (reverse (rest discrepancies))))
     (define normalization (/ (length discrepancies) (* (length trimmed) 1.0)))
@@ -239,7 +231,7 @@
   (gen [samples pdf nbins]
     (define samples (to-tuple (sort samples)))    ; = clojure (vec ...)
     (define nsamples (* (length samples) 1.0))
-    (define binsize (/ nsamples nbins))      ;float
+    (define binsize (/ nsamples nbins))      ; float
     (define bins (map (gen [i]
                         ;; Try to put same number of samples
                         ;; in each bin.  This is not necessary.
@@ -262,8 +254,9 @@
        (if (or (> badness threshold)
                (< badness (/ threshold 2)))
          (block (clojure.core/print
-                 (clojure.core/format "%s. n: %s bins: %s badness: %s threshold: %s\n"
-                                      tag nsamples nbins badness threshold))
+                 (clojure.core/format
+                  "%s. n: %s bins: %s badness: %s threshold: %s\n"
+                  tag nsamples nbins badness threshold))
                 (sillyplot bin-p)
                 (sillyplot bin-q)))
        (< badness (* threshold 1.5))))))
