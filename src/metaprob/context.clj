@@ -64,9 +64,13 @@
     (if (active-ctx? ctx')
       (clojure.core/with-meta
         (clojure.core/fn [adr proc & args]
-          (define [out-atom score-atom applicator] (get ctx' :captured-state))
+          (define [out-atom score-atom applicator]
+            (get ctx' :captured-state))
           (define modified-tc (dissoc ctx' :captured-state))
-          (define [v o s] (applicator proc args (subcontext modified-tc adr)))
+          (define [v o s] (applicator
+                           proc
+                           args
+                           (subcontext modified-tc adr)))
           (swap! out-atom trace-merge (maybe-set-subtrace {} adr o))
           (swap! score-atom + s)
           v)
@@ -76,9 +80,10 @@
         ctx'))))
 
 
-; Returns a new version t' of a captured tracing context t in which
-; a certain address has been intervened on. Note that (t ... proc ...)
-; will run proc un-intervened, while (t' ... proc ...) will run intervened.
+;; Returns a new version t' of a captured tracing context t in which a
+;; certain address has been intervened on. Note that (t ... proc ...)
+;; will run proc un-intervened, while (t' ... proc ...) will run
+;; intervened.
 (define intervene-on-captured-context
   (gen [ctx new-intervene]
     (define ctx' (assoc ctx :intervene new-intervene))
@@ -102,7 +107,9 @@
 (define release-tracing-context
   (gen [ctx]
     (if (captured-ctx? ctx)
-      (block (define [out-atom score-atom _] (get ctx :captured-state)) [(deref out-atom) (deref score-atom)])
+      (block
+       (define [out-atom score-atom _] (get ctx :captured-state))
+       [(deref out-atom) (deref score-atom)])
       [{} 0])))
 
 ;; Returns [new-ctx t], where t is the captured context,

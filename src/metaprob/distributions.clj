@@ -17,9 +17,20 @@
            (gen [inputs ctx]
              (cond
                (not (get ctx :active?)) [(apply sampler inputs) {} 0]
-               (intervened? ctx '()) [(intervene-value ctx '()) (get ctx :intervene) 0]
-               (targeted? ctx '()) (block (define tvalue (target-value ctx '())) [tvalue {:value tvalue} (scorer tvalue inputs)])
-               true (block (define sample (apply sampler inputs)) [sample {:value sample} 0]))))
+
+               (intervened? ctx '())
+               [(intervene-value ctx '()) (get ctx :intervene) 0]
+
+               (targeted? ctx '())
+               (block
+                (define tvalue (target-value ctx '()))
+                [tvalue {:value tvalue} (scorer tvalue inputs)])
+
+               true
+               (block
+                (define sample (apply sampler inputs))
+                [sample {:value sample} 0]))))
+
       :primitive? true)))
 
 (gen [inputs]
@@ -186,11 +197,10 @@
 ;       ;; Venture does:
 ;       ;; def logDensityNumeric(self, x, params):
 ;       ;;   return scipy.stats.beta.logpdf(x,*params)
-;       ;; Wikipedia has a formula for pdf; easy to derive logpdf 
+;       ;; Wikipedia has a formula for pdf; easy to derive logpdf
 ;       ;; from it.
 ;       ;; scipy has a better version:
 ;       ;; https://github.com/scipy/scipy/blob/master/scipy/stats/_continuous_distns.py
 ;       (- (+ (* (log x) (- a 1.0))
 ;             (* (log (- 1.0 x)) (- b 1.0)))
 ;          (log-Beta a b))))))
-

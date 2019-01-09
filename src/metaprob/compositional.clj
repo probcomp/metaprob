@@ -169,14 +169,23 @@
 
         (with-explicit-tracer-expr? exp)
         (block
-          (define captured-ctx (capture-tracing-context ctx infer-apply))
-          (define inactive-ctx (assoc ctx :active? false))
-          ; Create an environment that has this captured context in it
-          (define new-env (make-env env))
-          (match-bind! (explicit-tracer-var-name exp) captured-ctx new-env)
+         (define captured-ctx (capture-tracing-context
+                               ctx infer-apply))
 
-          ; Evaluate the body
-          (define [values _ s] (infer-eval-expressions (explicit-tracer-body exp) new-env inactive-ctx))
+         ;; Create an environment that has this captured context in it
+         (define inactive-ctx (assoc ctx :active? false))
+
+         (define new-env (make-env env))
+         (match-bind! (explicit-tracer-var-name exp)
+                      captured-ctx
+                      new-env)
+
+          ;; Evaluate the body
+         (define [values _ s]
+           (infer-eval-expressions
+            (explicit-tracer-body exp)
+            new-env                    ;; has custom tracer
+            inactive-ctx))
 
           (define [o-acc score-acc] (release-tracing-context captured-ctx))
           [(clojure.core/last values) o-acc (+ s score-acc)])
