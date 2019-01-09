@@ -1,20 +1,24 @@
-;; This module is intended for import by metaprob code.
-;; To be used in conjunction with the syntax module.
-
 (ns metaprob.builtin-impl
-  (:require [metaprob.trace :refer :all])
-  (:require [metaprob.sequence :refer :all])
-  (:require [clojure.java.io :as io])
-  (:require [clojure.set :as set]))
+  "This module is intended for import by metaprob code.
+   To be used in conjunction with the syntax module."
+  (:require [metaprob.trace
+             :refer [empty-trace? foreign-procedure? metaprob-pprint
+                     mutable-trace mutable-trace? ok-key? procedure?
+                     proper-function? top-level-environment?
+                     trace trace? trace-as-procedure trace-get trace-has?
+                     trace-keys trace-state trace-subtrace]]
+            [metaprob.sequence :refer [append sequence-to-seq append]]
+            [clojure.java.io :as io]
+            [clojure.set :as set]))
 
 ;; -----------------------------------------------------------------------------
 ;; Addresses
 
-;; addr - create an address out of a key sequence
-
 (declare procedure-name)
 
-(defn addr [& keys]
+(defn addr
+  "Create an address out of a key sequence given in `keys`."
+  [& keys]
   (if (= keys nil)
     '()
     (map (fn [key]
@@ -24,10 +28,11 @@
                  key)))
          keys)))
 
-;; Translation of .sites method from trace.py.
-;; Returns a seq of addresses, I believe.  (and addresses are themselves seqs.)
 
-(defn addresses-of [tr]
+(defn addresses-of
+  "Returns the list of addresses, relative to `tr`, of every descendant
+  subtrace that has a value."
+  [tr]
   (letfn [(get-sites [tr]
             ;; returns a seq of traces
             (let [site-list
@@ -48,28 +53,27 @@
 ;; Control
 
 ;; In metaprob, these are strict functions.
-
 (defn neq [x y] (not (= x y)))
 
 ;; Procedure-related
-
-;; Invoke a "foreign" procedure.  Called from interpreter.
-
-(defn generate-foreign [ifn inputs]
+(defn generate-foreign
+  "Invoke a 'foreign' procedure. Called from interpreter."
+  [ifn inputs]
   (assert (proper-function? ifn) ["not a foreign-procedure" ifn inputs])
   (apply ifn (sequence-to-seq inputs)))
 
-(defn make-foreign-procedure [name ifn]
+(defn make-foreign-procedure
+  "Called from builtin.clj."
+  [name ifn]
   (assert (proper-function? ifn) ["not procedure" name ifn])
   ifn)
 
 ;; -----------------------------------------------------------------------------
 ;; Misc
-
-;; Like to-immutable, but recursive.
-;; DEPRECATED, DO NOT USE.
-
-(defn ^:private freeze [x]
+(defn ^:private freeze
+  "Like to-immutable, but recursive.
+  DEPRECATED, DO NOT USE."
+  [x]
   (if (trace? x)
     (let [x (trace-state x)]
       (cond (seq? x)
@@ -80,20 +84,23 @@
 
             true
             (let [keys (trace-keys x)
-                  result (into {} (for [key keys] [key (freeze (trace-subtrace x key))]))]
+                  result (into {}
+                               (for [key keys]
+                                 [key (freeze (trace-subtrace x key))]))]
               (if (trace-has? x)
                 (assoc result :value (freeze (trace-get x)))
                 result))))
     x))
 
-;; This is for computing a name for a procedure at its point of creation.
-;; Careful, this loses if there's a cycle.  Don't include a lexical
-;; environment in tr.
 
 (defn trace-name
+  "This is for computing a name for a procedure at its point of
+  creation.
+  Careful, this loses if there's a cycle. Don't include a lexical
+  environment in tr."
   ([proc-parse-tree]
    (str (hash (freeze proc-parse-tree))))
-  ([proc-parse-tree name] 
+  ([proc-parse-tree name]
    (if name
      (str name "-" (trace-name proc-parse-tree))
      (trace-name proc-parse-tree))))
@@ -101,23 +108,23 @@
 (defn foreign-procedure-name [ifn]
   (str ifn))
 
-;; Mainly for foreign procedures.
-
-(defn procedure-name [pp]
+(defn procedure-name
+  "Mainly for foreign procedures."
+  [pp]
   (if (trace? pp)
     (if (trace-has? pp "name")
       (trace-get pp "name")          ;Cached
       (str "?-" (trace-name pp)))    ;???
     (foreign-procedure-name pp)))    ;E.g. "clojure.core$str@1593f8c5"
 
-;; prelude has: trace_of lookup_chain lookup_chain_with_exactly 
+;; prelude has: trace_of lookup_chain lookup_chain_with_exactly
 
 ;; What about sp = tracing_proposer_to_prob_prog in prelude (!!) - do
 ;; we need it, how to define, etc.?
 
 ;; original prelude has: proposer_of factor apply_with_address
 
-;; prelude has: trace_of lookup_chain lookup_chain_with_exactly 
+;; prelude has: trace_of lookup_chain lookup_chain_with_exactly
 
 ;; The assert macro in clojure is much nicer, since (1) it can catch
 ;; exceptions in the evaluation of its subforms, (2) it can show you
@@ -127,7 +134,7 @@
 (defn metaprob-assert [condition complaint & irritants]
   (binding [*out* *err*]
     (doseq [irritant irritants]
-      (if (mutable-trace? irritant)
+      (when (mutable-trace? irritant)
         (do (print "Irritant:")
             (metaprob-pprint irritant)))))
   (assert condition
@@ -138,7 +145,7 @@
 ;; error - overrides original prelude (???)
 
 (defn error [& irritants]
-  (assert false irritants))                     ;from prelude.vnts
+  (assert false irritants))                     ; from prelude.vnts
 
 ;; ----------------------------------------------------------------------------
 ;; Metaprob top level environments are represented as clojure namespaces.
@@ -214,7 +221,7 @@
 (defn sample-uniform
   ([] (.nextDouble *rng*))
   ([a b] (+ a (* (.nextDouble *rng*) (- b a)))))
-  
+
 
 ;; -----------------------------------------------------------------------------
 ;; Graphical output (via gnuplot or whatever)
