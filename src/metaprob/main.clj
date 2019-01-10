@@ -3,13 +3,10 @@
   (:require [metaprob.to-clojure]))
 
 (defn -main [inpath outpath nsname]
-  (print (list 'in- inpath 'out- outpath))
-  (newline)
-  (flush)
+  (println (list 'in- inpath 'out- outpath))
 
   (if inpath
     (if outpath
       (metaprob.to-clojure/convert inpath outpath (symbol nsname))
       (throw (Exception. "no outpath")))
-    (throw (Exception. "no inpath")))
-)
+    (throw (Exception. "no inpath"))))

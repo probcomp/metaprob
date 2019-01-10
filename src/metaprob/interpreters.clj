@@ -18,7 +18,6 @@
 (define null-trace (trace))
 
 ;; Returns [value output-trace score]
-
 (defn infer [& {:keys [procedure inputs intervention-trace
                        target-trace output-trace
                        output-trace?
@@ -53,7 +52,6 @@
      score]))
 
 ;; Returns score only
-
 (defn get-score [proc & inputs]
   (let [[_ target _]
         (infer :procedure proc
