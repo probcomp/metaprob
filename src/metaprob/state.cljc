@@ -1,19 +1,17 @@
-;; Trace states
-
-(ns metaprob.state)
+(ns metaprob.state
+  "Trace states.")
 
 (declare map-to-state state-to-map keys-sans-value)
 
 ;; The `steady?` flag controls a choice between a simple but slower
 ;; implementation and an obscure but faster implementation of the
 ;; primitives.
-
 (def steady? false)
 
 (def rest-marker "rest")
 
 (defn state? [val]
-  (or (seq? val)                        ;Strings are not seqs
+  (or (seq? val)                        ; Strings are not seqs
       (vector? val)
       (map? val)))
 
@@ -66,9 +64,9 @@
             ["no such subtrace" key state])
     val))
 
-;; Returns a seq of keys (without the :value marker)
-
-(defn state-keys [state]
+(defn state-keys
+  "Returns a seq of keys (without the :value marker)"
+  [state]
   (if steady?
     (keys-sans-value (state-to-map state))
     (cond (seq? state) (if (empty? state) '() (list rest-marker))
@@ -76,7 +74,7 @@
           (map? state) (keys-sans-value state)
           true (assert false ["not a state" state]))))
 
-(defn ^:private keys-sans-value [m]   ;aux for above
+(defn ^:private keys-sans-value [m]   ; aux for above
   (let [ks (remove #{:value} (keys m))]
     (if (= ks nil)
       '()
@@ -109,11 +107,9 @@
 (defn clear-subtrace [state key]
   (map-to-state (dissoc (state-to-map state) key)))
 
-
-
-;; Convert heterogeneous canonical clojure form to hash-map
-
-(defn state-to-map [state]
+(defn state-to-map
+  "Convert heterogeneous canonical clojure form to hash-map."
+  [state]
   (cond (map? state) state
 
         (seq? state)
@@ -126,22 +122,22 @@
                       (range (count state))
                       state))
 
-        true (assert false ["not a state" state])
-        ))
+        true (assert false ["not a state" state])))
 
 (defn value-only-trace? [tr]
   (and (map? tr)
        (= (count tr) 1)
        (contains? tr :value)))
 
-;; Convert hash-map to heterogeneous canonical clojure form.
 
-;; I'm sorry I failed to record the reason that the 'don't be lazy'
-;; command is there; there must have been a failure at some point that
-;; I attributed to laziness in these maps.
+(defn map-to-state
+  "Convert hash-map to heterogeneous canonical clojure form.
 
-(defn map-to-state [m]
-  (doseq [entry m] true)    ;Don't be lazy!
+  I'm sorry I failed to record the reason that the 'don't be lazy'
+  command is there; there must have been a failure at some point that
+  I attributed to laziness in these maps."
+  [m]
+  (doseq [entry m] true)    ; Don't be lazy!
   (let [n (count m)]
     (if (= n 0)
       (empty-state)
@@ -156,9 +152,9 @@
           (if (= n 2)
             (let [rest (get m rest-marker :no-value)]
               (if (= rest :no-value)
-                m                 ;No "rest", so just an ordinary dict
+                m                 ; No "rest", so just an ordinary dict
                 (if (empty-state? rest)
-                  (cons value '())    ;Allow termination in () [] or {}
+                  (cons value '())    ; Allow termination in () [] or {}
                   (if (seq? rest)
                     (cons value rest)
                     m))))
