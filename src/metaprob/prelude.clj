@@ -5,23 +5,23 @@
             [metaprob.builtin :refer :all]))
 
 (declare
-  drop
-  reverse
-  _reverse
-  iterate
-  ;; replicate
-  repeat
-  ;; map
-  _map
+  _i_for_each2
   _imap
-  imap
-  zipmap
+  _map
+  _reverse
+  ;; concat
+  drop
+  ;; filter
   for-each
   for-each2
-  _i_for_each2
   i_for_each2
-  filter
-  concat)
+  imap
+  iterate
+  map
+  repeat
+  replicate
+  reverse
+  zipmap)
 
 (define drop
   (gen [lst index]
@@ -127,22 +127,21 @@
 
 ;; Utilities for interpreter
 
-;; This is used to compute the key under which to store the value that
-;; is the binding of a definition.
-
 (define name-for-definiens
+  "This is used to compute the key under which to store the value that
+  is the binding of a definition."
   (gen [pattern]
     (if (eq (trace-get pattern) "variable")
       (block (define name (trace-get pattern "name"))
-             (if (or (eq name "_")           ;Cf. from-clojure-definition in syntax.clj
+             ;; Cf. from-clojure-definition in syntax.clj
+             (if (or (eq name "_")
                      (eq name "pattern"))
                "definiens"
                (trace-get pattern "name")))
       "definiens")))
 
-;; Get the key to use for storing the result of a procedure call.
-
 (define application-result-key
+  "Get the key to use for storing the result of a procedure call."
   (gen [exp]
     (define key (if (eq (trace-get exp) "variable")
                   (trace-get exp "name")
@@ -162,7 +161,7 @@
 (define opaque
   (gen [name proc]
     (inf name
-         proc   ;model (generative procedure)
+         proc   ; model (generative procedure)
          (gen [inputs intervene target output?]
            ;; Ignore the traces.
            (infer-apply proc inputs (trace) (trace) false)))))
@@ -170,19 +169,19 @@
 (define apply
   (trace-as-procedure
    (inf "apply"
-        clojure.core/apply   ;model (generative procedure)
+        clojure.core/apply   ; model (generative procedure)
         (gen [inputs intervene target output?]
-          ; TODO: allow apply to be n-ary, with last argument a collection
-          (infer-apply (first inputs) (first (rest inputs)) intervene target output?)))
+          ;; TODO: allow apply to be n-ary, with last argument a collection
+             (infer-apply (first inputs) (first (rest inputs))
+                          intervene target output?)))
    ;; Kludge
    (gen [proc inputs]
      (clojure.core/apply proc (to-immutable-list inputs)))))
 
-;; map defined using inf (instead of with-address)
-
 (define map-issue-20
+  "map defined using inf (instead of with-address)"
   (inf "map"
-       nil                              ;no model
+       nil                              ; no model
        (gen [[fun sequ] intervene target output?]
          (block (define re
                   (gen [i l]
