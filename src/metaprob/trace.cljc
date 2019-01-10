@@ -1,4 +1,6 @@
 (ns metaprob.trace
+  "Functions for traversing, manipulating, and inspecting metaprob
+  traces."
   #?(:clj (:import [clojure.lang Atom]))
   (:require #?(:cljs [cljs.core :refer [Atom]])
             [metaprob.state :as state]))
@@ -48,11 +50,13 @@
 
 (defn immutable-trace? [x]
   (or (state/state? x)
-      (and (meta x) (immutable-trace? (get (meta x) :trace)))))
+      (and (meta x)
+           (immutable-trace? (get (meta x) :trace)))))
 
 (defn mutable-trace? [x]
   (or (cell? x)
-      (and (meta x) (mutable-trace? (get (meta x) :trace)))))
+      (and (meta x)
+           (mutable-trace? (get (meta x) :trace)))))
 
 ;; Is a clojure value storeable in a Metaprob trace?
 
@@ -71,9 +75,9 @@
          trace-has-direct-subtrace?
          trace-direct-subtrace)
 
-;; Coerce trace to something we can use (its state)
-
-(defn trace-state [tr]
+(defn trace-state
+  "Coerce trace to something we can use (its state)"
+  [tr]
   (let [met (get (meta tr) :trace)]
     (if met
       (trace-state met)
@@ -84,36 +88,39 @@
           tr
           (assert false ["trace-state wta" tr]))))))
 
-;; Coerce trace to something we can update (an cell whose contents is
-;; a state).
-;; Cells are used for two purposes: mutable traces; and locatives.
-;; An assumption is that if we are trying to get the cell, it's because
-;; we're planning to update it.
 
-(defn trace-cell [tr]
+(defn trace-cell
+  "Coerce trace to something we can update (an cell whose contents is
+  a state).
+
+  Cells are used for two purposes: mutable traces; and locatives. An
+  assumption is that if we are trying to get the cell, it's because
+  we're planning to update it."
+  [tr]
   (let [met (get (meta tr) :trace)]
     (if met
       (trace-cell met)
       (if (cell? tr)
         (let [d (deref tr)]
           (if (state/state? d)
-            tr                          ;Success - cell containing a state
+            tr                          ; Success - cell containing a state
             (trace-cell d)))
-        (assert false
-                ["expected a mutable trace" tr])))))
+        (assert false ["expected a mutable trace" tr])))))
 
-;; Fetch and store the state of an cell.
-;; Need to deal with locatives; a bit of a kludge.
-;; Hoping that locatives will just go away pretty soon.
 
-;; Utility for setting the state of a mutable trace.
-;; It's not documented, but swap! returns the value stored.
+(defn ^:private trace-swap!
+  "Fetch and store the state of an cell.
+  Need to deal with locatives; a bit of a kludge.
+  Hoping that locatives will just go away pretty soon.
 
-;; Swapper maps states to states (not traces to traces).
-;; If locative, then until now, the parent has not pointed to the child.
-;; But now that the child is legitimate, it's OK to link it in.
+  Utility for setting the state of a mutable trace.
+  It's not documented, but swap! returns the value stored.
 
-(defn ^:private trace-swap! [tr swapper] ;tr is an cell
+  `tr` is a cell
+  `swapper` maps states to states (not traces to traces).
+  If locative, then until now, the parent has not pointed to the child.
+  But now that the child is legitimate, it's OK to link it in."
+  [tr swapper]
   (let [cell (trace-cell tr)]
     (swap! cell swapper)
     (assert (state/state? (deref cell))
@@ -202,7 +209,8 @@
                (rest adr))))
     (trace-direct-subtrace tr adr)))
 
-(defn trace-has?                        ;Does it have a value?
+(defn trace-has?
+  "Does this trace have a value?"
   ([tr] (trace-has-value? tr))
   ([tr adr]
    (if (seq? adr)
@@ -215,9 +223,8 @@
      (and (trace-has-direct-subtrace? tr adr)
           (trace-has? (trace-direct-subtrace tr adr))))))
 
-;; Formerly called 'lookup'
-
 (defn trace-get
+  "Formerly called 'lookup'"
   ([tr] (trace-value tr))
   ([tr adr]
    (trace-value (trace-subtrace tr adr))))
@@ -226,10 +233,11 @@
   (and (trace? x)
        (empty? (trace-state x))))
 
-;; Returns a clojure seq of the numbered subtraces of the trace tr.
-;; Used in: to-clojure and related
 
-(defn subtraces-to-seq [tr]
+(defn subtraces-to-seq
+  "Returns a clojure seq of the numbered subtraces of the trace tr.
+  Used in: to-clojure and related"
+  [tr]
   (for [i (range (trace-count tr))] (trace-subtrace tr i)))
 
 ;; ----------------------------------------------------------------------------
@@ -259,24 +267,22 @@
   ([state-or-map val]
    (make-cell (canonical-trace-state state-or-map val))))
 
-;; Creates a mutable trace from a map whose values are traces.
-;; Same as make-mutable-trace, for now.
 
 (defn trace-from-map
+  "Creates a mutable trace from a map whose values are traces.
+  Same as make-mutable-trace, for now."
   ([maap] (make-mutable-trace maap))
   ([maap val] (make-mutable-trace maap val)))
 
-;; mk_nil in the python version
-
 (defn empty-trace
+  "`mk_nil` in the python version"
   ([] (make-mutable-trace (state/empty-state)))
   ([val] (make-mutable-trace (state/empty-state) val)))
 
 (def new-trace empty-trace)
 
-;; tlist is a seq of traces (either mutable or immutable)
-
 (defn trace-from-subtrace-seq
+  "`tlist` is a seq of traces (either mutable or immutable)"
   ([tlist]
    (make-mutable-trace tlist))
   ([tlist val]
@@ -285,17 +291,18 @@
                            tlist)
                    val)))
 
-;; Convert a mutable object to an immutable one, nonrecursively.
-
-(defn to-immutable [x]
+(defn to-immutable
+  "Convert a mutable object to an immutable one, nonrecursively."
+  [x]
   (if (trace? x)
     (trace-state x)
     x))
 
-;; Convert an immutable trace to a mutable trace, nonrecursively.
-;; Not sure about this.
 
-(defn to-mutable [x]
+(defn to-mutable
+  "Convert an immutable trace to a mutable trace, nonrecursively.
+  Not sure about this."
+  [x]
   (if (mutable-trace? x)
     x
     (if (trace? x)
@@ -303,13 +310,15 @@
       ;; somewhat DWIMmish.
       (make-cell (state/set-value (state/empty-state) x)))))
 
-;; Recursive copy, mutable result... hmm... maybe should copy mutability as well?
-;; see earthquake example...
 
-(defn trace-copy [x]
+(defn trace-copy
+  "Recursive copy, mutable result... hmm... maybe should copy mutability
+  as well?  see earthquake example..."
+  [x]
   (if (trace? x)
     (let [keys (trace-keys x)
-          result (into {} (for [key keys] [key (trace-copy (trace-direct-subtrace x key))]))]
+          result (into {} (for [key keys]
+                            [key (trace-copy (trace-direct-subtrace x key))]))]
       (if (trace-has-value? x)
         (make-mutable-trace result (trace-get x))
         (make-mutable-trace result)))
@@ -317,12 +326,11 @@
 
 (declare same-states? trace-set-value)
 
-;; Marco's merge operator (+).  Commutative and idempotent.
-;;
-;; (trace-merge small large) - when calling, try to make tr1 smaller than tr2,
-;; because it will be tr1 that is traversed.
-
 (defn trace-merge
+  "Marco's merge operator (+).  Commutative and idempotent.
+
+  (trace-merge small large) - when calling, try to make tr1 smaller than tr2,
+  because it will be tr1 that is traversed."
   ([tr1 tr2] (trace-merge tr1 tr2 trace-merge))
   ([tr1 tr2 submerge]
    (let [s1 (trace-state tr1)
@@ -365,9 +373,10 @@
       sub
       (trace-set-direct-subtrace tr
                                  (first adr)
-                                 (trace-set-subtrace (trace-subtrace-maybe tr (first adr))
-                                                     (rest adr)
-                                                     sub)))
+                                 (trace-set-subtrace
+                                  (trace-subtrace-maybe tr (first adr))
+                                  (rest adr)
+                                  sub)))
     (trace-set-direct-subtrace tr adr sub)))
 
 (defn trace-set-value [tr val]
@@ -379,12 +388,14 @@
       (trace-set-value tr val)
       (trace-set-direct-subtrace tr
                                  (first adr)
-                                 (trace-set-value-at (trace-subtrace-maybe tr (first adr))
-                                                     (rest adr)
-                                                     val)))
+                                 (trace-set-value-at
+                                  (trace-subtrace-maybe tr (first adr))
+                                  (rest adr)
+                                  val)))
     (trace-set-direct-subtrace tr
                                adr
-                               (trace-set-value (trace-subtrace-maybe tr adr) val))))
+                               (trace-set-value
+                                (trace-subtrace-maybe tr adr) val))))
 
 (defn trace-set
   ([tr val] (trace-set-value tr val))
@@ -398,7 +409,9 @@
        (state/clear-value (trace-state tr))
        (trace-set-direct-subtrace tr
                                   (first adr)
-                                  (trace-delete (trace-subtrace-maybe tr (first adr)) (rest adr))))
+                                  (trace-delete
+                                   (trace-subtrace-maybe
+                                    tr (first adr)) (rest adr))))
      (trace-set-direct-subtrace tr
                                 adr
                                 (trace-delete (trace-subtrace-maybe tr adr))))))
@@ -432,12 +445,12 @@
 
 (defn ^:private trace-set-value! [tr val]
   (assert (mutable-trace? tr) tr)
-  (assert (ok-value? val) val)            ;REMOVE
+  (assert (ok-value? val) val)            ; REMOVE
   (trace-swap! tr
                (fn [state]
                  (state/set-value state val))))
 
-(defn ^:private trace-set-value-at! [tr adr val] ;cf. trace-get
+(defn ^:private trace-set-value-at! [tr adr val] ; cf. trace-get
   (assert (mutable-trace? tr) tr)
   (let [adr (if (seq? adr) adr (list adr))]
     (loop [tr tr adr adr]
@@ -477,15 +490,13 @@
      (if (empty? adr)
        (trace-clear! tr)
        (let [[head & tail] adr]
-         ;; Keep following adr as long as the trace is mutable
-         (if (trace-has-direct-subtrace? tr head)
+         ;; Keep following adr as long as the trace is mutable.
+         (when (trace-has-direct-subtrace? tr head)
            (if (or (immutable-trace? tr)
                    (mutable-trace? (trace-get tr head)))
              (trace-delete!-loser (trace-get tr head) tail)
              (trace-swap! tr (fn [state]
-                               (trace-state (trace-delete state adr)))))
-           ;; Did not delete, it wasn't there in the first place
-           ))))))
+                               (trace-state (trace-delete state adr)))))))))))
 
 (defn trace-merge!-maybe [mutable tr]
   (if (mutable-trace? mutable)
@@ -512,14 +523,15 @@
                                   (if (= key :value)
                                     [key sub]
                                     (let [new-sub (to-mutable sub)]
-                                      (trace-thaw! new-sub)    ;Idempotent
+                                      (trace-thaw! new-sub)    ; Idempotent
                                       [key new-sub])))
                                 (state/state-to-map state))))))
   tr)
 
 ;; -----------------------------------------------------------------------------
 ;; Zip and unzip are inverses, for valueless traces
-;; The value is treated as a keyed entry with key :value (all the other entries are traces)
+;; The value is treated as a keyed entry with key :value (all the
+;; other entries are traces)
 
 (defn trace-zip [tr]
   (seq (state/state-to-map tr)))
@@ -690,9 +702,9 @@
 (defn  ^:private princ [x out]
   (.write out (if (string? x) x (str x))))
 
-;; Print a key or a value, on one line
-
-(defn pprint-value [x out]
+(defn pprint-value
+  "Print a key or a value, on one line"
+  [x out]
   (if (mutable-trace? x)
     (let [keyseq (trace-keys x)]
       (if (trace-has? x)
@@ -706,9 +718,9 @@
           (princ (str "{" (first keyseq) ": ...}") out))))
     (pr x)))
 
-;; x is a seq
-
-(defn pprint-seq [x indent open close out]
+(defn pprint-seq
+  "Pretty-print a seq (where `x` is the seq to print)."
+  [x indent open close out]
   (princ open out)
   (let [vertical? (some trace? x)
         indent (str indent " ")]
@@ -723,9 +735,9 @@
             (recur (rest x) false)))))
   (princ close out))
 
-;; Print {...} trace over multiple lines
-
-(defn pprint-general-trace [tr indent out]
+(defn pprint-general-trace
+  "Print {...} trace over multiple lines"
+  [tr indent out]
   (let [keys (trace-keys tr)]
     ;; If it has a value, clojure-print the value
     (if (trace-has? tr)
@@ -744,9 +756,9 @@
         (princ ": " out)
         (pprint-indented (trace-subtrace tr key) indent out)))))
 
-;; Indent gives indentation to use on lines after the first.
-
-(defn pprint-indented [x indent out]
+(defn pprint-indented
+  "Indent gives indentation to use on lines after the first."
+  [x indent out]
   (if (trace? x)
     (do (if (proper-function? x) (princ "COMPILED " out))
         (if (mutable-trace? x) (princ "!" out))
@@ -765,7 +777,7 @@
     (pprint-value x out))
   (.flush out))
 
-;!!
+;; !!
 (defn metaprob-pprint
   ([x] (metaprob-pprint x *out*))
   ([x out]

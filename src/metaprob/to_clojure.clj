@@ -1,13 +1,12 @@
 (ns metaprob.to-clojure
-  (:require [metaprob.trace :as trace])
-  (:require [metaprob.syntax :refer :all])
-  (:require [metaprob.builtin-impl :as impl])
-  (:require [clojure.pprint :as pp])
-  (:require [clojure.string :as cs])
-  (:require [clojure.java.io :as io]))
-
-; Read a source code trie (i.e. trace) in ("a-value" "prop" "val") form
-; and translate it into Clojure.
+  "Read a source code trie (i.e. trace) in ('a-value' 'prob' 'val') form
+  and translate it into Clojure."
+  (:require [metaprob.trace :as trace]
+            [metaprob.syntax :refer :all]
+            [metaprob.builtin-impl :as impl]
+            [clojure.pprint :as pp]
+            [clojure.string :as cs]
+            [clojure.java.io :as io]))
 
 ; In emacs you will want this:
 ;  (put 'get 'clojure-indent-function ':defn)
@@ -126,12 +125,12 @@
     "variable" (to-symbol (subvalue tr "name"))
     "tuple" (vec (map pattern-to-pattern
                       (trace/subtraces-to-seq tr)))
-    (do 
+    (do
       (print ["invalid pattern" (trace/trace-get tr)]) (newline)
       (list "invalid pattern" (trace/trace-get tr)))))
 
 ; Top-level definition.  Formerly, this condensed def + fn to defn, but
-; that doesn't work if we're going to support metaprob reification - 
+; that doesn't work if we're going to support metaprob reification -
 ; we always need def + gen.
 
 (defn definition-to-clojure [tr nest]
@@ -167,7 +166,7 @@
         tail (qons (pattern-to-pattern pat-trace) body)]
     (if (get nest :bare)
       (qons 'gen tail)
-      ;; The environment isn't captured, so it's not possible to 
+      ;; The environment isn't captured, so it's not possible to
       ;; interpret the source code.
       (qons 'opaque tail))))
 
