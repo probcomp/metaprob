@@ -11,12 +11,17 @@
 
 (def set-value state/set-value)
 
+(defmacro defgen
+  "Like defn, but for gen forms"
+  [pattern & rhs]
+  (let [[docstring params body] (if (string? (first rhs))
+                                  [(first rhs) (second rhs) (nthrest rhs 2)]
+                                  [nil (first rhs) (rest rhs)])]
+    `(define ~pattern (gen ~params ~@body))))
+
 (defmacro define
   "Like def, but allows patterns."
-  ([pattern docstring rhs]
-   `(define ~pattern ~rhs))
-
-  ([pattern rhs]
+  [pattern rhs]
    (letfn [(var-for-pattern [pat]
              (if (symbol? pat)
                pat
@@ -47,7 +52,7 @@
                                pattern
                                (range (count pattern)))))))]
 
-     `(do ~@(explode-pattern pattern rhs)))))
+     `(do ~@(explode-pattern pattern rhs))))
 
 (declare from-clojure from-clojure-pattern)
 

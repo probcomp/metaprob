@@ -41,13 +41,13 @@
       (assert false "bad env-bind!"))))
 
 ;; match-bind! -
-(define match-bind!
+(defgen match-bind!
   "Overrides original prelude. Liberal in what it accepts: the input
   can be either a list or a tuple, at any level.
   `pattern` is a parse-tree trace (variable or tuple expression) - not a tuple.
   `input` is anything."
 
-  (gen [pattern input env]
+  [pattern input env]
     (case (trace-get pattern)
       "variable"
       (env-bind! env (trace-get pattern "name") input)
@@ -92,4 +92,4 @@
              (loup 0 (to-list input)))
       (do (pprint pattern)
           (assert false ["bad pattern" pattern input])))
-    "return value of match-bind!"))
+    "return value of match-bind!")

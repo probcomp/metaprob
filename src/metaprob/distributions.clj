@@ -30,16 +30,16 @@
               (trace))
             score]))))
 
+;; A uniform distribution.
 (define uniform
-  "A uniform distribution."
   (make-inference-procedure-from-sampler-and-scorer
    "uniform"
    (gen [a b] (sample-uniform a b))
    (gen [x [a b]]
-      (- 0.0 (log (- b a))))))
+        (- 0.0 (log (- b a))))))
 
+;; A categorical distribution.
 (define uniform-sample
-  "A categorical distribution."
   (make-inference-procedure-from-sampler-and-scorer
    "uniform-sample"
    (gen [items]
@@ -52,11 +52,11 @@
                            items)))
            (log (length items))))))
 
-(define flip
-  "Flip a 'weighted coin': the larger the weight, the more likely it
-  is that the sample is true rather than false.
+;; Flip a 'weighted coin': the larger the weight, the more likely it
+;; is that the sample is true rather than false.
 
-  Code translated from class BernoulliOutputPSP(DiscretePSP)."
+;; Code translated from class BernoulliOutputPSP(DiscretePSP).
+(define flip
   (make-inference-procedure-from-sampler-and-scorer
     "flip"
     (gen [weight] (lt (uniform 0 1) weight))
@@ -66,13 +66,12 @@
         (log weight)
         (log1p (sub 0 weight))))))
 
-;;
 
+;; Categorical distribution. This is just the one-argument form, so is
+;; simpler than what's in Venture.
+
+;; Cf. CategoricalOutputPSP from discrete.py in Venturecxx.
 (define categorical
-  "Categorical distribution. This is just the one-argument form, so is
-  simpler than what's in Venture.
-
-  Cf. CategoricalOutputPSP from discrete.py in Venturecxx."
   (make-inference-procedure-from-sampler-and-scorer
    "categorical"
    (gen [probabilities]
@@ -95,10 +94,9 @@
 
 (declare scores-to-probabilities)
 
+;; Log-categorical distribution. Returns 0, 1, 2, ... weighted by the
+;; given weights (given as log probabilities, unnormalized).
 (define log-categorical
-  "Log-categorical distribution. Returns 0, 1, 2, ... weighted by the
-  given weights (given as log probabilities, unnormalized)."
-
   (make-inference-procedure-from-sampler-and-scorer
    "log-categorical"
    (gen [scores]
@@ -117,13 +115,13 @@
    (gen [i [scores]]
      (nth (scores-to-probabilities scores) i))))
 
-(define scores-to-probabilities
-  (gen [scores]
-    (define max-score (apply clojure.core/max scores))
-    (define numerically-stable-scores (map (gen [x] (- x max-score)) (to-immutable-list scores)))
-    (define weights (map exp numerically-stable-scores))
-    (define log-normalizer (+ (log (apply + weights)) max-score))
-    (map (gen [w] (exp (- w log-normalizer))) (to-immutable-list scores))))
+(defgen scores-to-probabilities
+  [scores]
+  (define max-score (apply clojure.core/max scores))
+  (define numerically-stable-scores (map (gen [x] (- x max-score)) (to-immutable-list scores)))
+  (define weights (map exp numerically-stable-scores))
+  (define log-normalizer (+ (log (apply + weights)) max-score))
+  (map (gen [w] (exp (- w log-normalizer))) (to-immutable-list scores)))
 
 ;; ----------------------------------------------------------------------------
 ;; I'm going to defer the implementation of beta until later;

@@ -43,72 +43,139 @@
     (define particle (nth particles which))
     (nth particle 0)))
 
-(define single-site-metropolis-hastings-step
+(defgen single-site-metropolis-hastings-step
   "Metropolis-Hastings. `trace` is both an input and (by side effect) an output."
-  (gen [model-procedure inputs trace constraint-addresses]
 
-    ;; choose an address to modify, uniformly at random
-    (define choice-addresses (addresses-of trace))
-    (define candidates (set-difference choice-addresses constraint-addresses))
-    (define target-address (uniform-sample candidates))
+  [model-procedure inputs trace constraint-addresses]
 
-    ;; generate a proposal trace
-    (define initial-value (trace-get trace target-address))
-    (define initial-num-choices (length candidates))
-    (trace-delete! trace target-address)
+  ;; choose an address to modify, uniformly at random
+  (define choice-addresses (addresses-of trace))
+  (define candidates (set-difference choice-addresses constraint-addresses))
+  (define target-address (uniform-sample candidates))
 
-    (define new-trace (mutable-trace))
-    (define [_ new-trace forward-score]
-      (infer :procedure model-procedure
-             :inputs inputs
-             :intervention-trace nil
-             :target-trace trace
-             :output-trace new-trace))
-    (define new-value (trace-get new-trace target-address))
+  ;; generate a proposal trace
+  (define initial-value (trace-get trace target-address))
+  (define initial-num-choices (length candidates))
+  (trace-delete! trace target-address)
 
-    ;; the proposal is to move from trace to new-trace
-    ;; now calculate the Metropolis-Hastings acceptance ratio
-    (define new-choice-addresses (addresses-of new-trace))
-    (define new-candidates (set-difference new-choice-addresses
-                                           constraint-addresses))
-    (define new-num-choices (length new-candidates))
+  (define new-trace (mutable-trace))
+  (define [_ new-trace forward-score]
+    (infer :procedure model-procedure
+           :inputs inputs
+           :intervention-trace nil
+           :target-trace trace
+           :output-trace new-trace))
+  (define new-value (trace-get new-trace target-address))
 
-    ;; make a trace that can be used to restore the original trace
-    (define restoring-trace (empty-trace))
-    (trace-set! restoring-trace target-address initial-value)
-    (for-each (set-difference choice-addresses new-choice-addresses)
-              (gen [initial-addr] ; initial-addr in original but not proposed trace
-                (trace-set! restoring-trace
-                           initial-addr
-                           (trace-get trace initial-addr))))
+  ;; the proposal is to move from trace to new-trace
+  ;; now calculate the Metropolis-Hastings acceptance ratio
+  (define new-choice-addresses (addresses-of new-trace))
+  (define new-candidates (set-difference new-choice-addresses
+                                         constraint-addresses))
+  (define new-num-choices (length new-candidates))
 
-    ;; remove the new value
-    (trace-delete! new-trace target-address)
+  ;; make a trace that can be used to restore the original trace
+  (define restoring-trace (empty-trace))
+  (trace-set! restoring-trace target-address initial-value)
+  (for-each (set-difference choice-addresses new-choice-addresses)
+            (gen [initial-addr] ; initial-addr in original but not proposed trace
+                 (trace-set! restoring-trace
+                             initial-addr
+                             (trace-get trace initial-addr))))
 
-    (define [_ _ reverse-score]
-      (infer :procedure model-procedure
-             :inputs   inputs
-             :intervention-trace restoring-trace
-             :target-trace new-trace
-             :output-trace? false))
+  ;; remove the new value
+  (trace-delete! new-trace target-address)
 
-    (trace-set! new-trace target-address new-value)
+  (define [_ _ reverse-score]
+    (infer :procedure model-procedure
+           :inputs   inputs
+           :intervention-trace restoring-trace
+           :target-trace new-trace
+           :output-trace? false))
 
-    (define log-acceptance-probability (sub (add forward-score
-                                                 (log new-num-choices))
-                                            (add reverse-score
-                                                 (log initial-num-choices))))
+  (trace-set! new-trace target-address new-value)
 
-    (if (lt (log (uniform 0 1)) log-acceptance-probability)
-      (block
-       (for-each (set-difference choice-addresses new-choice-addresses)
-                 (gen [initial-addr] (trace-delete! trace initial-addr)))
-       (for-each new-choice-addresses
-                 (gen [new-addr]
-                      (trace-set! trace
-                                  new-addr
-                                  (trace-get new-trace new-addr)))))
-      (trace-set! trace target-address initial-value))))
+  (define log-acceptance-probability (sub (add forward-score
+                                               (log new-num-choices))
+                                          (add reverse-score
+                                               (log initial-num-choices))))
+
+  (if (lt (log (uniform 0 1)) log-acceptance-probability)
+    (block
+     (for-each (set-difference choice-addresses new-choice-addresses)
+               (gen [initial-addr] (trace-delete! trace initial-addr)))
+     (for-each new-choice-addresses
+               (gen [new-addr]
+                    (trace-set! trace
+                                new-addr
+                                (trace-get new-trace new-addr)))))
+    (trace-set! trace target-address initial-value)))
+
+;; (define single-site-metropolis-hastings-step
+;;   (gen [model-procedure inputs trace constraint-addresses]
+
+;;     ;; choose an address to modify, uniformly at random
+;;     (define choice-addresses (addresses-of trace))
+;;     (define candidates (set-difference choice-addresses constraint-addresses))
+;;     (define target-address (uniform-sample candidates))
+
+;;     ;; generate a proposal trace
+;;     (define initial-value (trace-get trace target-address))
+;;     (define initial-num-choices (length candidates))
+;;     (trace-delete! trace target-address)
+
+;;     (define new-trace (mutable-trace))
+;;     (define [_ new-trace forward-score]
+;;       (infer :procedure model-procedure
+;;              :inputs inputs
+;;              :intervention-trace nil
+;;              :target-trace trace
+;;              :output-trace new-trace))
+;;     (define new-value (trace-get new-trace target-address))
+
+;;     ;; the proposal is to move from trace to new-trace
+;;     ;; now calculate the Metropolis-Hastings acceptance ratio
+;;     (define new-choice-addresses (addresses-of new-trace))
+;;     (define new-candidates (set-difference new-choice-addresses
+;;                                            constraint-addresses))
+;;     (define new-num-choices (length new-candidates))
+
+;;     ;; make a trace that can be used to restore the original trace
+;;     (define restoring-trace (empty-trace))
+;;     (trace-set! restoring-trace target-address initial-value)
+;;     (for-each (set-difference choice-addresses new-choice-addresses)
+;;               (gen [initial-addr] ; initial-addr in original but not proposed trace
+;;                 (trace-set! restoring-trace
+;;                            initial-addr
+;;                            (trace-get trace initial-addr))))
+
+;;     ;; remove the new value
+;;     (trace-delete! new-trace target-address)
+
+;;     (define [_ _ reverse-score]
+;;       (infer :procedure model-procedure
+;;              :inputs   inputs
+;;              :intervention-trace restoring-trace
+;;              :target-trace new-trace
+;;              :output-trace? false))
+
+;;     (trace-set! new-trace target-address new-value)
+
+;;     (define log-acceptance-probability (sub (add forward-score
+;;                                                  (log new-num-choices))
+;;                                             (add reverse-score
+;;                                                  (log initial-num-choices))))
+
+;;     (if (lt (log (uniform 0 1)) log-acceptance-probability)
+;;       (block
+;;        (for-each (set-difference choice-addresses new-choice-addresses)
+;;                  (gen [initial-addr] (trace-delete! trace initial-addr)))
+;;        (for-each new-choice-addresses
+;;                  (gen [new-addr]
+;;                       (trace-set! trace
+;;                                   new-addr
+;;                                   (trace-get new-trace new-addr)))))
+;;       (trace-set! trace target-address initial-value))))
 
 
 (define immutable-single-site-metropolis-hastings-step

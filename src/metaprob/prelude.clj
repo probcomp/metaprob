@@ -109,62 +109,62 @@
 ;; -----------------------------------------------------------------------------
 ;; Interpreter utilities
 
-(define maybe-subtrace
-  (gen [tr adr]
-    (if (trace-has-subtrace? tr adr)
-      (trace-subtrace tr adr)
-      (trace))))
+(defgen maybe-subtrace
+  [tr adr]
+  (if (trace-has-subtrace? tr adr)
+    (trace-subtrace tr adr)
+    (trace)))
 
-(define maybe-set-subtrace
-  (gen [output key suboutput]
-    (assert (trace? output) "bad output")
-    (if suboutput
-      (block (assert (trace? suboutput) ["bad suboutput" key suboutput])
-             (if (empty-trace? suboutput)
-               output
-               (trace-set-subtrace output key suboutput)))
-      output)))
+(defgen maybe-set-subtrace
+  [output key suboutput]
+  (assert (trace? output) "bad output")
+  (if suboutput
+    (block (assert (trace? suboutput) ["bad suboutput" key suboutput])
+           (if (empty-trace? suboutput)
+             output
+             (trace-set-subtrace output key suboutput)))
+    output))
 
 ;; Utilities for interpreter
 
-(define name-for-definiens
+(defgen name-for-definiens
   "This is used to compute the key under which to store the value that
   is the binding of a definition."
-  (gen [pattern]
-    (if (eq (trace-get pattern) "variable")
-      (block (define name (trace-get pattern "name"))
-             ;; Cf. from-clojure-definition in syntax.clj
-             (if (or (eq name "_")
-                     (eq name "pattern"))
-               "definiens"
-               (trace-get pattern "name")))
-      "definiens")))
+  [pattern]
+  (if (eq (trace-get pattern) "variable")
+    (block (define name (trace-get pattern "name"))
+           ;; Cf. from-clojure-definition in syntax.clj
+           (if (or (eq name "_")
+                   (eq name "pattern"))
+             "definiens"
+             (trace-get pattern "name")))
+    "definiens"))
 
-(define application-result-key
+(defgen application-result-key
   "Get the key to use for storing the result of a procedure call."
-  (gen [exp]
-    (define key (if (eq (trace-get exp) "variable")
-                  (trace-get exp "name")
-                  "call"))
-    (assert (ok-key? key) key)
-    key))
+  [exp]
+  (define key (if (eq (trace-get exp) "variable")
+                (trace-get exp "name")
+                "call"))
+  (assert (ok-key? key) key)
+  key)
 
-(define native-procedure?
-  (gen [thing]
-    (and (trace? thing)
-         (trace-has? thing "generative-source")
-         (trace-has? thing "environment"))))
+(defgen native-procedure?
+  [thing]
+  (and (trace? thing)
+       (trace-has? thing "generative-source")
+       (trace-has? thing "environment")))
 
 ;; -----------------------------------------------------------------------------
 ;; Inf-based utilities.
 
-(define opaque
-  (gen [name proc]
-    (inf name
-         proc   ; model (generative procedure)
-         (gen [inputs intervene target output?]
-           ;; Ignore the traces.
-           (infer-apply proc inputs (trace) (trace) false)))))
+(defgen opaque
+  [name proc]
+  (inf name
+       proc   ; model (generative procedure)
+       (gen [inputs intervene target output?]
+            ;; Ignore the traces.
+            (infer-apply proc inputs (trace) (trace) false))))
 
 (define apply
   (trace-as-procedure
@@ -178,8 +178,8 @@
    (gen [proc inputs]
      (clojure.core/apply proc (to-immutable-list inputs)))))
 
+;; map defined using inf (instead of with-address)
 (define map-issue-20
-  "map defined using inf (instead of with-address)"
   (inf "map"
        nil                              ; no model
        (gen [[fun sequ] intervene target output?]
@@ -212,7 +212,7 @@
 
 (define map map-issue-20)
 
-(define replicate
-  (gen [n f]
-    (map (gen [i] (f))
-         (range n))))
+(defgen replicate
+  [n f]
+  (map (gen [i] (f))
+       (range n)))

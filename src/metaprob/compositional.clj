@@ -12,11 +12,11 @@
 (declare infer-apply-native infer-apply-foreign
          infer-apply infer-eval infer-eval-sequence)
 
-(define infer-apply
+(defgen infer-apply
   "Main entry point: an `apply` that respects interventions and
   constraints, records choices made, and computes scores."
 
-  (gen [proc inputs intervene target output?]
+  [proc inputs intervene target output?]
     (assert (or (list? inputs) (tuple? inputs))
             ["inputs neither list nor tuple" inputs])
     (assert (trace? intervene) ["bad intervene" intervene])
@@ -52,55 +52,57 @@
         ;; Otherwise, this is not a procedure we can interpret.
         true
         (block (pprint proc)
-               (error "infer-apply: not a procedure" proc))))))
+               (error "infer-apply: not a procedure" proc)))))
 
-(define infer-apply-foreign
+(defgen infer-apply-foreign
   "Invoke a 'foreign' generative procedure, i.e. one written in
   clojure (or Java)"
-  (gen [proc inputs intervene target output?]
-    ;; 'Foreign' generative procedure
-    (define value (generate-foreign proc inputs))
-    (define ivalue (if (trace-has? intervene)
-                     (trace-get intervene)
-                     value))
-    (if (and (trace-has? target)
-             (not (same-states? (trace-get target) ivalue)))
-      [(trace-get target)
-       (trace-set (trace) (trace-get target))
-       negative-infinity]
-      [ivalue (trace) 0])))
+  [proc inputs intervene target output?]
+  ;; 'Foreign' generative procedure
+  (define value (generate-foreign proc inputs))
+  (define ivalue (if (trace-has? intervene)
+                   (trace-get intervene)
+                   value))
+  (if (and (trace-has? target)
+           (not (same-states? (trace-get target) ivalue)))
+    [(trace-get target)
+     (trace-set (trace) (trace-get target))
+     negative-infinity]
+    [ivalue (trace) 0]))
 
-(define infer-apply-native
+(defgen infer-apply-native
   "Invoke a 'native' generative procedure, i.e. one written in
   metaprob, with inference mechanics (traces and scores)."
-  (gen [proc inputs intervene target output?]
-    (define source (trace-subtrace proc "generative-source"))
-    (define environment (trace-get proc "environment"))
-    (define new-env (make-env environment))
-    ;; Extend the enclosing environment by binding formals to actuals
-    (match-bind! (trace-subtrace source "pattern")
-                 inputs
-                 new-env)
-    (infer-eval (trace-subtrace source "body")
-                new-env
-                intervene
-                target
-                output?)))
+  [proc inputs intervene target output?]
+  (define source (trace-subtrace proc "generative-source"))
+  (define environment (trace-get proc "environment"))
+  (define new-env (make-env environment))
+  ;; Extend the enclosing environment by binding formals to actuals
+  (match-bind! (trace-subtrace source "pattern")
+               inputs
+               new-env)
+  (infer-eval (trace-subtrace source "body")
+              new-env
+              intervene
+              target
+              output?))
 
-(define infer-subeval
+(defgen infer-subeval
   "Evaluate a subexpression (a subproblem)"
-  (gen [exp key env intervene target output?]
-    (define [value output score]
-      (infer-eval (trace-subtrace exp key)
-                  env
-                  (maybe-subtrace intervene key)
-                  (maybe-subtrace target key)
-                  output?))
-    [value (maybe-set-subtrace (trace) key output) score]))
+  [exp key env intervene target output?]
 
-(define infer-eval
+  (define [value output score]
+    (infer-eval (trace-subtrace exp key)
+                env
+                (maybe-subtrace intervene key)
+                (maybe-subtrace target key)
+                output?))
+  [value (maybe-set-subtrace (trace) key output) score])
+
+(defgen infer-eval
   "Evaluate a subexpression (by reduction)"
-  (gen [exp env intervene target output?]
+  [exp env intervene target output?]
+
     (assert (trace? exp) ["bad expression - eval" exp])
     (assert (environment? env) ["bad env - eval" env])
     (assert (trace? intervene) ["bad intervene" intervene])
@@ -205,7 +207,7 @@
 
       ;; in all other cases, the existing values work fine:
       true
-      [v output score])))
+      [v output score]))
 
 ;; XXX jmt unused?
 ;; (define z (gen [n v]
@@ -213,25 +215,26 @@
 ;;   (assert (= (length v) n) ["tuple length" n v])
 ;;   v))
 
-(define infer-eval-sequence
+(defgen infer-eval-sequence
   "Evaluate a sequence of expressions."
-  (gen [exp env intervene target output?]
-    (assert (trace? exp) exp)
-    (assert (gte (trace-count exp) 1) exp)
+  [exp env intervene target output?]
 
-    (define luup
-      (gen [i values output score]
-        (if (trace-has? exp i)
-          (block (define [val suboutput subscore]
-                   (infer-subeval exp
-                                  i
-                                  env
-                                  intervene
-                                  target
-                                  output?))
-                 (luup (+ i 1)
-                       (pair val values)
-                       (trace-merge output suboutput)
-                       (+ score subscore)))
-          [(reverse values) output score])))
-    (luup 0 (list) (trace) 0)))
+  (assert (trace? exp) exp)
+  (assert (gte (trace-count exp) 1) exp)
+
+  (define luup
+    (gen [i values output score]
+         (if (trace-has? exp i)
+           (block (define [val suboutput subscore]
+                    (infer-subeval exp
+                                   i
+                                   env
+                                   intervene
+                                   target
+                                   output?))
+                  (luup (+ i 1)
+                        (pair val values)
+                        (trace-merge output suboutput)
+                        (+ score subscore)))
+           [(reverse values) output score])))
+  (luup 0 (list) (trace) 0))
