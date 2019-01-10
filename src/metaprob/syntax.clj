@@ -1,4 +1,7 @@
 (ns metaprob.syntax
+  "This module is intended for import by metaprob code, particularly in
+  builtins.clj. It defines the syntactic constructs to be used in
+  metaprob programs."
   (:require [clojure.string :as string]
             [clojure.set :as set]
             [metaprob.state :as state]
@@ -8,13 +11,8 @@
 
 (def set-value state/set-value)
 
-
-;; This module is intended for import by metaprob code, and defines
-;; the syntactic constructs to be used in metaprob programs.
-;; Intended to be used with the builtins module.
-
 (defmacro define
-  "like def, but allows patterns"
+  "Like def, but allows patterns."
   ([pattern docstring rhs]
    `(define ~pattern ~rhs))
 
@@ -26,7 +24,6 @@
                                     (map var-for-pattern pat)))))
 
            ;; Insert name into function expression, if any
-
            (form-def [name rhs]
              (let [rhs (if (and (seq? rhs)
                                 (= (first rhs) 'gen))
@@ -37,7 +34,6 @@
            ;; Returns a list [[var val] ...]
            ;; to be turned into, say, (block (define var val) ...)
            ;; or into (let [var val ...] ...)
-
            (explode-pattern [pattern rhs]
              (if (symbol? pattern)
                (list (form-def pattern rhs))
@@ -49,8 +45,7 @@
                                    (list)
                                    (explode-pattern subpattern `(metaprob-nth ~var ~i))))
                                pattern
-                               (range (count pattern)))))))
-           ]
+                               (range (count pattern)))))))]
 
      `(do ~@(explode-pattern pattern rhs)))))
 
@@ -59,8 +54,8 @@
 ;; Run time
 
 (defn free-vars-approximately
-  "Recursively descends through nested vectors, sequences, and maps and returns a
-  set of all the symbols found therein."
+  "Recursively descends through nested vectors, sequences, and maps and
+  returns a set of all the symbols found therein."
   [form]
   ;; This is incredibly crude, but it doesn't much matter if there are a
   ;; few junk names in the result, since they'll get filtered out
@@ -98,7 +93,7 @@
                                      '()
                                      ~screwy)]
                        (block ~@body)))
-                  `(block ~@body))     ;cope with defines if any
+                  `(block ~@body))     ; cope with defines if any
         fn-exp `(fn ~@(if name `(~name) `())
                   ~params
                   ~fn-body)
@@ -149,7 +144,7 @@
               (conj (concat (list) y) x)))
           (process-definition [form]
             (assert generator-definition? form)
-            (let [rhs (definition-rhs form)       ;a gen-expression
+            (let [rhs (definition-rhs form)       ; a gen-expression
                   prog-pattern (definition-pattern rhs)
                   prog-body (rest (rest rhs))]
               ;; (name [args] body1 body2 ...) as in letfn
@@ -167,7 +162,8 @@
                             (mapcat (fn [subpattern i]
                                       (if (= subpattern '_)
                                         (list)
-                                        (explode-pattern subpattern `(metaprob-nth ~var ~i))))
+                                        (explode-pattern subpattern
+                                                         `(metaprob-nth ~var ~i))))
                                     pattern
                                     (range (count pattern))))))))
 
@@ -181,8 +177,10 @@
                         rhs (definition-rhs here)]
                     ;; A definition must not be last expression in a block
                     (if (empty? (rest forms))
-                      (print (format "** Warning: Definition of %s occurs at end of block\n"
-                                     pattern)))
+                      (print
+                       (format
+                        "** Warning: Definition of %s occurs at end of block\n"
+                        pattern)))
                     (list
                      (if (generator-definition? here)
                        (let [spec (process-definition here)
@@ -244,10 +242,9 @@
 ;; TBD: This file assumes it knows what the represenation of an
 ;; immutable trace is.  That's not very good data abstraction.  Fix.
 
-
 ; These could all be marked ^:private
 
-(defn from-clojure-seq [sequ val]    ;seq of clojure expressions
+(defn from-clojure-seq [sequ val]    ; seq of clojure expressions
   (set-value (zipmap (range (count sequ))
                      (map from-clojure sequ))
              val))
