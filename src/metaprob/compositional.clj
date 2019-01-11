@@ -23,6 +23,10 @@
       (unbox proc))))
 
 
+;; Output-is-not-an-input version
+(define third  (gen [l] (first (rest (rest l)))))
+(define fourth (gen [l] (first (rest (rest (rest l))))))
+
 ;; Main entry point: an `apply` that respects interventions
 ;; and constraints, records choices made, and computes scores.
 
