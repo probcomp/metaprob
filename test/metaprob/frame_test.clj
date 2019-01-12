@@ -11,13 +11,12 @@
     (let [f (make-env top)]
       (env-bind! f "foo" 17)
       (is (= (env-lookup f "foo") 17))
-      (is (= (env-lookup f "sub") builtin/sub)))))
+      (is (= (env-lookup f '-) builtin/-)))))
 
 (deftest frame-2
   (testing "match-bind! smoke test"
     (let [f (make-env top)
-          pat (syntax/from-clojure-pattern '[a b])]
+          pat '[a b]]
       (match-bind! pat (list 1 2) f)
-      (is (= (env-lookup f "a") 1))
-      (is (= (env-lookup f "b") 2)))))
-
+      (is (= (env-lookup f 'a) 1))
+      (is (= (env-lookup f 'b) 2)))))
