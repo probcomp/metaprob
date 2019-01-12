@@ -20,7 +20,7 @@
       true
       (if (contains? tr (first adr))
         (recur (get tr (first adr)) (rest adr))))
-  (contains? tr adr)))
+    (contains? tr adr)))
 
 (defn trace-subtrace [tr adr]
   (get-in tr adr))
@@ -63,6 +63,7 @@
 ; Recursively walks the entire state to check it's valid
 (defn trace? [s]
   (map? s))
+
 
 (defn valid-trace? [s]
   (and
@@ -214,3 +215,10 @@
    (pprint-indented x "" out)
    (metaprob-newline out)
    (.flush out)))
+
+
+
+;; jmt
+(comment
+
+  )

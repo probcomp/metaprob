@@ -42,8 +42,8 @@
       ;; Proc is a special inference procedure returned by `inf`.
       ;; Return the value+output+score that the implementation computes.
       (block
-        (define imp (get proc :implementation))
-        (imp inputs intervene target output?))
+       (define imp (get proc :implementation))
+       (imp inputs intervene target output?))
 
       (cond
         ;; Bypass interpreter when there is no need to use it.  Was once
@@ -76,8 +76,10 @@
   (gen [proc inputs intervene target output?]
     ;; 'Foreign' generative procedure
     (define value (generate-foreign proc inputs))
-    (define ivalue (if (trace-has-value? intervene) (trace-value intervene) value))
-    (if (and (trace-has-value? target) (not (= (trace-value target) ivalue)))
+    (define ivalue (if (trace-has-value? intervene)
+                     (trace-value intervene) value))
+    (if (and (trace-has-value? target)
+             (not (= (trace-value target) ivalue)))
       [(trace-value target) {:value (trace-value target)} negative-infinity]
       [ivalue {} 0])))
 
@@ -85,7 +87,6 @@
 ;; metaprob, with inference mechanics (traces and scores).
 (define infer-apply-native
   (gen [proc inputs intervene target output?]
-    ; (pprint proc)
     (define source (get proc :generative-source))
     (define environment (get proc :environment))
     (define new-env (make-env environment))
@@ -151,8 +152,7 @@
 ;; Evaluate a subexpression (by reduction)
 (define infer-eval
   (gen [exp env intervene target output?]
-    ; (pprint [exp env intervene target output?])
-    ; (assert (trace? exp) ["bad expression - eval" exp])
+    ;; (assert (trace? exp) ["bad expression - eval" exp])
     (assert (environment? env) ["bad env - eval" env])
     (assert (trace? intervene) ["bad intervene" intervene])
     (assert (trace? target) ["bad target" target])
@@ -238,7 +238,8 @@
 
         ; otherwise, it must be an application
         true
-        (block (define [values output score]
+        (block
+         (define [values output score]
                  (infer-eval-expressions exp env intervene target output?))
 
                (define result-key
@@ -258,8 +259,10 @@
 
     (assert (trace? output) output)
 
-    (define ivalue (if (trace-has-value? intervene) (trace-value intervene) v))
-    (define tvalue (if (trace-has-value? target) (trace-value target) v))
+    (define ivalue (if (trace-has-value? intervene)
+                     (trace-value intervene) v))
+    (define tvalue (if (trace-has-value? target)
+                     (trace-value target) v))
 
     (cond
       ; intervention with no disagreeing target

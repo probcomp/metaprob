@@ -1,16 +1,18 @@
 (ns metaprob.compositional-test
   (:require [clojure.test :refer :all]
             [metaprob.trace :refer :all :as trace]
-            [metaprob.sequence :refer [tuple]]
+            ;; [metaprob.sequence :refer [tuple]]
             [metaprob.syntax :refer :all :as syntax]
-            [metaprob.builtin-impl :refer :all :as impl :exclude [infer-apply]]
+            [metaprob.builtin-impl :refer :all :as impl
+             :exclude [infer-apply]]
             [metaprob.builtin :as builtin]
             [metaprob.distributions :refer :all :as distributions]
-            [metaprob.compositional :refer :all :exclude [map replicate apply] :as comp]))
+            [metaprob.compositional :refer :all
+             :exclude [map replicate apply] :as comp]))
 
 (def top (impl/make-top-level-env 'metaprob.compositional))
 
-(def no-trace (trace/trace))
+(def no-trace {})
 
 (defn ez-call [prob-prog & inputs]
   (let [inputs (if (= inputs nil) '() inputs)
@@ -22,17 +24,18 @@
 
 (deftest apply-1
   (testing "Apply a procedure to no inputs"
-    (is (trace/empty-trace?
-         (ez-call trace/empty-trace)))))
+    (is (empty?
+         (ez-call {})))))
 
 (deftest apply-2
   (testing "Apply a procedure to one arg"
-    (is (= (ez-call builtin/sub 7)
+    (is (= (ez-call - 7)
            -7))))
 
 (defn ez-eval [x]
   (let [[value output score]
-        (comp/infer-eval (from-clojure x)
+        (comp/infer-eval ;; (from-clojure x)
+         x
                           top
                           no-trace
                           no-trace
@@ -46,8 +49,8 @@
 
 (deftest smoke-2
   (testing "Interpret a variable"
-    (is (= (ez-eval 'trace-get)
-           builtin/trace-get))))
+    (is (= (ez-eval 'trace-value)
+           builtin/trace-value))))
 
 (deftest thunk-1
   (testing "call a thunk"
@@ -92,17 +95,16 @@
   (testing "lift a generate method up to a infer method"
     (let [m (gen [inputs i t o]
                       (define [x y] inputs)
-                      (builtin/tuple (+ x 1) 19))
+                      [(+ x 1) 19])
           l (builtin/inf "testing" nil m)]
       (is (= (l 17 "z") 18)))))
-
 
 (deftest lift-and-call
   (testing "can we lift a procedure and then call it"
     (let [qq (impl/make-foreign-procedure "qq"
                                           (fn [inputs & junk]
                                             [(+ (builtin/nth inputs 0) (builtin/nth inputs 1))
-                                             (trace)
+                                             {}
                                              50]))
           lifted (builtin/inf "lifted" nil qq)]
       (is (= (lifted 7 8) 15))
@@ -136,78 +138,88 @@
 
 (deftest intervene-1
   (testing "simple intervention"
-    (let [form (from-clojure '(block 17 (+ 19)))
+    (let [form '(block 17 (+ 19))
           [value1 output1 _] (comp/infer-eval form top no-trace no-trace true)
           adr 1]
       (is (= value1 19))
-      (let [intervene (trace-set (builtin/trace) 1 23)]
+      (let [intervene (trace-set-value {} 1 23)]
         (let [[value2 output2 _] (comp/infer-eval form top intervene no-trace true)]
           (is (= value2 23)))))))
 
-
 (deftest intervene-2
   (testing "output capture, then intervention"
-    (let [form (from-clojure '(block (add 15 2) (sub 21 2)))
-          [value1 output _] (comp/infer-eval form top no-trace no-trace true)]
+    (let [form '(block (+ 15 2) (- 21 2))
+          [value1 output _] (comp/infer-eval form top
+                                             no-trace
+                                             no-trace
+                                             true)]
       (is (= value1 19))
-      (let [intervene (builtin/empty-trace)
+      (let [intervene (-> {}
+                          (trace-set-value '(0 "+") 23)
+                          (trace-set-value '(1 "-") 23))
             addresses (builtin/addresses-of output)]
-        (builtin/trace-set! intervene (addr 0 "add") 23)
-        (builtin/trace-set! intervene (addr 1 "sub") 23)
-        (let [[value2 output2 _] (comp/infer-eval form top intervene no-trace true)]
+
+        (let [[value2 output2 _] (comp/infer-eval form top
+                                                  intervene
+                                                  no-trace
+                                                  true)]
           (is (= value2 23)))))))
 
 (deftest intervene-3
   (testing "intervention value is not recorded when it is not usually in output trace"
-    (let [form (from-clojure '(block (define x (add 15 2)) (sub x 2)))
-          intervene (trace-set (builtin/trace) '(0 "x" "add") 23)
+    (let [form '(block (define x (add 15 2)) (sub x 2))
+          intervene (trace-set-value {} '(0 "x" "add") 23)
           [value out _] (comp/infer-eval form top intervene no-trace true)]
       (is (= value 21))
-      (is (empty-trace? out)))))
+      (is (empty? out)))))
 
 
 (define tst1 (gen [] (define x (if (distributions/flip 0.5) 0 1)) (+ x 3)))
 (deftest intervene-4
   (testing "intervention value is recorded when it overwrites normally-traced execution")
-  (let [intervene (trace-set (builtin/trace) '(0 "x") 5)
+  (let [intervene (trace-set-value {} '(0 "x") 5)
         [value out _] (comp/infer-apply tst1 [] intervene no-trace true)]
     (is (= value 8))
-    (is (and (trace-has? out '(0 "x")) (= 5 (trace-get out '(0 "x")))))))
+    (is (and (trace-has-value? out '(0 "x"))
+             (= 5 (trace-value out '(0 "x")))))))
 
 (deftest intervene-target-agree
   (testing "intervention and target traces agree"
-    (let [intervene (trace-set (builtin/trace) '(0 "x") 5)
-          target (trace-set (builtin/trace) '(0 "x") 5)
+    (let [intervene (trace-set-value {} '(0 "x") 5)
+          target (trace-set-value {} '(0 "x") 5)
           [value out s] (comp/infer-apply tst1 [] intervene target true)]
       (is (= value 8))
       (is (= s 0))
-      (is (and (trace-has? out '(0 "x")) (= 5 (trace-get out '(0 "x"))))))))
+      (is (and (trace-has-value? out '(0 "x"))
+               (= 5 (trace-value out '(0 "x"))))))))
 
 (deftest intervene-target-disagree
   (testing "intervention and target traces disagree"
-    (let [intervene (trace-set (builtin/trace) '(0 "x") 6)
-          target (trace-set (builtin/trace) '(0 "x") 5)
+    (let [intervene (trace-set-value {} '(0 "x") 6)
+          target (trace-set-value {} '(0 "x") 5)
           [value out s] (comp/infer-apply tst1 [] intervene target true)]
       (is (= value 8))
       (is (= s builtin/negative-infinity))
-      (is (and (trace-has? out '(0 "x")) (= 5 (trace-get out '(0 "x"))))))))
+      (is (and (trace-has-value? out '(0 "x"))
+               (= 5 (trace-value out '(0 "x"))))))))
 
 (deftest impossible-target
   (testing "target is impossible value"
-    (let [target (trace-set (builtin/trace) '(0 "x") 5)
+    (let [target (trace-set-value {} '(0 "x") 5)
           [value out s] (comp/infer-apply tst1 [] no-trace target true)]
       (is (= value 8))
       (is (= s builtin/negative-infinity))
-      (is (and (trace-has? out '(0 "x")) (= 5 (trace-get out '(0 "x"))))))))
+      (is (and (trace-has-value? out '(0 "x"))
+               (= 5 (trace-value out '(0 "x"))))))))
 
 (deftest true-target
   (testing "target value is the true value"
-    (let [form (from-clojure '(block (define x (add 15 2)) (sub x 2)))
-          target (trace-set (builtin/trace) '(0 "x" "add") 17)
+    (let [form '(block (define x (+ 15 2)) (- x 2))
+          target (trace-set-value {} '(0 "x" "+") 17)
           [value out s] (comp/infer-eval form top no-trace target true)]
       (is (= value 15))
       (is (= s 0))
-      (is (empty-trace? out)))))
+      (is (empty? out)))))
 
 ;; Self-application
 
@@ -233,3 +245,24 @@
       ; at which the random choice is recorded is significantly longer,
       ; due to the complex chain of function calls initiated by the interpreter.
       (is (> (count (first (addresses-of (apply-test tst3)))) 10)))))
+
+;; jmt
+(comment
+  (comp/infer-eval '(block (+ 15 2) (- 21 2))
+                   top {} {} true)
+
+  (comp/infer-eval '(- 21 2)
+                   top
+                   {"-" {:value 23}}
+                   {}
+                   true)
+
+  (trace-has-value? (trace-set-value {} '(-) 23))
+  (trace-has-subtrace? (trace-set-value {} '(-) 23) '-)
+  (trace-subtrace (trace-set-value {} '(-) 23) '-)
+  (trace-has-value? (-> {}
+                        (trace-set-value '(0 +) 23)
+                        (trace-set-value '(1 -) 23)))
+
+
+  )

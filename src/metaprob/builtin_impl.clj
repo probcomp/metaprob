@@ -75,7 +75,7 @@
 (defn trace-name
   ([proc-parse-tree]
    (str (hash proc-parse-tree)))
-  ([proc-parse-tree name] 
+  ([proc-parse-tree name]
    (if name
      (str name "-" (trace-name proc-parse-tree))
      (trace-name proc-parse-tree))))
@@ -165,7 +165,7 @@
 
 (defn set-difference [s1 s2]
   (seq (set/difference (set s1) (set s2))))
-  
+
 
 ;; -----------------------------------------------------------------------------
 ;; Graphical output (via gnuplot or whatever)
