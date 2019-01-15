@@ -75,7 +75,7 @@
 (defn trace-name
   ([proc-parse-tree]
    (str (hash proc-parse-tree)))
-  ([proc-parse-tree name] 
+  ([proc-parse-tree name]
    (if name
      (str name "-" (trace-name proc-parse-tree))
      (trace-name proc-parse-tree))))
@@ -165,7 +165,7 @@
 
 (defn set-difference [s1 s2]
   (seq (set/difference (set s1) (set s2))))
-  
+
 
 ;; -----------------------------------------------------------------------------
 ;; Graphical output (via gnuplot or whatever)
@@ -216,7 +216,12 @@
       (let [inputs (if (= inputs nil) (list) inputs)]
         ;(if (fn? model)
         ;  (apply model inputs)
-          (nth (implementation inputs {:intervene {} :interpretation-id (gensym) :target {}}) 0)))
+
+        (nth (implementation inputs {:intervene {}
+                                     :interpretation-id (gensym)
+                                     :target {}
+                                     :active? false})
+             0)))
     ;; Annotations:
     :name (str "inf-" name),
     :model model,
