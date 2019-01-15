@@ -143,20 +143,30 @@
                       (scan (+ i 1) (rest probs) p))))
      (scan 0 (scores-to-probabilities scores) 0.0))
    (gen [i [scores]]
-     ;; iterate over scores, accumulate running sum, for first i scores.
-     (define scan (gen [j scores running-score]
-                    (define score (+ (first scores) running-score))
-                    (if (> j i)
-                      running-score
-                      (scan (+ j 1) (rest scores) score))))
-     (scan 0 scores 0.0))))
+     (nth (scores-to-probabilities scores) i))))
+
+
+
 
 ;;  ^:private
 (define scores-to-probabilities
   (gen [scores]
-    (define weights (map exp scores))
-    (define normalizer (apply + weights))
-    (map (gen [w] (/ w normalizer)) weights)))
+
+       ;; Alex's
+       (define weights (map exp scores))
+       (define normalizer (apply + weights))
+       (map (gen [w] (/ w normalizer)) weights)
+
+       ;; master's
+       ;; (define max-score (apply clojure.core/max scores))
+       ;; (define numerically-stable-scores
+       ;;   (map (gen [x] (- x max-score))
+       ;;        (to-immutable-list scores)))
+       ;; (define weights (map exp numerically-stable-scores))
+       ;; (define log-normalizer (+ (log (apply + weights)) max-score))
+       ;; (map (gen [w] (exp (- w log-normalizer))) (to-immutable-list scores))
+    ))
+
 
 
 ;; ----------------------------------------------------------------------------

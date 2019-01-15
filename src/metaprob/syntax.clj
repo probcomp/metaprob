@@ -62,7 +62,6 @@
                   #(if (map? %) (sequence cat %) (seq %))
                   form)))
 
-
 (defn convert-fn*-exp [exp]
   (let
     [name (if (symbol? (second exp)) (second exp) nil),

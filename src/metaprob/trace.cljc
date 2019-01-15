@@ -9,8 +9,9 @@
 (defn trace-value
   ([tr] (trace-value tr '()))
   ([tr adr]
-    (let [subtrace (get-in tr adr)]
-      (get subtrace :value))))
+   (let [subtrace (get-in tr adr)]
+     (get subtrace :value))))
+
 
 (defn trace-has-subtrace? [tr adr]
   (if (seq? adr)
@@ -54,24 +55,24 @@
         (dissoc tr (first adr))
         (trace-set-subtrace
          tr
-          (first adr)
-          (trace-clear-subtrace (trace-subtrace tr (first adr)) (rest adr)))))
+         (first adr)
+         (trace-clear-subtrace (trace-subtrace tr (first adr)) (rest adr)))))
     (dissoc tr adr)))
 
 (defn value-only-trace? [tr]
   (and (trace-has-value? tr) (= (count tr) 1)))
 
-; Recursively walks the entire state to check it's valid
+;; Recursively walks the entire state to check it's valid
 (defn trace? [s]
   (map? s))
 
 (defn valid-trace? [s]
   (and
-    (compound? s)
-    (= (representation s) :map)
-    (every?
-      (fn [k] (trace? (get s k)))
-      (trace-keys s))))
+   (compound? s)
+   (= (representation s) :map)
+   (every?
+    (fn [k] (trace? (get s k)))
+    (trace-keys s))))
 
 (defn top-level-environment? [x]
   (instance? clojure.lang.Namespace x))
@@ -94,7 +95,8 @@
                  (trace-subtrace tr2 key))]))]
     (if (trace-has-value? merged)
       (do (if (trace-has-value? tr2)
-            (assert (= (trace-value tr1) (trace-value tr2)) ["incompatible trace values" tr1 tr2]))
+            (assert (= (trace-value tr1) (trace-value tr2))
+                    ["incompatible trace values" tr1 tr2]))
           merged)
       (if (trace-has-value? tr2)
         (trace-set-value merged (trace-value tr2))
@@ -173,7 +175,7 @@
 (declare pprint-indented)
 
 (defn  ^:private princ [x out]
-  (.write out (if (string? x) x (format "%s" x))))
+  (.write out (if (string? x) x (str x))))
 
 ;; Print {...} trace over multiple lines
 

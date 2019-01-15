@@ -1,17 +1,12 @@
 pom.xml
 pom.xml.asc
-*.jar
-*.class
 /lib/
 /classes/
 /target/
 /checkouts/
-.lein-deps-sum
-.lein-repl-history
-.lein-plugins/
-.lein-failures
-.lein_classpath
+/results/
 .nrepl-port
+.ipynb_checkpoints
 .idea
 TAGS
 parsings
@@ -20,5 +15,19 @@ parsings
 *~
 .#*
 *#
+
+# Clojure
+*.jar
+*.class
+
+# ClojureScript
+/out/
+/nashorn_code_cache/
+
+# Leiningen
+.lein-deps-sum
+.lein-repl-history
+.lein-plugins/
+.lein-failures
+.lein_classpath
 bin/lein
-/results/

@@ -1,14 +1,15 @@
 (ns metaprob.tutorial.jupyter
   (:require
-    [clojupyter.misc.display :as display]
-    [clojure.data.json :as json]
-    [metaprob.builtin :as builtin]))
+   [clojure.data.json :as json]
+   [clojure.java.io :as io]
+   [clojupyter.misc.display :as display]
+   [metaprob.builtin :as builtin]))
 
 (defn enable-inline-viz []
   (display/hiccup-html
     [:div [:em "Inline visualization functions have been enabled."]
-     [:script (slurp "src/metaprob/tutorial/plotly-latest.min.js")]
-     [:script (slurp "src/metaprob/tutorial/plot-trace.js")]]))
+     [:script (slurp (io/resource "plotly-latest.min.js"))]
+     [:script (slurp (io/resource "plot-trace.js"))]]))
 
 (defn trace-as-json
   [tr]
