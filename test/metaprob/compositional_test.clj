@@ -152,19 +152,21 @@
 (deftest intervene-2
   (testing "output capture, then intervention"
     (let [form '(block (+ 15 2) (- 21 2))
-          [value1 output _] (comp/infer-eval form top {:interpretation-id (clojure.core/gensym)
-                                                       :intervene no-trace
-                                                       :target no-trace
-                                                       :active? true})]
+          [value1 output _] (comp/infer-eval form top
+                                             {:interpretation-id (clojure.core/gensym)
+                                              :intervene no-trace
+                                              :target no-trace
+                                              :active? true})]
       (is (= value1 19))
-      (let [intervene {}
+      (let [intervene (-> {}
+                          (builtin/trace-set-value '(0 "+") 23)
+                          (builtin/trace-set-value '(1 "-") 23))
             addresses (builtin/addresses-of output)]
-        (builtin/trace-set-value intervene '( 0 "+") 23)
-        (builtin/trace-set-value intervene '(1 "-") 23)
-        (let [[value2 output2 _] (comp/infer-eval form top {:interpretation-id (clojure.core/gensym)
-                                                            :intervene intervene
-                                                            :target no-trace
-                                                            :active? true})]
+        (let [[value2 output2 _] (comp/infer-eval form top
+                                                  {:interpretation-id (clojure.core/gensym)
+                                                   :intervene intervene
+                                                   :target no-trace
+                                                   :active? true})]
           (is (= value2 23)))))))
 
 (comment
