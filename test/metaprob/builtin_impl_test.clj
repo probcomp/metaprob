@@ -1,7 +1,8 @@
 (ns metaprob.builtin-impl-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest testing is]]
             [metaprob.trace :as trace]
-            [metaprob.builtin-impl :refer :all]))
+            [metaprob.builtin-impl :refer :all])
+  (:refer-clojure :exclude [assoc dissoc]))
 
 ;; Procedure stuff
 

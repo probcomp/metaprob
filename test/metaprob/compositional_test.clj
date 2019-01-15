@@ -1,16 +1,16 @@
 (ns metaprob.compositional-test
   (:require [clojure.test :refer :all]
             [metaprob.trace :refer :all :as trace]
-            [metaprob.sequence :refer [tuple]]
             [metaprob.syntax :refer :all :as syntax]
             [metaprob.builtin-impl :refer :all :as impl :exclude [infer-apply]]
             [metaprob.builtin :as builtin]
             [metaprob.distributions :refer :all :as distributions]
-            [metaprob.compositional :refer :all :exclude [map replicate apply] :as comp]))
+            [metaprob.compositional :refer :all :exclude [map replicate apply] :as comp])
+  (:refer-clojure :exclude [assoc dissoc]))
 
 (def top (impl/make-top-level-env 'metaprob.compositional))
 
-(def no-trace (trace/trace))
+(def no-trace {})
 
 (defn ez-call [prob-prog & inputs]
   (let [inputs (if (= inputs nil) '() inputs)
@@ -22,8 +22,8 @@
 
 (deftest apply-1
   (testing "Apply a procedure to no inputs"
-    (is (trace/empty-trace?
-         (ez-call trace/empty-trace)))))
+    (is (empty?
+         (ez-call {})))))
 
 (deftest apply-2
   (testing "Apply a procedure to one arg"

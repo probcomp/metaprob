@@ -3,11 +3,11 @@
                          atom])
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all :exclude [infer-apply]]
-            [metaprob.prelude :refer :all]))
+            [metaprob.prelude :refer :all])
+  (:import [clojure.lang Atom]))
 
 (clojure.core/defn cell? [x] (instance? Atom x))
 (clojure.core/defn cell [x] (atom x))
-
 
 ;; (define single-key? (gen [adr] (not (clojure.core/seq? adr))))
 ;; (define compound-adr (gen [adr] (if (single-key? adr) `(~adr) adr)))
