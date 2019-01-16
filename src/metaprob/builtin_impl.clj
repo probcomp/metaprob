@@ -212,8 +212,8 @@
 (defn inf [name model implementation]
   (assoc
     ;; When called from Clojure:
-    (fn [& inputs]
-      (let [inputs (if (= inputs nil) (list) inputs)]
+   (fn [& inputs]
+     (let [inputs (if (= inputs nil) (list) inputs)]
         ;(if (fn? model)
         ;  (apply model inputs)
 

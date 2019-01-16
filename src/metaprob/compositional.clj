@@ -13,8 +13,9 @@
 (declare infer-apply-native infer-apply-foreign infer-apply-tc
          infer-apply infer-eval infer-eval-sequence)
 
-                                        ; infer-apply itself is an inf, because it has custom tracing/proposal behavior.
-                                        ; This is the model of infer-apply's behavior.
+;; infer-apply itself is an inf, because it has custom
+;; tracing/proposal behavior.  This is the model of infer-apply's
+;; behavior.
 (define model-of-infer-apply
   (gen [proc inputs ctx]
     (cond
@@ -36,26 +37,33 @@
       true
       (error "infer-apply: not a procedure" proc))))
 
-;; infer-apply with custom tracing: when a primitive is invoked by interpreted code,
-;; we pretend it is also invoked by the interpreter.
+;; infer-apply with custom tracing: when a primitive is invoked by
+;; interpreted code, we pretend it is also invoked by the interpreter.
 (define infer-apply
   (inf
    "infer-apply"
    model-of-infer-apply
    (gen [[proc ins ctx] ctx']
+     ;; (clojure.core/println "infer-apply gen" proc ins ctx)
      (cond
-       (not (active-ctx? ctx')) [(model-of-infer-apply proc ins ctx) {} 0]
+       (not (active-ctx? ctx'))
+       [(model-of-infer-apply proc ins ctx) {} 0]
+
        (get proc :primitive?)
        (if (constrained? ctx '())
-                                        ; Case 1: we have a constraint, so the interpreter (being traced) needs to generate no randomness.
-         [((get proc :implementation) ins ctx) {} 0] ; TODO: What if ctx is inactive?
+         ;; Case 1: we have a constraint, so the interpreter (being
+         ;; traced) needs to generate no randomness.
+         ;; TODO: What if ctx is inactive?
+         [((get proc :implementation) ins ctx) {} 0]
 
-                                        ; Case 2: the interpreter needs to generate randomness, because proc's execution is unconstrained.
-                                        ; Score is 0 at proc level.
+         ;; Case 2: the interpreter needs to generate randomness,
+         ;; because proc's execution is unconstrained.
+         ;; Score is 0 at proc level.
          (block
           (define [v o s] ((get proc :implementation) ins ctx'))
           [[v o 0] o s]))
-                                        ; Otherwise, use default tracing
+
+       ;; Otherwise, use default tracing
        true
        (infer-apply model-of-infer-apply [proc ins ctx] ctx')))))
 
@@ -82,8 +90,8 @@
     (define ivalue (if (intervened? ctx '()) (intervene-value ctx '()) value))
     [ivalue {} (if (and (targeted? ctx '()) (not= (target-value ctx '()) ivalue)) negative-infinity 0)]))
 
-                                        ; Invoke a 'native' generative procedure, i.e. one written in
-                                        ; Metaprob, with inference mechanics (traces and scores).
+;; Invoke a 'native' generative procedure, i.e. one written in
+;; Metaprob, with inference mechanics (traces and scores).
 (define infer-apply-native
   (gen [proc inputs ctx]
     (define source (get proc :generative-source))
@@ -94,13 +102,14 @@
     (match-bind! (gen-pattern source) ; pattern. (source is of form '(gen [...] ...)
                  inputs
                  new-env)
-    (infer-eval (if (empty? (rest body)) (first body) (cons 'block body)) ; body with implicit `block`
+    (infer-eval (if (empty? (rest body))
+                  (first body)
+                  (cons 'block body)) ; body with implicit `block`
                 new-env
                 ctx)))
 
-                                        ; Apply proc at sub-adr in the tracing context tc, given that we are currently in
-                                        ; old-ctx.
-
+;; Apply proc at sub-adr in the tracing context tc, given that we are
+;; currently in old-ctx.
 (define infer-apply-tc
   (gen [tc [sub-adr proc & ins] old-ctx]
     (assert (captured-ctx? tc) "Using apply-tc on a non-captured tc.")
@@ -231,19 +240,21 @@
                                                     (subcontext ctx key)))
                [v (maybe-set-subtrace o key app-o) (+ s app-s)])))
 
-                                        ; These may be nil, if no such value exists.
+    ;; These may be nil, if no such value exists.
     (define ivalue (intervene-value ctx '()))
     (define tvalue (target-value ctx '()))
 
     (cond
-                                        ; intervention with no disagreeing target
-      (and (intervened? ctx '()) (or (not (targeted? ctx '())) (= ivalue tvalue)))
+      ;; intervention with no disagreeing target
+      (and (intervened? ctx '())
+           (or (not (targeted? ctx '()))
+               (= ivalue tvalue)))
       [(or-nil? ivalue v) o 0]
 
-                                        ; target and value (from intervention or execution) disagree
+      ;; target and value (from intervention or execution) disagree
       (and (targeted? ctx '()) (not= (or-nil? ivalue v) tvalue))
       (assert false (str "Unsatisfiable target constraint (target=" tvalue ", expected=", (or-nil? ivalue v) ")"))
 
-                                        ; in all other cases, the existing values work fine:
+      ;; in all other cases, the existing values work fine:
       true
       [(or-nil? ivalue v) o s])))

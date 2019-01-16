@@ -17,7 +17,10 @@
         [value _ score]
         (comp/infer-apply prob-prog
                           inputs
-                          no-trace no-trace false)]
+                          {:interpretation-id (clojure.core/gensym)
+                           :intervene no-trace
+                           :target no-trace
+                           :active? false})]
     value))
 
 (deftest apply-1
@@ -34,9 +37,10 @@
   (let [[value output score]
         (comp/infer-eval x
                          top
-                         no-trace
-                         no-trace
-                         false)]
+                         {:interpretation-id (clojure.core/gensym)
+                          :intervene no-trace
+                          :target no-trace
+                          :active? false})]
     value))
 
 (deftest smoke-1
@@ -105,7 +109,9 @@
                                              50]))
           lifted (builtin/inf "lifted" nil qq)]
       (is (= (lifted 7 8) 15))
-      (let [[answer output score] (comp/infer-apply lifted [7 8] no-trace no-trace false)]
+      (let [[answer output score] (comp/infer-apply
+                                   lifted [7 8]
+                                   no-trace no-trace false)]
         (is (= answer 15))
         (is (= score 50))))))
 
@@ -136,17 +142,19 @@
 (deftest intervene-1
   (testing "simple intervention"
     (let [form '(block 17 (+ 19))
-          [value1 output1 _] (comp/infer-eval form top {:interpretation-id (clojure.core/gensym)
-                                                        :intervene no-trace
-                                                        :target no-trace
-                                                        :active? true})
+          [value1 output1 _] (comp/infer-eval form top
+                                              {:interpretation-id (clojure.core/gensym)
+                                               :intervene no-trace
+                                               :target no-trace
+                                               :active? true})
           adr 1]
       (is (= value1 19))
       (let [intervene {1 {:value 23}}]
-        (let [[value2 output2 _] (comp/infer-eval form top {:interpretation-id (clojure.core/gensym)
-                                                            :intervene intervene
-                                                            :target no-trace
-                                                            :active? true})]
+        (let [[value2 output2 _] (comp/infer-eval form top
+                                                  {:interpretation-id (clojure.core/gensym)
+                                                   :intervene intervene
+                                                   :target no-trace
+                                                   :active? true})]
           (is (= value2 23)))))))
 
 (deftest intervene-2
@@ -172,65 +180,111 @@
 (comment
   (deftest intervene-3
     (testing "intervention value is not recorded when it is not usually in output trace"
-      (let [form (from-clojure '(block (define x (add 15 2)) (sub x 2)))
-            intervene (trace-set (builtin/trace) '(0 "x" "add") 23)
-            [value out _] (comp/infer-eval form top intervene no-trace true)]
+      (let [form '(block (define x (+ 15 2)) (- x 2))
+            intervene (trace-set-value {} '(0 "x" "+") 23)
+            [value out _] (comp/infer-eval form top
+                                           {:interpretation-id (clojure.core/gensym)
+                                            :intervene intervene
+                                            :target no-trace
+                                            :active? true})]
         (is (= value 21))
-        (is (empty-trace? out)))))
+        (is (empty? out)))))
 
 
-  (define tst1 (gen [] (define x (if (distributions/flip 0.5) 0 1)) (+ x 3)))
+  (define tst1 (gen []
+                 (define x (if (distributions/flip 0.5) 0 1))
+                 (+ x 3)))
+
   (deftest intervene-4
-    (testing "intervention value is recorded when it overwrites normally-traced execution")
-    (let [intervene (trace-set (builtin/trace) '(0 "x") 5)
-          [value out _] (comp/infer-apply tst1 [] intervene no-trace true)]
-      (is (= value 8))
-      (is (and (trace-has? out '(0 "x")) (= 5 (trace-get out '(0 "x")))))))
+    (testing "intervention value is recorded when it overwrites normally-traced execution"
+      (let [intervene (trace-set-value {} '(0 "x") 5)
+            [value out __prefix__] (comp/infer-apply
+                                    tst1 []
+                                    {:interpretation-id (clojure.core/gensym)
+                                     :intervene intervene
+                                     :target no-trace
+                                     :active? true})]
+        ;; (clojure.core/println "value" value)
+        (clojure.core/println "out" out
+                              "value?" (trace-has-value? out '(0 "x")))
+        (is (= value 8))
+        (is (and (trace-has-value? out '(0 "x"))
+                 (= 5 (trace-value out '(0 "x"))))))))
 
   (deftest intervene-target-agree
     (testing "intervention and target traces agree"
-      (let [intervene (trace-set (builtin/trace) '(0 "x") 5)
-            target (trace-set (builtin/trace) '(0 "x") 5)
-            [value out s] (comp/infer-apply tst1 [] intervene target true)]
+      (let [intervene (trace-set-value {} '(0 "x") 5)
+            target (trace-set-value {} '(0 "x") 5)
+            [value out s] (comp/infer-apply tst1 []
+                                            {:interpretation-id (clojure.core/gensym)
+                                             :intervene intervene
+                                             :target target
+                                             :active? true})]
+        (println "out" out)
         (is (= value 8))
         (is (= s 0))
-        (is (and (trace-has? out '(0 "x")) (= 5 (trace-get out '(0 "x"))))))))
+        (is (and (trace-has-value? out '(0 "x"))
+                 (= 5 (trace-value out '(0 "x"))))))))
 
-  (deftest intervene-target-disagree
-    (testing "intervention and target traces disagree"
-      (let [intervene (trace-set (builtin/trace) '(0 "x") 6)
-            target (trace-set (builtin/trace) '(0 "x") 5)
-            [value out s] (comp/infer-apply tst1 [] intervene target true)]
-        (is (= value 8))
-        (is (= s builtin/negative-infinity))
-        (is (and (trace-has? out '(0 "x")) (= 5 (trace-get out '(0 "x"))))))))
+  ;; jmt an assert keeps this from happening. if that's expected, this
+  ;; test should change to catch that AssertionError
+  (comment
+    (deftest intervene-target-disagree
+      (testing "intervention and target traces disagree"
+        (let [intervene (trace-set-value {} '(0 "x") 6)
+              target (trace-set-value {} '(0 "x") 5)
+              [value out s] (comp/infer-apply tst1 []
+                                              {:interpretation-id (clojure.core/gensym)
+                                               :intervene intervene
+                                               :target target
+                                               :active? true})]
+          (is (= value 8))
+          (is (= s builtin/negative-infinity))
+          (is (and (trace-has-value? out '(0 "x"))
+                   (= 5 (trace-value out '(0 "x")))))))))
 
-  (deftest impossible-target
-    (testing "target is impossible value"
-      (let [target (trace-set (builtin/trace) '(0 "x") 5)
-            [value out s] (comp/infer-apply tst1 [] no-trace target true)]
-        (is (= value 8))
-        (is (= s builtin/negative-infinity))
-        (is (and (trace-has? out '(0 "x")) (= 5 (trace-get out '(0 "x"))))))))
+  ;; jmt an assert keeps this from happening. if that's expected, this
+  ;; test should change to catch that AssertionError
+  (comment
+    (deftest impossible-target
+      (testing "target is impossible value"
+        (let [target (trace-set-value {} '(0 "x") 5)
+              [value out s] (comp/infer-apply tst1 []
+                                              {:interpretation-id (clojure.core/gensym)
+                                               :intervene {}
+                                               :target target
+                                               :active? true})]
+          (is (= value 8))
+          (is (= s builtin/negative-infinity))
+          (is (and (trace-has-value? out '(0 "x"))
+                   (= 5 (trace-value out '(0 "x")))))))))
 
   (deftest true-target
     (testing "target value is the true value"
-      (let [form (from-clojure '(block (define x (add 15 2)) (sub x 2)))
-            target (trace-set (builtin/trace) '(0 "x" "add") 17)
-            [value out s] (comp/infer-eval form top no-trace target true)]
+      (let [form '(block (define x (+ 15 2)) (- x 2))
+            target (trace-set-value {} '(0 "x" "+") 17)
+            [value out s] (comp/infer-eval form top {:interpretation-id (clojure.core/gensym)
+                                                     :intervene no-trace
+                                                     :target no-trace
+                                                     :active? true})]
         (is (= value 15))
         (is (= s 0))
-        (is (empty-trace? out)))))
+        (is (empty? out)))))
 
   ;; Self-application
 
-  ;; These have to be defined at top level because only top level defined
-  ;; gens can be interpreted (due to inability to understand environments).
+  ;; These have to be defined at top level because only top level
+  ;; defined gens can be interpreted (due to inability to understand
+  ;; environments).
+
   ;; TODO: Explore what it would take to remove this limitation.
   (define apply-test
     (gen [thunk]
       (define [val output score]
-        (infer-apply thunk [] no-trace no-trace true))
+        (infer-apply thunk [] {:interpretation-id (clojure.core/gensym)
+                               :intervene no-trace
+                               :target no-trace
+                               :active? true}))
       output))
 
   (define tst2 (gen [] (distributions/flip 0.5)))
@@ -239,10 +293,12 @@
   (deftest infer-apply-self-application
     (testing "apply infer-apply to program that calls infer-apply"
       (binding [*ambient-interpreter* infer-apply]
-                                        ; When we interpret tst1 directly, the value of flip is
-                                        ; recorded at the length-1 address '(distributions/flip).
+        ;; When we interpret tst1 directly, the value of flip is
+        ;; recorded at the length-1 address '(distributions/flip).
         (is (= (count (first (addresses-of (apply-test tst2)))) 1))
-                                        ; But when we trace the execution of the interpreter, the address
-                                        ; at which the random choice is recorded is significantly longer,
-                                        ; due to the complex chain of function calls initiated by the interpreter.
+
+        ;; But when we trace the execution of the interpreter, the
+        ;; address at which the random choice is recorded is
+        ;; significantly longer, due to the complex chain of function
+        ;; calls initiated by the interpreter.
         (is (> (count (first (addresses-of (apply-test tst3)))) 10))))))
