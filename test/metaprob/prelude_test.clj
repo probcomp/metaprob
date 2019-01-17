@@ -20,31 +20,32 @@
     (is (not (contains? (ns-publics 'metaprob.prelude) 'v))
         "namespacing sanity check 2")))
 
-(deftest reverse-1
-  (testing "reverse tests"
-    (is (builtin/immutable-trace? (list)))
-    (let [tr (prelude/reverse (list))]
-      (is (builtin/immutable-trace? tr))
-      (is (= tr (list))))
-    (let [tr (prelude/reverse (list 1))]
-      (is (builtin/immutable-trace? tr))
-      (is (= tr (list 1))))
-    (let [tr (prelude/reverse (list 1 2 3))]
-      (is (builtin/immutable-trace? tr))
-      (is (= tr (list 3 2 1))))))
+;; jmt reverse seems to be gone in alex's branch
+;; (deftest reverse-1
+;;   (testing "reverse tests"
+;;     (is (builtin/immutable-trace? (list)))
+;;     (let [tr (prelude/reverse (list))]
+;;       (is (builtin/immutable-trace? tr))
+;;       (is (= tr (list))))
+;;     (let [tr (prelude/reverse (list 1))]
+;;       (is (builtin/immutable-trace? tr))
+;;       (is (= tr (list 1))))
+;;     (let [tr (prelude/reverse (list 1 2 3))]
+;;       (is (builtin/immutable-trace? tr))
+;;       (is (= tr (list 3 2 1))))))
 
-(deftest reverse-2
-  (testing "reverse mutability tests"
-    (let [tr (prelude/reverse (builtin/sequence-to-seq (list 1 2 3)))]
-      (is (builtin/immutable-trace? tr))
-      (is (= tr (list 3 2 1))))
-    (let [tr (prelude/reverse (trace-copy (list 1 2 3)))]
-      (is (builtin/mutable-trace? tr))
-      (is (= (builtin/first tr) 3)))))
+;; (deftest reverse-2
+;;   (testing "reverse mutability tests"
+;;     (let [tr (prelude/reverse (builtin/sequence-to-seq (list 1 2 3)))]
+;;       (is (builtin/immutable-trace? tr))
+;;       (is (= tr (list 3 2 1))))
+;;     (let [tr (prelude/reverse (trace-copy (list 1 2 3)))]
+;;       (is (builtin/mutable-trace? tr))
+;;       (is (= (builtin/first tr) 3)))))
 
 (deftest name-1
   (testing "see if a procedure has the right name"
-    (is (.contains (procedure-name prelude/drop) "drop"))))
+    (is (.contains (procedure-name prelude/opaque) "opaque"))))
 
 
 ;; Export a procedure i.e. use 'foreign' (clojure) version rather than
@@ -59,9 +60,10 @@
 
 (deftest apply-1
   (testing "apply smoke test"
-    (is (= (prelude/apply builtin/sub [3 2]) 1))
-    (is (= (prelude/apply builtin/sub (list 3 2)) 1))
-    (is (= (prelude/apply prelude/apply (list builtin/sub (list 3 2))) 1))))
+    (is (= (prelude/apply builtin/- [3 2]) 1))
+    (is (= (prelude/apply builtin/- (list 3 2)) 1))
+    (is (= (prelude/apply prelude/apply (list builtin/- (list 3 2))) 1))))
+
 
 ;; ------------------------------------------------------------------
 
@@ -69,7 +71,7 @@
 
 (deftest map-1
   (testing "map smoke test"
-    (is (builtin/nth (this-map (gen [x] (builtin/add x 1))
+    (is (builtin/nth (this-map (gen [x] (builtin/+ x 1))
                                (builtin/list 4 5 6))
                      1)
         6)
@@ -82,13 +84,12 @@
 ;; I'm sort of tired of this and don't anticipate problems, so
 ;; not putting more work into tests at this time.
 
-
 (deftest map-1a
   (testing "Map over a clojure list"
     (let [start (builtin/list 6 7 8)
           foo (this-map (fn [x] (+ x 1))
                         start)]
-      (is (builtin/length foo) 3)
+      (is (builtin/count foo) 3)
       (is (= (builtin/nth foo 0) 7))
       (is (= (builtin/nth foo 1) 8))
       (is (= (builtin/nth foo 2) 9)))))
@@ -98,15 +99,24 @@
     (is (= (builtin/first
             (builtin/rest
              (this-map (fn [x] (+ x 1))
-                       (builtin/pair 6 (builtin/pair 7 (builtin/pair 8 (builtin/empty-trace)))))))
+
+                       ;; this was previously:
+
+                       ;; (builtin/pair 6 (builtin/pair 7
+                       ;;   (builtin/pair 8 (builtin/empty-trace))))
+
+                       ;; not sure we're testing the right thing by
+                       ;; changing it to:
+                       (builtin/list 6 7 8))))
            8))))
 
-(deftest map-3
-  (testing "Map over a metaprob tuple"
-    (is (= (builtin/trace-get (this-map (fn [x] (+ x 1))
-                                        (builtin/tuple 6 7 8))
-                              1)
-           8))))
+;; tuples no longer exist in builtin
+;; (deftest map-3
+;;   (testing "Map over a metaprob tuple"
+;;     (is (= (builtin/trace-get (this-map (fn [x] (+ x 1))
+;;                                         (builtin/tuple 6 7 8))
+;;                               1)
+;;            8))))
 
 
 ;(deftest map-1
