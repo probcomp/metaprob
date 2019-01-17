@@ -10,7 +10,7 @@
 ;; with a custom address name for each coin flip
 
 (define flip-n-coins
-  (gen [n] 
+  (gen [n]
     (define tricky (flip 0.1))    ;unlikely to be true
     (define weight (if tricky (uniform 0 1) 0.5))
     (define datum (map (gen [i] (flip weight))
