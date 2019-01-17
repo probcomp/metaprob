@@ -1,4 +1,3 @@
-
 (ns metaprob.examples.gaussian-test
   (:require [clojure.test :refer :all]
             [metaprob.trace :as trace]
@@ -10,6 +9,5 @@
 (deftest smoke-1
   (testing "smoke test"
     (let [n 3]
-      (is (= (builtin/length (prelude/replicate n two-variable-gaussian-model))
+      (is (= (builtin/count (prelude/replicate n two-variable-gaussian-model))
              n)))))
-
