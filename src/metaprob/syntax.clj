@@ -110,35 +110,69 @@
   ([x & next] `(let [or# ~x] (if (nil? or#) (or-nil? ~@next) or#))))
 
 (defn mp-expand [form]
+
   (cond
-    (vector? form) (vec (map mp-expand form))
-    (map? form) (into {} (map (fn [[k v]] [(mp-expand k) (mp-expand v)]) form))
-    ; TODO: nil probably shouldn't be considered compound data
+    (vector? form)
+    (vec (map mp-expand form))
+
+    (map? form)
+    (into {} (map (fn [[k v]] [(mp-expand k) (mp-expand v)]) form))
+
+    ;; TODO: nil probably shouldn't be considered compound data
     (or (nil? form) (not (seq? form)))
     form
+
     true
     (case (first form)
-      ; Metaprob special forms
+      ;; Metaprob special forms
       quote form
-      gen   (cons 'gen (cons (second form) (map mp-expand (rest (rest form)))))
-      with-explicit-tracer (cons 'with-explicit-tracer (cons (second form) (map mp-expand (rest (rest form)))))
-      (block do) (cons 'block (map mp-expand (rest form)))
-      define (list 'define (second form) (mp-expand (nth form 2)))
-      if (map mp-expand form)
-      let* (recur (cons 'block (concat (map #(cons 'define %) (partition 2 (second form))) (rest (rest form)))))
+
+      gen
+      (cons 'gen (cons (second form)
+                       (map mp-expand (rest (rest form)))))
+
+      with-explicit-tracer
+      (cons 'with-explicit-tracer
+            (cons (second form)
+                  (map mp-expand (rest (rest form)))))
+
+      (block do)
+      (cons 'block (map mp-expand (rest form)))
+
+      define
+      (list 'define (second form) (mp-expand (nth form 2)))
+
+      if
+      (map mp-expand form)
+
+      let*
+      (recur (cons 'block (concat
+                           (map #(cons 'define %)
+                                (partition 2 (second form)))
+                           (rest (rest form)))))
+
       fn*
-        ; We need to handle cases where the `fn` has a name (and therefore may be recursive);
-        ; and also cases where it may have more than one arity defined.
-      (convert-fn*-exp form) ; no recursive call, b/c all code wrapped in `gen`.
+      ;; We need to handle cases where the `fn` has a name (and
+      ;; therefore may be recursive) and also cases where it may have
+      ;; more than one arity defined.
+      ;; no recursive call, b/c all code wrapped in `gen`.
+      (convert-fn*-exp form)
+
       letfn*
-        ; Our `let` can already handle recursive definitions (?).
-        (mp-expand (cons 'let (rest form)))
-      loop* (throw (IllegalArgumentException. "Cannot use loop* in Metaprob."))
-      case* (throw (IllegalArgumentException. "Cannot use case* in Metaprob."))
-      throw `(~'assert false (str "Clojure throw statement encountered: " ~form))
-      ; TOTAL HACK and should be removed or made to work:
+      ;; Our `let` can already handle recursive definitions (?).
+      (mp-expand (cons 'let (rest form)))
+
+      loop
+      (throw (IllegalArgumentException. "Cannot use loop* in Metaprob."))
+      case*
+      (throw (IllegalArgumentException. "Cannot use case* in Metaprob."))
+      throw
+      `(~'assert false (str "Clojure throw statement encountered: " ~form))
+      ;; TOTAL HACK and should be removed or made to work:
       . (cons '. (map mp-expand (rest form)))
-      (new monitor-exit monitor-enter try finally clojure.core/import* deftype* set! var catch def reify*)
+
+      (new monitor-exit monitor-enter try finally
+           clojure.core/import* deftype* set! var catch def reify*)
       (throw (IllegalArgumentException. (str "mp-expand encountered unsupported Clojure special form" form)))
 
       ; It's a function or macro...
