@@ -149,7 +149,8 @@
 
 (define constrained?
   (gen [ctx adr]
-    (or (targeted? ctx adr) (intervened? ctx adr))))
+    (or (targeted? ctx adr)
+        (intervened? ctx adr))))
 
 (define constrained-value
   (gen [ctx adr]

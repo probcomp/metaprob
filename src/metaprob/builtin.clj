@@ -17,7 +17,9 @@
             [clojure.set :as set]))
 
 (defmacro define-foreign-procedure [mp-name generate-fn]
-  (let [namestring (if (clojure.core/symbol? mp-name) (clojure.core/str mp-name) mp-name)]
+  (let [namestring (if (clojure.core/symbol? mp-name)
+                     (clojure.core/str mp-name)
+                     mp-name)]
     `(do (declare ~mp-name)
          (def ~mp-name
            (impl/make-foreign-procedure ~namestring

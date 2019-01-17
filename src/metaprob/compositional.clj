@@ -44,11 +44,12 @@
    "infer-apply"
    model-of-infer-apply
    (gen [[proc ins ctx] ctx']
-     ;; (clojure.core/println "infer-apply gen" proc ins ctx)
      (cond
        (not (active-ctx? ctx'))
        [(model-of-infer-apply proc ins ctx) {} 0]
 
+       ;; "primitive?" only seems to be distributions
+       ;; note that `flip` is primitive
        (get proc :primitive?)
        (if (constrained? ctx '())
          ;; Case 1: we have a constraint, so the interpreter (being
@@ -156,7 +157,6 @@
                            [0 [{} {} 0]]
                            exp)))
     answer))
-
 
 (define infer-eval
   (gen [exp env ctx]
