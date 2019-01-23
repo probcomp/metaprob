@@ -166,7 +166,9 @@
   (gen [scores]
     (define weights (map exp scores))
     (define normalizer (apply + weights))
-    (map (gen [w] (/ w normalizer)) weights)))
+    (if (> normalizer 0)
+      (map (gen [w] (/ w normalizer)) weights)
+      (map (gen [w] (/ 1 (count weights))) weights))))
 
 
 ;; ----------------------------------------------------------------------------
