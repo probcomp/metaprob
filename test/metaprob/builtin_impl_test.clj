@@ -30,7 +30,6 @@
           ;; sites (sequence/sequence-to-seq (addresses-of tr))
           sites (addresses-of tr)
           vals  (map (fn [site] (trace/trace-value tr site)) sites)
-          _ (println vals)
           has? (fn [val] (some (fn [x] (= x val)) vals))]
       (has? 17)
       (has? 31)

@@ -127,7 +127,10 @@
 
 (deftest or-1
   (testing "or smoke test"
-    (is (= (ez-eval (mp-expand '(or))) false))
+    ;; (is (= (ez-eval (mp-expand '(or))) false))
+    ;; ?? jmt should `(or)` => nil or false? in clojure.core, it's
+    ;; nil. but originally this test was as above, expecting `false`
+    (is (= (ez-eval (mp-expand '(or))) nil))
     (is (= (ez-eval (mp-expand '(or 1))) 1))
     (is (= (ez-eval (mp-expand '(or 1 2))) 1))
     (is (= (ez-eval (mp-expand '(or false 2))) 2))
@@ -210,7 +213,6 @@
                                    :intervene intervene
                                    :target no-trace
                                    :active? true})]
-      (println out)
       (is (= value 8))
       ;; see below. this is _probably_ not how we want traces to
       ;; behave (jmt)
@@ -230,8 +232,6 @@
                                            :intervene intervene
                                            :target target
                                            :active? true})]
-      (clojure.core/println out)
-      (clojure.core/println (trace-has-value? out '(0 "x" "predicate" "distributions/flip")))
       (is (= value 8))
       (is (= s 0))
       (trace-has-value? out '(0 "x" "predicate" "distributions/flip"))
