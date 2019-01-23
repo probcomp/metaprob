@@ -9,8 +9,8 @@
     (is (= ((gen [x] x) 1) 1))))
 
 (deftest gen-2
-  (testing "ara procedures traces?"
-    (is (trace? (gen [x] x)))))
+  (testing "Procedures are (no longer) traces"
+    (is (not (trace? (gen [x] x))))))
 
 (deftest gen-3
   (testing "are procedures named?"
