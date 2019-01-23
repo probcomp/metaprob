@@ -4,4 +4,5 @@
             [metaprob.builtin-impl :refer :all :as impl]
             [metaprob.syntax :refer :all :as syntax]
             [metaprob.builtin :as builtin]
-            [metaprob.interpreters :as interp]))
+            [metaprob.interpreters :as interp])
+  (:refer-clojure :exclude [assoc dissoc]))

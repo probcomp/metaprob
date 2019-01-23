@@ -2,9 +2,10 @@
   (:require [clojure.test :refer :all :exclude [function?]]
             [metaprob.syntax :refer :all]
             [metaprob.trace :refer :all]
-            [metaprob.builtin-impl :refer :all])
-  (:require [metaprob.builtin :as builtin])
-  (:require [metaprob.prelude :as prelude]))
+            [metaprob.builtin-impl :refer :all]
+            [metaprob.builtin :as builtin]
+            [metaprob.prelude :as prelude])
+  (:refer-clojure :exclude [assoc dissoc]))
 
 ;;  (:refer metaprob.builtin
 ;;          :exclude [map reverse zipmap iterate concat drop replicate filter repeat])
@@ -51,12 +52,13 @@
 ;; Export a procedure i.e. use 'foreign' (clojure) version rather than
 ;; trying to compile the 'native' version (source code)
 
-(deftest export-1
-  (testing "export a procedure"
-    (let [x 5
-          m1 (gen [] x)
-          m2 (prelude/opaque "opaque-test" m1)]
-      (is (= (m2) (m1))))))
+;; ?? jmt
+;; (deftest export-1
+;;   (testing "export a procedure"
+;;     (let [x 5
+;;           m1 (gen [] x)
+;;           m2 (prelude/opaque "opaque-test" m1)]
+;;       (is (= (m2) (m1))))))
 
 (deftest apply-1
   (testing "apply smoke test"
