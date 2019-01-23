@@ -13,9 +13,7 @@
 (declare infer-apply-native infer-apply-foreign infer-apply-tc
          infer-apply infer-eval infer-eval-sequence)
 
-; infer-apply itself is an inf, because it has custom tracing/proposal behavior.
-; This is the model of infer-apply's behavior.
-(define model-of-infer-apply
+(define infer-apply
   (gen [proc inputs ctx]
     (cond
       (contains? proc :implementation)
@@ -35,26 +33,6 @@
 
       true
       (error "infer-apply: not a procedure" proc))))
-
-; infer-apply with custom tracing: when a primitive is invoked by interpreted code,
-; we pretend it is also invoked by the interpreter.
-(define infer-apply
-  (inf
-    "infer-apply"
-    model-of-infer-apply
-    (gen [[proc ins ctx] ctx']
-      (if (get proc :primitive?)
-          (if (or (constrained? ctx '()) (not (active-ctx? ctx')))
-            ; Case 1: we have a constraint, so the interpreter (being traced) needs to generate no randomness.
-            [((get proc :implementation) ins ctx) {} 0] ; TODO: What if ctx is inactive?
-
-            ; Case 2: the interpreter needs to generate randomness, because proc's execution is unconstrained.
-            ; Score is 0 at proc level.
-            (block
-              (define [v o s] ((get proc :implementation) ins ctx'))
-              [[v o 0] o s]))
-        ; Otherwise, use default tracing
-        (infer-apply model-of-infer-apply [proc ins ctx] ctx')))))
 
 ; Lambdas created by the interpreter as it evaluates `(gen ...)` expressions should
 ; be lambdas in the host language (Clojure) as well. Ideally, they would be efficient
@@ -108,7 +86,8 @@
         (define modified-tc (subcontext (dissoc tc :captured-state) sub-adr))
         (define [v o s] (applicator proc ins modified-tc))
         (clojure.core/swap! out-atom trace-merge (maybe-set-subtrace {} sub-adr o)) ; TODO: Check this has the right behavior
-        [v {} s]))))
+        (clojure.core/swap! score-atom + s)
+        [v {} 0]))))
 
 (define infer-subeval
   (gen [sub-exp adr env ctx]

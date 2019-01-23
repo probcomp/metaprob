@@ -216,7 +216,7 @@
       (let [inputs (if (= inputs nil) (list) inputs)]
         ;(if (fn? model)
         ;  (apply model inputs)
-          (nth (implementation inputs {:intervene {} :interpretation-id (gensym) :target {}}) 0)))
+          (nth (implementation inputs {:intervene {} :interpretation-id (gensym) :target {} :active? false}) 0)))
     ;; Annotations:
     :name (str "inf-" name),
     :model model,
