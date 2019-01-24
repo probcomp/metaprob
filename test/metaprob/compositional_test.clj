@@ -113,7 +113,10 @@
       (is (= (lifted 7 8) 15))
       (let [[answer output score] (comp/infer-apply
                                    lifted [7 8]
-                                   no-trace no-trace false)]
+                                   {:interpretation-id (clojure.core/gensym)
+                                    :intervene no-trace
+                                    :target no-trace
+                                    :active? false})]
         (is (= answer 15))
         (is (= score 50))))))
 
