@@ -214,18 +214,16 @@
     ;; When called from Clojure:
    (fn [& inputs]
      (let [inputs (if (= inputs nil) (list) inputs)]
-        ;(if (fn? model)
-        ;  (apply model inputs)
+       (nth (implementation inputs {:intervene {}
+                                    :interpretation-id (gensym)
+                                    :target {}
+                                    :active? false})
+            0)))
 
-        (nth (implementation inputs {:intervene {}
-                                     :interpretation-id (gensym)
-                                     :target {}
-                                     :active? false})
-             0)))
-    ;; Annotations:
-    :name (str "inf-" name),
-    :model model,
-    :implementation implementation))
+   ;; Annotations:
+   :name (str "inf-" name),
+   :model model,
+   :implementation implementation))
 
 (defn clojure-interpreter [proc inputs ctx]
   (assert (fn? proc))

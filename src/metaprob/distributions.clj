@@ -9,35 +9,46 @@
 ;; -----------------------------------------------------------------------------
 ;; Distributions (nondeterministic procedures)
 
+(define exactly
+  (inf
+    "exactly"
+    ; No model
+    nil
+    ; Implementation
+    (gen [[x] ctx]
+      (with-explicit-tracer t
+        (if (not (active-ctx? ctx))
+          [x {} 0]
+          (block
+            (define result
+              (if (constrained? ctx '())
+                (constrained-value ctx '())
+                (t "exactly-sample" exactly x)))
+
+            [result {:value result}
+             (if (and (targeted? ctx '()) (not= (target-value ctx '()) x)) negative-infinity 0)]))))))
+
 (define make-inference-procedure-from-sampler-and-scorer
   (gen [name sampler scorer]
-    (assoc
-      (inf name
-           sampler
-           (gen [inputs ctx]
-             (cond
-               (not (get ctx :active?)) [(apply sampler inputs) {} 0]
-
-               (intervened? ctx '())
-               [(intervene-value ctx '()) (get ctx :intervene) 0]
-
-               (targeted? ctx '())
+    (inf name
+         (gen [& args]
+           (with-explicit-tracer t
+             (t '() exactly (apply sampler args))))
+         (gen [args ctx]
+           (with-explicit-tracer t
+             (if (not (active-ctx? ctx))
                (block
-                (define tvalue (target-value ctx '()))
-                [tvalue {:value tvalue} (scorer tvalue inputs)])
-
-               true
+                (define result (apply sampler args))
+                [result {} 0])
                (block
-                (define sample (apply sampler inputs))
-                [sample {:value sample} 0]))))
-
-      :primitive? true)))
-
-(gen [inputs]
-  (define [value score]
-      [(apply (gen [weight] (< (sample-uniform) weight)) inputs) 0])
-  value)
-
+                (define result
+                  (if (constrained? ctx '())
+                    (constrained-value ctx '())
+                    (t name apply (make-inference-procedure-from-sampler-and-scorer name sampler scorer) args)))
+                [result {:value result}
+                 (if (targeted? ctx '())
+                   (scorer result args)
+                   0)])))))))
 
 ;; Uniform
 
@@ -157,7 +168,13 @@
        (define normalizer (apply + weights))
        (map (gen [w] (/ w normalizer)) weights)
 
-       ;; master's
+       (define weights (map exp scores))
+       (define normalizer (apply + weights))
+       (if (> normalizer 0)
+         (map (gen [w] (/ w normalizer)) weights)
+         (map (gen [w] (/ 1 (count weights))) weights))
+
+       ;; master branch's
        ;; (define max-score (apply clojure.core/max scores))
        ;; (define numerically-stable-scores
        ;;   (map (gen [x] (- x max-score))
@@ -166,7 +183,6 @@
        ;; (define log-normalizer (+ (log (apply + weights)) max-score))
        ;; (map (gen [w] (exp (- w log-normalizer))) (to-immutable-list scores))
     ))
-
 
 
 ;; ----------------------------------------------------------------------------

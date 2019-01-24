@@ -13,10 +13,8 @@
 (declare infer-apply-native infer-apply-foreign infer-apply-tc
          infer-apply infer-eval infer-eval-sequence)
 
-;; infer-apply itself is an inf, because it has custom
-;; tracing/proposal behavior.  This is the model of infer-apply's
-;; behavior.
-(define model-of-infer-apply
+
+(define infer-apply
   (gen [proc inputs ctx]
     (cond
       (contains? proc :implementation)
@@ -37,43 +35,14 @@
       true
       (error "infer-apply: not a procedure" proc))))
 
-;; infer-apply with custom tracing: when a primitive is invoked by
-;; interpreted code, we pretend it is also invoked by the interpreter.
-(define infer-apply
-  (inf
-   "infer-apply"
-   model-of-infer-apply
-   (gen [[proc ins ctx] ctx']
-     (cond
-       (not (active-ctx? ctx'))
-       [(model-of-infer-apply proc ins ctx) {} 0]
-
-       ;; "primitive?" only seems to be distributions
-       ;; note that `flip` is primitive
-       (get proc :primitive?)
-       (if (constrained? ctx '())
-         ;; Case 1: we have a constraint, so the interpreter (being
-         ;; traced) needs to generate no randomness.
-         ;; TODO: What if ctx is inactive?
-         [((get proc :implementation) ins ctx) {} 0]
-
-         ;; Case 2: the interpreter needs to generate randomness,
-         ;; because proc's execution is unconstrained.
-         ;; Score is 0 at proc level.
-         (block
-          (define [v o s] ((get proc :implementation) ins ctx'))
-          [[v o 0] o s]))
-
-       ;; Otherwise, use default tracing
-       true
-       (infer-apply model-of-infer-apply [proc ins ctx] ctx')))))
-
-;; Lambdas created by the interpreter as it evaluates `(gen ...)` expressions should
-;; be lambdas in the host language (Clojure) as well. Ideally, they would be efficient
-;; compiled versions of the generative code, just like when a `(gen ...)` expression
-;; is evaluated outside the interpreter. But there are thorny issues surrounding mutual
-;; recursion / forward references that make that difficult, so for now, the "compiled" version
-;; simply invokes the tracing interpreter and throws away the trace.
+; Lambdas created by the interpreter as it evaluates `(gen ...)`
+; expressions should be lambdas in the host language (Clojure) as
+; well. Ideally, they would be efficient compiled versions of the
+; generative code, just like when a `(gen ...)` expression is
+; evaluated outside the interpreter. But there are thorny issues
+; surrounding mutual recursion / forward references that make that
+; difficult, so for now, the "compiled" version simply invokes the
+; tracing interpreter and throws away the trace.
 (define compile-mp-proc
   (clojure.core/fn [proc]
     (clojure.core/with-meta
@@ -83,7 +52,8 @@
               (assoc (make-top-level-tracing-context {} {}) :active? false)) 0))
       (unbox proc))))
 
-                                        ; Invoke a "foreign" (i.e., Clojure) procedure, handling intervention and target traces.
+ ;; Invoke a "foreign" (i.e., Clojure) procedure, handling
+ ;; intervention and target traces.
 (define infer-apply-foreign
   (gen [proc inputs ctx]
     ;; 'Foreign' generative procedure
@@ -121,7 +91,8 @@
        (define modified-tc (subcontext (dissoc tc :captured-state) sub-adr))
        (define [v o s] (applicator proc ins modified-tc))
        (clojure.core/swap! out-atom trace-merge (maybe-set-subtrace {} sub-adr o)) ; TODO: Check this has the right behavior
-       [v {} s]))))
+       (clojure.core/swap! score-atom + s)
+       [v {} 0]))))
 
 (define infer-subeval
   (gen [sub-exp adr env ctx]
