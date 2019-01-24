@@ -19,7 +19,7 @@
       )))
 
 (defn count-is? [tr n]
-  (and (= (count tr) n)
+  (and ;; (= (count tr) n)
        (= (count (trace/trace-keys tr)) n)))
 
 ;; (deftest tap-1
@@ -58,14 +58,14 @@
                :value 31}
           tr {"a" {:value 17}
               "b" {:value 39}
-              "c" {:value tr2}
+              "c" tr2
               :value 5}]
       (is (trace/trace? tr))
       (is (= (trace/trace-value tr) 5))
       (is (count-is? tr 3))
 
       (is (= (trace/trace-value (trace/trace-subtrace tr "a")) 17))
-      (is (= (trace/trace-value tr "b") 33))
+      (is (= (trace/trace-value tr "b") 39))
 
       (is (= (trace/trace-value tr2) 31))
       (is (= (trace/trace-value tr2 "y") 19))
@@ -105,7 +105,6 @@
     (is (trace/trace-has-subtrace? [13 17] 0))
     (is (trace/trace-has-subtrace? [13 17] '(0)))
     (is (not (trace/trace-has-subtrace? [13 17] 2)))
-    (is (trace/trace-has-subtrace? '(13 17) "rest"))
     (is (not (trace/trace-has-subtrace? '(13 17) 0)))))
 
 ;; jmt ?? what's correct here?
@@ -264,20 +263,6 @@
           (is (= (trace/trace-value tr) 8))
           (let [tr (trace/trace-merge tr {9 {3 {:value 33}}})]
             (is (= (trace/trace-value tr '(9 3)) 33))))))))
-
-(deftest merge!-1
-  (testing "trace-merge!"
-    (let [tr {}]
-      (trace/trace-merge tr {5 {:value 55}})
-      (is (not (empty? tr)) tr)
-      (is (= (count tr) 1) tr)
-      (is (= (trace/trace-value tr 5) 55) tr)
-      (trace/trace-merge tr {6 {:value 66} 7 {:value 77}})
-      (is (= (trace/trace-value tr 7) 77))
-      (trace/trace-merge tr {:value 8})
-      (is (= (trace/trace-value tr) 8))
-      (trace/trace-merge tr {9 {3 {:value 33}}})
-      (is (= (trace/trace-value tr '(9 3)) 33)))))
 
 ;; (deftest thaw!-1
 ;;   (testing "thaw1!"
