@@ -17,7 +17,6 @@
               :value 5}]
       (is (trace/trace? tr))
       (is (= (trace/trace-value tr) 5))
-      (is (count-is? tr 3))
 
       (is (= (trace/trace-value (trace/trace-subtrace tr "a")) 17))
       (is (= (trace/trace-value tr "b") 39))
@@ -27,8 +26,7 @@
 
       (let [c (trace/trace-subtrace tr "c")]
         (is (= (trace/trace-value c) 31))
-        (is (= (trace/trace-value c "x") 13))
-        (is (count-is? c 2)))
+        (is (= (trace/trace-value c "x") 13)))
 
       (is (= (trace/trace-value (trace/trace-subtrace tr '("c" "x"))) 13))
       (is (= (trace/trace-value tr '("c" "x")) 13)))))
@@ -59,7 +57,6 @@
                               "c" tr2}
                              5)]
       (is (= (trace/trace-value tr) 5))
-      (is (count-is? tr 3))
 
       (is (= (trace/trace-value (trace/trace-subtrace tr "a")) 17))
       (is (= (trace/trace-value tr "b") 33))
@@ -69,8 +66,7 @@
 
       (let [c (trace/trace-subtrace tr "c")]
         (is (= (trace/trace-value c) 31))
-        (is (= (trace/trace-value c "x") 13))
-        (is (count-is? c 2)))
+        (is (= (trace/trace-value c "x") 13)))
 
       (is (= (trace/trace-value (trace/trace-subtrace tr '("c" "x"))) 13))
       (is (= (trace/trace-value tr '("c" "x")) 13)))))
