@@ -3,31 +3,52 @@
   (:require [metaprob.syntax :refer :all])
   (:require [metaprob.builtin :refer :all])
   (:require [metaprob.prelude :refer :all])
+  (:require [metaprob.context :refer :all])
   (:require [metaprob.interpreters :refer :all]))
 
 ;; -----------------------------------------------------------------------------
 ;; Distributions (nondeterministic procedures)
 
+(define exactly
+  (inf
+    "exactly"
+    ; No model
+    nil
+    ; Implementation
+    (gen [[x] ctx]
+      (with-explicit-tracer t
+        (if (not (active-ctx? ctx))
+          [x {} 0]
+          (block
+            (define result
+              (if (constrained? ctx '())
+                (constrained-value ctx '())
+                (t "exactly-sample" exactly x)))
+
+            [result {:value result}
+             (if (and (targeted? ctx '()) (not= (target-value ctx '()) x)) negative-infinity 0)]))))))
+
 (define make-inference-procedure-from-sampler-and-scorer
   (gen [name sampler scorer]
     (inf name
-         sampler                        ;model ?
-         (gen [inputs intervene target output?]
-           (define [value score]
-             (if (trace-has? intervene)
-               ;; Deterministic, so score is 0
-               [(trace-get intervene) 0]
-               (if (trace-has? target)
-                 [(trace-get target)
-                  (scorer (trace-get target) inputs)]
-                 [(apply sampler inputs) 0])))
-           [value
-            (if output?
-              (trace-set (trace) value)
-              (trace))
-            score]))))
-
-                  
+         (gen [& args]
+           (with-explicit-tracer t
+             (t '() exactly (apply sampler args))))
+         (gen [args ctx]
+           (with-explicit-tracer t
+             (if (not (active-ctx? ctx))
+               (block
+                (define result (apply sampler args))
+                [result {} 0])
+               (block
+                (define result
+                  (if (constrained? ctx '())
+                    (constrained-value ctx '())
+                    (t name apply (make-inference-procedure-from-sampler-and-scorer name sampler scorer) args)))
+                [result {:value result}
+                 (if (targeted? ctx '())
+                   (scorer result args)
+                   0)])))))))
 
 ;; Uniform
 
@@ -45,11 +66,11 @@
    "uniform-sample"
    (gen [items]
      ;; items is a metaprob list (or tuple??)
-     (define n (uniform 0 (length items)))
+     (define n (uniform 0 (count items)))
      (nth items (floor n)))
    (gen [item [items]]
-     (sub (log (length (clojure.core/filter (gen [x] (= x item)) items)))
-        (log (length items))))))
+     (- (log (count (clojure.core/filter (gen [x] (= x item)) items)))
+        (log (count items))))))
 
 ;; Code translated from class BernoulliOutputPSP(DiscretePSP):
 ;;
@@ -58,12 +79,11 @@
 (define flip
   (make-inference-procedure-from-sampler-and-scorer
     "flip"
-    (gen [weight] (lt (uniform 0 1) weight))
-    (gen [value inputs]
-      (define weight (nth inputs 0))
+    (gen [weight] (< (uniform 0 1) weight))
+    (gen [value [weight]]
       (if value
         (log weight)
-        (log1p (sub 0 weight))))))
+        (log1p (- 0 weight))))))
 
 ;; Cf. CategoricalOutputPSP from discrete.py in Venturecxx
 ;; This is just the one-argument form, so is simpler than what's in Venture.
@@ -79,17 +99,42 @@
      (define threshold (uniform 0 1))
      ;; iterate over probabilities, accumulate running sum, stop when cumu prob > threshold.
      (define scan (gen [i probs running-prob]
-                    (if (empty-trace? probs)
+                    (if (empty? probs)
                       (- i 1)
                       (block (define next-prob (+ (first probs) running-prob))
                              (if (> next-prob threshold)
                                i
                                (scan (+ i 1) (rest probs) next-prob))))))
-     (scan 0 (to-list probabilities) 0.0))
+     (scan 0 probabilities 0.0))
+
    (gen [i [probabilities]]
      ;; return logDensityCategorical(val, vals[0],
      ;;   [VentureInteger(i) for i in range(len(vals[0]))])
      (log (nth probabilities i)))))
+
+
+(define labeled-categorical
+  (make-inference-procedure-from-sampler-and-scorer
+    "labeled-categorical"
+    (gen [labels probabilities]
+      ;; Returns a label.
+      ;; Assume that probabilities add to 1.
+      ;; return simulateCategorical(vals[0], args.np_prng(),
+      ;;   [VentureInteger(i) for i in range(len(vals[0]))])
+      (define threshold (uniform 0 1))
+      ;; iterate over probabilities, accumulate running sum, stop when cumu prob > threshold.
+      (define scan (gen [i probs running-prob]
+                     (if (empty? probs)
+                       (nth labels (- i 1))
+                       (block (define next-prob (+ (first probs) running-prob))
+                              (if (> next-prob threshold)
+                                (nth labels i)
+                                (scan (+ i 1) (rest probs) next-prob))))))
+      (scan 0 probabilities 0.0))
+    (gen [l [labels probabilities]]
+      ;; return logDensityCategorical(val, vals[0],
+      ;;   [VentureInteger(i) for i in range(len(vals[0]))])
+      (log (apply + (map (gen [i] (if (= l (nth labels i)) (nth probabilities i) 0)) (range (count probabilities))))))))
 
 (declare scores-to-probabilities)
 
@@ -111,14 +156,33 @@
    (gen [i [scores]]
      (nth (scores-to-probabilities scores) i))))
 
+
+
+
 ;;  ^:private
 (define scores-to-probabilities
   (gen [scores]
-    (define max-score (apply clojure.core/max scores))
-    (define numerically-stable-scores (map (gen [x] (- x max-score)) (to-immutable-list scores)))
-    (define weights (map exp numerically-stable-scores))
-    (define log-normalizer (+ (log (apply + weights)) max-score))
-    (map (gen [w] (exp (- w log-normalizer))) (to-immutable-list scores))))
+
+       ;; Alex's
+       (define weights (map exp scores))
+       (define normalizer (apply + weights))
+       (map (gen [w] (/ w normalizer)) weights)
+
+       (define weights (map exp scores))
+       (define normalizer (apply + weights))
+       (if (> normalizer 0)
+         (map (gen [w] (/ w normalizer)) weights)
+         (map (gen [w] (/ 1 (count weights))) weights))
+
+       ;; master branch's
+       ;; (define max-score (apply clojure.core/max scores))
+       ;; (define numerically-stable-scores
+       ;;   (map (gen [x] (- x max-score))
+       ;;        (to-immutable-list scores)))
+       ;; (define weights (map exp numerically-stable-scores))
+       ;; (define log-normalizer (+ (log (apply + weights)) max-score))
+       ;; (map (gen [w] (exp (- w log-normalizer))) (to-immutable-list scores))
+    ))
 
 
 ;; ----------------------------------------------------------------------------
@@ -159,11 +223,10 @@
 ;       ;; Venture does:
 ;       ;; def logDensityNumeric(self, x, params):
 ;       ;;   return scipy.stats.beta.logpdf(x,*params)
-;       ;; Wikipedia has a formula for pdf; easy to derive logpdf 
+;       ;; Wikipedia has a formula for pdf; easy to derive logpdf
 ;       ;; from it.
 ;       ;; scipy has a better version:
 ;       ;; https://github.com/scipy/scipy/blob/master/scipy/stats/_continuous_distns.py
 ;       (- (+ (* (log x) (- a 1.0))
 ;             (* (log (- 1.0 x)) (- b 1.0)))
 ;          (log-Beta a b))))))
-

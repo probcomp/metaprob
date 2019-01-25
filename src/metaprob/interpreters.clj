@@ -1,11 +1,8 @@
 (ns metaprob.interpreters
-  (:refer-clojure :exclude [apply map replicate])
+  (:refer-clojure :exclude [apply map replicate dissoc assoc])
   (:require [metaprob.syntax :refer :all]
-            [metaprob.trace :refer :all]
-            [metaprob.sequence :refer :all]
             [metaprob.builtin-impl :refer :all]
             [metaprob.prelude :refer [maybe-subtrace maybe-set-subtrace]]
-            [metaprob.builtin :as builtin]
             [metaprob.compositional :as comp]))
 
 
@@ -15,45 +12,18 @@
 ;; (def default-interpreter infer/infer-apply)
 (def default-interpreter comp/infer-apply)
 
-(define null-trace (trace))
-
 ;; Returns [value output-trace score]
 
 (defn infer [& {:keys [procedure inputs intervention-trace
-                       target-trace output-trace
-                       output-trace?
-                       interpreter]}]
-  (let [inputs (if (= inputs nil) [] inputs)
-        intervention-trace (if (= intervention-trace nil)
-                             null-trace
-                             intervention-trace)
-        target-trace (if (= target-trace nil)
-                       null-trace
-                       target-trace)
-        output-trace? (if (= output-trace? nil)
-                        true
-                        output-trace?)
-        interpreter (if (= interpreter nil)
-                      default-interpreter
-                      interpreter)
-        [value out score]
-        (binding [*ambient-interpreter* interpreter]
-          (infer-apply procedure
-                       inputs
-                       intervention-trace
-                       target-trace
-                       output-trace?))]
-    (assert (number? score) score)
-    [value
-     (if (and output-trace? output-trace out)
-       (do (trace-merge! output-trace out)
-           (trace-thaw! output-trace)
-           output-trace)
-       out)
-     score]))
+                       target-trace output-trace? interpreter]}]
+  (binding [*ambient-interpreter* (or interpreter default-interpreter)]
+    (infer-apply procedure
+                 (or inputs [])
+                 (or intervention-trace {})
+                 (or target-trace {})
+                 (not= false output-trace?))))
 
 ;; Returns score only
-
 (defn get-score [proc & inputs]
   (let [[_ target _]
         (infer :procedure proc

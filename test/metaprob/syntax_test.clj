@@ -9,13 +9,14 @@
     (is (= ((gen [x] x) 1) 1))))
 
 (deftest gen-2
-  (testing "ara procedures traces?"
-    (is (trace? (gen [x] x)))))
+  (testing "Procedures are (no longer) traces"
+    (is (not (trace? (gen [x] x))))))
 
 (deftest gen-3
   (testing "are procedures named?"
     ;; Name would be something like "-1239293465-foo"
-    (is (.contains (impl/procedure-name (named-generator foo [x] x)) "foo"))))
+    (is (.contains (impl/procedure-name
+                    (named-generator foo true [x] x)) "foo"))))
 
 (deftest block-1
   (testing "Smoke test 1 for block macro"
@@ -66,7 +67,7 @@
                      (define [v _] [6 7])
                      v))
            6))))
-           
+
 (deftest block-4
   (testing "Nested pattern in let"
     (is (= (block (define [a [b c d]] [1 [2 3 4]])

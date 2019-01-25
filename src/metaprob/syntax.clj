@@ -1,18 +1,14 @@
 (ns metaprob.syntax
+  (:refer-clojure :exclude [get contains? dissoc assoc empty? keys get-in])
   (:require [clojure.string :as string]
             [clojure.set :as set]
-            [metaprob.state :as state]
+            [metaprob.compound :refer :all]
             [metaprob.trace :refer :all]
-            [metaprob.sequence :refer :all]
             [metaprob.builtin-impl :as impl]))
-
-(def set-value state/set-value)
-
 
 ;; This module is intended for import by metaprob code, and defines
 ;; the syntactic constructs to be used in metaprob programs.
 ;; Intended to be used with the builtins module.
-
 (defmacro define
   "like def, but allows patterns"
   [pattern rhs]
@@ -20,15 +16,13 @@
   (letfn [(var-for-pattern [pat]
             (if (symbol? pat)
               pat
-              (symbol (string/join "|"
-                                   (map var-for-pattern pat)))))
+              (gensym (string/join "|" (map var-for-pattern pat)))))
 
           ;; Insert name into function expression, if any
-
           (form-def [name rhs]
             (let [rhs (if (and (seq? rhs)
                                (= (first rhs) 'gen))
-                        `(~'named-generator ~name ~@(rest rhs))
+                        `(~'named-generator ~name ~(not (:no-expand? (meta &form))) ~@(rest rhs))
                         rhs)]
               `(def ~name ~rhs)))
 
@@ -45,17 +39,17 @@
                                 (if (and (symbol? subpattern)
                                          (= (name subpattern) "_"))
                                   (list)
-                                  (explode-pattern subpattern `(metaprob-nth ~var ~i))))
+                                  (explode-pattern subpattern `(nth ~var ~i))))
                               pattern
                               (range (count pattern)))))))
           ]
 
     `(do ~@(explode-pattern pattern rhs))))
 
-(declare from-clojure from-clojure-pattern)
-
 ;; Run time
 
+;; This is incredibly crude, but it doesn't much matter if there are a
+;; few junk names in the result, since they'll get filtered out
 (defn free-vars-approximately
   "Recursively descends through nested vectors, sequences, and maps and returns a
   set of all the symbols found therein."
@@ -68,64 +62,258 @@
                   #(if (map? %) (sequence cat %) (seq %))
                   form)))
 
+(defn convert-fn*-exp [exp]
+  (let
+    [name (if (symbol? (second exp)) (second exp) nil),
+     exp-wo-name (if name (rest (rest exp)) (rest exp)),
+     sigs (if (vector? (first exp-wo-name))
+            (list exp-wo-name)
+            exp-wo-name),
+     count-vars (fn [pat] (count (take-while (partial not= '&) pat))),
+     variadic? (fn [pat] (contains? pat '&)),
+     argname (gensym),
+     [arities variadic-n]
+     (reduce
+       (fn [[arities variadic-n] sig]
+         (let [pat (first sig)]
+           (assert (not (contains? arities (count-vars pat)))  "Repeat arity in fn*")
+           (assert (or (not (variadic? pat)) (not variadic-n)) "Only one variadic allowed in fn*")
+           (assert (or (not (variadic? pat)) (> (count-vars pat) (apply max (keys pat)))) "Non-variadic cannot have more args than variadic implementation")
+           [(assoc arities (count-vars pat) `(~'block
+                                               (~'define ~pat ~argname)
+                                               ~@(rest sig))), (if (variadic? pat) (count-vars pat) variadic-n)]))
+
+       [{} false]
+       sigs),
+
+     clauses
+     (apply concat
+       (concat
+         (map
+           (fn [a]
+             `((= (count ~argname) ~a) ~(get arities a)))
+           (sort (keys arities)))
+         (list (if variadic-n `(true ~(get arities variadic-n)) `(true (~'assert false "Wrong arity")))))),
+
+     gen-expr (if (= (count sigs) 1)
+                (cons 'gen (first sigs))
+                `(~'gen [& ~argname] (cond ~@clauses)))]
+
+    (if name
+      `(~'block
+         (~'define ~name ~gen-expr) ~name)
+      gen-expr)))
+
+(defmacro or-nil?
+  ([] nil)
+  ([x] x)
+  ([x & next] `(let [or# ~x] (if (nil? or#) (or-nil? ~@next) or#))))
+
+(defn mp-expand [form]
+
+  (cond
+    (vector? form)
+    (vec (map mp-expand form))
+
+    (map? form)
+    (into {} (map (fn [[k v]] [(mp-expand k) (mp-expand v)]) form))
+
+    ;; TODO: nil probably shouldn't be considered compound data
+    (or (nil? form) (not (seq? form)))
+    form
+
+    true
+    (case (first form)
+      ;; Metaprob special forms
+      quote form
+
+      gen
+      (cons 'gen (cons (second form)
+                       (map mp-expand (rest (rest form)))))
+
+      with-explicit-tracer
+      (cons 'with-explicit-tracer
+            (cons (second form)
+                  (map mp-expand (rest (rest form)))))
+
+      (block do)
+      (cons 'block (map mp-expand (rest form)))
+
+      define
+      (list 'define (second form) (mp-expand (nth form 2)))
+
+      if
+      (map mp-expand form)
+
+      let*
+      (recur (cons 'block (concat
+                           (map #(cons 'define %)
+                                (partition 2 (second form)))
+                           (rest (rest form)))))
+
+      fn*
+      ;; We need to handle cases where the `fn` has a name (and
+      ;; therefore may be recursive) and also cases where it may have
+      ;; more than one arity defined.
+      ;; no recursive call, b/c all code wrapped in `gen`.
+      (convert-fn*-exp form)
+
+      letfn*
+      ;; Our `let` can already handle recursive definitions (?).
+      (mp-expand (cons 'let (rest form)))
+
+      loop
+      (throw (IllegalArgumentException. "Cannot use loop* in Metaprob."))
+      case*
+      (throw (IllegalArgumentException. "Cannot use case* in Metaprob."))
+      throw
+      `(~'assert false (str "Clojure throw statement encountered: " ~form))
+      ;; TOTAL HACK and should be removed or made to work:
+      . (cons '. (map mp-expand (rest form)))
+
+      (new monitor-exit monitor-enter try finally
+           clojure.core/import* deftype* set! var catch def reify*)
+      (throw (IllegalArgumentException. (str "mp-expand encountered unsupported Clojure special form" form)))
+
+      ; It's a function or macro...
+      (let [next (macroexpand-1 form)]
+        (if (= next form)
+          (map mp-expand form)
+          (recur next))))))
+
 ;; This can fail with forward references to recursive functions
+(defn make-generative [fun name exp top-env names values]
+  (clojure.core/with-meta
+    fun
+    {:name (impl/trace-name exp name)
+     :generative-source exp
+     :environment
+     (if (empty? names)
+       top-env
+       (into {:parent top-env}
+             (map (fn [name value] [name value]) names values)))}))
 
-(defn make-generative [fun name exp-trace top-env names values]
-  (let [proc-name (impl/trace-name exp-trace name)]               ;original metaprob
-    (assert (= (trace-get exp-trace) "gen"))
-    (trace-as-procedure (trace "name" proc-name
-                               "generative-source" (** exp-trace)
-                               "environment"
-                               (if (empty? names)
-                                 top-env
-                                 (into {"*parent*" {:value top-env}}
-                                       (map (fn [name value] [name {:value value}])
-                                            names
-                                            values)))
-                               :value "prob prog")
-                        ;; When called from clojure:
-                        fun)))
+; Takes in a Metaprob environment and a Clojure
+; fn expression, and evaluates the fn expression
+; in a context where Metaprob local variables + top level environment
+; are available.
+; TODO: Doesn't work for recursive definitions. We could call this at the end of a block...
+; TODO: If we know the name of this function, we can put it in the inner `fn`.
+; TODO: But how to make this work for mutually recursive definitions?
+(defn eval-fn-expr-in-mp-env
+  [mp-env fn-exp]
+  (let
+    [free-vars (free-vars-approximately fn-exp)
+     env-to-bindings
+     (fn [mpe so-far]
+       (if (instance? clojure.lang.Namespace mpe)
+         [so-far mpe]
+         (recur
+           (get mpe :parent)
+           (concat
+             (filter (fn [[k v]]
+                       (and (symbol? k)
+                            (clojure.core/contains? free-vars k))) (unbox mpe))
+             so-far))))
+     [bindings user-ns] (env-to-bindings mp-env [])
+     expr-to-eval `(fn [~@(map first bindings)] ~fn-exp)]
+    (apply
+      (binding [*ns* user-ns]
+        (eval expr-to-eval)) (map second bindings))))
 
-;; Compile time
-
-(defmacro named-generator [name params & body]
-  {:style/indent 2}
+(defn gen-to-clojure-fn [mp-env params body]
   (let [fn-body (if (some #(= '& %) params)
+                   (let [screwy (last params)]
+                     `(let [~screwy (if (= ~screwy nil) '() ~screwy)]
+                        (block ~@body)))
+                   `(block ~@body))
+         fn-exp `(fn
+                   ~params
+                   ~fn-body)]
+     (eval-fn-expr-in-mp-env mp-env fn-exp)))
+
+; TODO: This does not work with mutual recursion.
+(defn compile-mp-proc-fast [mp-proc]
+  ; We expect the MP expression to be a map with (at least)
+  ; generative-source and
+  (let [source (get mp-proc :generative-source)]
+    (with-meta
+      (gen-to-clojure-fn
+        (get mp-proc :environment)
+        (second source)
+        (rest (rest source)))
+      (assoc mp-proc :generative-source (cons 'gen (cons (second source) (map mp-expand (rest (rest source)))))))))
+
+; Change `gen` to `gen-no-expand`, which works the same way but doesn't perform macroexpansion on its source
+(defn change-gens [form]
+  (cond
+    (not (compound? form))
+    form
+    (vector? form) (vec (map change-gens form))
+    (map? form) (into {} (map (fn [[k v]] [(change-gens k) (change-gens v)]) form))
+    (not (seq? form)) (throw (IllegalArgumentException. (str "Weird form: " form "--of type--" (type form))))
+    (= (first form) 'quote) (cons 'quote (rest form))
+    (or (= (first form) 'gen) (= (first form) 'define))
+    (vary-meta (cons (first form) (cons (second form) (map change-gens (rest (rest form))))) assoc :no-expand? true)
+    ; (cons 'gen-no-expand (cons (second form) (map change-gens (rest (rest form)))))
+    true
+    (map change-gens form)))
+
+
+;(if (seq? s)
+;  (doall (map doall-recur
+;              s))
+;  s))
+;; Compile time
+(defmacro named-generator [name expand? params & body]
+  {:style/indent 2}
+  (let [expanded-body (if expand? (map mp-expand body) body)
+        gen-changed-body (if expand? (map change-gens expanded-body) expanded-body)
+        fn-body (if (some #(= '& %) params)
                   (let [screwy (last params)]
-                    `(let [~screwy (if (= ~screwy nil)
-                                     '()
-                                     ~screwy)]
-                       (block ~@body)))
-                  `(block ~@body))     ;cope with defines if any
+                    `(let [~screwy (if (= ~screwy nil) '() ~screwy)]
+                       (block ~@gen-changed-body)))
+                  `(block ~@gen-changed-body)) ;cope with defines if any
         fn-exp `(fn ~@(if name `(~name) `())
                   ~params
                   ~fn-body)
-        exp-trace (from-clojure `(~'gen ~params ~@body))
+        exp-trace `(~'gen ~params ~@expanded-body) ; TODO: profile
         names (vec (set/intersection (free-vars-approximately fn-exp)
-                                     (set (keys &env))))]
+                                      (set (keys &env))))]
     ;;(if (not (empty? names))
     ;;  (impl/metaprob-print ["the names are:" names]))
+
     `(make-generative ~fn-exp
                       '~name
                       '~exp-trace
                       (impl/make-top-level-env *ns*)
                       ;; Or: {name val name val ... "*parent*" top-env}  ?
-                      '~(seq (map str names))
+                      '~(seq names)
                       ~names)))
 
 (defmacro gen
   "like fn, but for metaprob procedures"
   {:style/indent 1}
   [params & body]
-  `(named-generator nil ~params ~@body))
+  `(named-generator nil ~(not ((meta &form) :no-expand?)) ~params ~@body))
+
+(defmacro gen-no-expand
+  {:style/indent 1}
+  [params & body]
+  `(named-generator nil false ~params ~@body))
 
 ;; Oddly, the source s-expressions don't seem to answer true to list?
+
+(defmacro with-explicit-tracer
+  [t & body]
+  `(let [~t (fn [~'_ ~'f & ~'args] (apply ~'f ~'args))] (block ~@body)))
+
 
 (defmacro block
   "like do, but for metaprob - supports local definitions"
   [& forms]
   (letfn [(definition? [form]
-            (and (seqable? form)
+            (and (seq? form)
                  (symbol? (first form))
                  ;; Can't compare to 'define, wrong namespace
                  (= (name (first form)) "define")
@@ -138,10 +326,10 @@
             (and (definition? form)
                  (symbol? (definition-pattern form))
                  (let [rhs (definition-rhs form)]
-                   (and (seqable? rhs)
+                   (and (seq? rhs)
                         (symbol? (first rhs))
                         (= (name (first rhs)) "gen")))))
-          (qons [x y]
+          (qons [x y] ;huh?
             (if (list? y)
               (conj y x)
               (conj (concat (list) y) x)))
@@ -159,13 +347,13 @@
           (explode-pattern [pattern rhs]
             (if (symbol? pattern)
               (list pattern rhs)
-              (let [var '?subject?]
+              (let [var (gensym '?subject?)]
                 (cons var
                       (cons rhs
                             (mapcat (fn [subpattern i]
                                       (if (= subpattern '_)
                                         (list)
-                                        (explode-pattern subpattern `(metaprob-nth ~var ~i))))
+                                        (explode-pattern subpattern `(nth ~var ~i))))
                                     pattern
                                     (range (count pattern))))))))
 
@@ -217,210 +405,6 @@
                   (qons `do (concat (list) forms))))))]
     (formlist-to-form (block-to-body forms))))
 
-;(defmacro tuple [& members]
-;  `(set-value ~(zipmap (range (count members))
-;              (map (fn [x] `(new-trace ~x)) members))))
-
-(defmacro &this []
-  "(&this) makes no sense when clojure-compiled")
-
-(defmacro mp-splice [x]
-  (assert false ["splice used in evaluated position!?" x]))
-
-;; unquote is a name conflict with clojure
-
-(defmacro mp-unquote [x]
-  (assert false ["unquote used in evaluated position!?" x]))
-
-; -----------------------------------------------------------------------------
-; Convert a clojure expression to a metaprob parse tree.
-
-; Assumes that the input was generated by the to-clojure converter.
-; The parse tree is always a hereditarily immutable trace, so that it 
-; can be hashed.
-
-;; TBD: This file assumes it knows what the represenation of an
-;; immutable trace is.  That's not very good data abstraction.  Fix.
-
-
-; These could all be marked ^:private
-
-(defn from-clojure-seq [sequ val]    ;seq of clojure expressions
-  (set-value (zipmap (range (count sequ))
-                     (map from-clojure sequ))
-             val))
-
-;; Trace       => clojure               => trace
-;; (x)->{a;b;} => (gen [x] (block a b)) => (x)->{a;b;}
-;; (x)->{a;}   => (gen [x] (block a))   => (x)->{a;}
-;; (x)->a      => (gen [x] a)           => (x)->a
-;;
-;; safe abbreviation:
-;; (x)->{a;b;} => (gen [x] a b) => (x)->{a;b;}
-
-(defn from-clojure-gen [exp]
-  (let [[_ pattern & body] exp]
-    (let [body-exp (if (= (count body) 1)
-                     (first body)
-                     (cons 'block body))]
-      (trace :value "gen"
-             "pattern" (** (from-clojure-pattern pattern))
-             "body" (** (from-clojure body-exp))))))
-
-(defn from-clojure-pattern [pattern]
-  (if (symbol? pattern)
-    (if (= pattern '&)
-      (trace :value "&")
-      (trace :value "variable" "name" (str pattern)))
-    (do (assert (vector? pattern) pattern)
-        (to-immutable
-         (trace-from-subtrace-seq (map from-clojure-pattern pattern) "tuple")))))
-
-(defn from-clojure-if [exp]
-  (let [[_ pred thn els] exp]
-    (trace :value "if"
-           "predicate" (** (from-clojure pred))
-           "then" (** (from-clojure thn))
-           "else" (** (from-clojure els)))))
-
-(defn from-clojure-block [exp]
-  (assert (not (empty? exp))
-          ["empty block" exp])
-  (from-clojure-seq (rest exp) "block"))
-
-;; Cf. name-for-definiens in infer.clj.
-
-(defn from-clojure-definition [exp]
-  (let [[_ pattern rhs] exp
-        key (if (and (symbol? pattern)
-                     (not (= pattern '_))
-                     (not (= pattern 'pattern)))
-              (str pattern)
-              "definiens")]
-    (trace :value "definition"
-           "pattern" (** (from-clojure-pattern pattern))
-           key (** (from-clojure rhs)))))
-
-(defn from-clojure-application [exp]
-  (assert (not (empty? exp))
-          ["empty application" exp])
-  (from-clojure-seq exp "application"))
-
-(defn from-clojure-tuple [exp]
-  (from-clojure-application (cons 'tuple exp)))
-
-(defn from-clojure-literal [value]
-  (trace :value "literal"
-         "value" value))
-
-(defn from-clojure-and [exp]
-  (letfn [(expand [forms]
-            (cond (empty? forms)
-                    'true
-                  (empty? (rest forms))
-                    (first forms)
-                  true
-                    (list 'if
-                        (first forms)
-                        (expand (rest forms))
-                        'false)))]
-    (from-clojure (expand (rest exp)))))
-
-(defn from-clojure-or [exp]
-  (letfn [(expand [forms]
-            (cond (empty? forms)
-                    'false
-                  (empty? (rest forms))
-                    (first forms)
-                  true
-                    (let [g '_or_temp_]
-                      (list 'block
-                          (list 'define g (first forms))
-                          (list 'if
-                                g
-                                g
-                                (expand (rest forms)))))))]
-    (from-clojure (expand (rest exp)))))
-
-(defn from-clojure-case [exp]
-  (let [[_ subj & clauses] exp]
-    (let [g '_case_temp_]
-      (letfn [(expand [forms]
-                (cond (empty? forms)
-                      'nil
-                      (empty? (rest forms))
-                      (first forms)
-                      true
-                      (list 'if
-                            (list 'eq g (first forms))
-                            (first (rest forms))
-                            (expand (rest (rest forms))))))]
-        (from-clojure
-         (list 'block
-               (list 'define g subj)
-               (expand clauses)))))))
-
-(defn from-clojure-cond [exp]
-  (let [[_ & forms] exp]
-    (letfn [(expand [forms]
-              (if (empty? forms)
-                'nil
-                (list 'if
-                      (first forms)
-                      (first (rest forms))
-                      (expand (rest (rest forms))))))]
-      (from-clojure (expand forms)))))
-
-;; N.b. strings are seqable
-
-(defn literal-exp? [exp]
-  (or (number? exp)
-      (string? exp)
-      (boolean? exp)
-      (keyword? exp)
-      (= exp nil)))
-
 ;; Don't create variables with these names...
 ;;   (tbd: look for :meta on a Var in this namespace ??)
-(def prohibited-names #{"block" "gen" "define" "if"})
-
-(defn from-clojure-1 [exp]
-  (cond (vector? exp) (from-clojure-tuple exp)    ;; Pattern - shouldn't happen
-
-        (literal-exp? exp)    ;; including string
-          (from-clojure-literal exp)
-
-        (symbol? exp)
-        (let [s (str exp)]
-          (assert (not (contains? prohibited-names s)) exp)
-          (trace :value "variable"
-                 "name" s))
-
-        ;; I don't know why this is sometimes a non-list seq.
-        ;; TBD: check that (first exp) is a non-namespaced symbol.
-        (seq? exp) (case (first exp)
-                     gen (from-clojure-gen exp)
-                     probprog  (from-clojure-gen exp)    ;DEPRECATED
-                     program  (from-clojure-gen exp)     ;DEPRECATED
-                     if (from-clojure-if exp)
-                     block (from-clojure-block exp)
-                     mp-splice (trace :value "splice"
-                                      "expression" (** (from-clojure exp)))
-                     mp-unquote (trace :value "unquote"
-                                       "expression" (** (from-clojure exp)))
-                     define (from-clojure-definition exp)
-                     ;; Syntactic sugar
-                     and (from-clojure-and exp)
-                     or (from-clojure-or exp)
-                     case (from-clojure-case exp)
-                     cond (from-clojure-cond exp)
-                     ;; else
-                     (from-clojure-application exp))
-        ;; Literal
-        true (assert false ["bogus expression" exp])))
-        
-(defn from-clojure [exp]
-  (let [answer (from-clojure-1 exp)]
-    (assert (trace? answer) ["bad answer" answer])
-    (assert (trace-has? answer) ["no value" answer])
-    answer))
+(def prohibited-names #{"block" "gen" "define" "if" "quote"})

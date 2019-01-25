@@ -6,22 +6,18 @@
 
 (ns metaprob.examples.all
   (:refer-clojure :only [ns declare in-ns require])
-  (:require [metaprob.state :as state])
   (:require [metaprob.trace :as trace])
-  (:require [metaprob.sequence :as sequence])
   (:require [metaprob.builtin-impl :as impl])
-
   (:require [metaprob.syntax :refer :all])
   (:require [metaprob.builtin :refer :all])
   (:require [metaprob.prelude :refer :all])
   (:require [metaprob.distributions :refer :all])
   (:require [metaprob.interpreters :refer :all])
   (:require [metaprob.inference :refer :all])
-
   (:require [metaprob.compositional :as comp])
-
+  (:require [metaprob.examples.gaussian :refer :all])
   (:require [metaprob.examples.flip-n-coins :refer :all])
-  (:require [metaprob.examples.earthquake :refer :all])
+  (:require [metaprob.examples.earthquake :refer :all :exclude [flip]])
   (:require [metaprob.examples.inference-on-gaussian :refer :all])
   ;; The following would simplify startup a bit but I'm getting
   ;; an error in `clojure -Atest`
@@ -62,6 +58,4 @@
     (gaussian-prior-samples number-of-runs)
     (rejection-assay number-of-runs)
     (importance-assay number-of-runs)
-    (MH-assay number-of-runs)
-
-    ))
+    (MH-assay number-of-runs)))
