@@ -1,5 +1,6 @@
 (ns metaprob.trace
-  (:refer-clojure :exclude [get contains? get-in assoc dissoc empty? keys])
+  (:refer-clojure :exclude [get contains? get-in assoc dissoc empty?
+                            keys])
   (:require [metaprob.compound :refer :all]))
 
 (defn trace-has-value?

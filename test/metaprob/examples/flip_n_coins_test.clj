@@ -12,19 +12,14 @@
 
 (deftest flip-n-coins-smoke-1
   (testing "testing flip-n-coins"
-    (let [[answer trace-with-flips score]
-          (infer :procedure flip-n-coins :inputs [number-of-flips])]
+    (let [[answer trace-with-flips score] (infer :procedure flip-n-coins
+                                                 :inputs [number-of-flips])]
       (is (trace? trace-with-flips))
-      ;; ?? jmt `answer` is a seq but not a list... what's correct here?
-      ;; (is (builtin/list? answer))
-      (let [a1 (builtin/nth answer 0)]
-        (is (or (= a1 true) (= a1 false))))
-      (if (not (trace-has-value? trace-with-flips (datum-addr (- number-of-flips 1))))
-        (do (print [(trace-has-value? trace-with-flips '(2))])
-            (print [(trace-has-value? trace-with-flips '(2 "datum"))])
-            (print [(trace-has-value? trace-with-flips '(2 "datum" "map"))])
-            (print [(trace-has-value? trace-with-flips '(2 "datum" "map" 3))])
-            (print [(trace-has-value? trace-with-flips '(2 "datum" "map" 3 "flip"))])))
+
+      (let [a1 (builtin/first answer)]
+        (is (or (= a1 true)
+                (= a1 false))))
+
       (is (trace-has-value? trace-with-flips (datum-addr (- number-of-flips 1))))
       (is (not (trace-has-value? trace-with-flips (datum-addr number-of-flips))))
 
@@ -33,27 +28,25 @@
       (is (trace-has-value? trace-with-flips (datum-addr 1)))
 
       ;; Run subject to interventions
-      (let [output {}
-            [answer _ score]
+      (let [[answer output score]
             (infer :procedure flip-n-coins
                    :inputs [(+ number-of-flips 8)]
-                   :intervention-trace ensure-tricky-and-biased
-                   :output-trace output)]
+                   :intervention-trace ensure-tricky-and-biased)]
         ;; Check that the interventions actually got done (they're in
         ;; the output trace)
+        (doseq [adr (builtin/addresses-of ensure-tricky-and-biased)]
 
-        ;; jmt ?? i don't think this is valid any longer- interventions
-        ;; not at probabilistic sites don't appear in the output trace
-        ;; (doseq [adr (builtin/addresses-of ensure-tricky-and-biased)]
-        ;;   (is (trace-has-value? output adr))
-        ;;   (if (trace-has-value? output adr)
-        ;;     (is (= (trace-value output adr)
-        ;;            (trace-value ensure-tricky-and-biased adr)))))
+          (is (trace-has-value? output adr))
 
-        ;; (is (trace-has-value? output (builtin/addr 2 "weight" "then" 0 "uniform")))
-        ;; (is (trace-has-value? output (datum-addr 1)))
-        ;; (is (trace-has-value? output (datum-addr 2)))
-        ;; (is (not (trace-has-value? output (datum-addr (+ number-of-flips 10)))))
+          (is (= (trace-value output adr)
+                 (trace-value ensure-tricky-and-biased adr))))
+
+        (is (trace-has-value?
+             output
+             '(2 "weight" "then" 0 "uniform")))
+        (is (trace-has-value? output (datum-addr 1)))
+        (is (trace-has-value? output (datum-addr 2)))
+        (is (not (trace-has-value? output (datum-addr (+ number-of-flips 10)))))
 
         ;; Answer is expected to be 99% heads other than the intervened-on entry.
         (is (> (apply + (map (fn [x] (if x 1 0))

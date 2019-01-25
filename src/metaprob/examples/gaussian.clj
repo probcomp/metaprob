@@ -5,6 +5,7 @@
   (:require [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
             [metaprob.prelude :refer :all]
+            [metaprob.context :refer :all]
             [metaprob.distributions :refer :all]))
 
 ;; sampling from a Gaussian with user-specified mean
@@ -18,8 +19,8 @@
     (define u2 (uniform 0 1))
     (define answer
      (+ mu (* (* (sqrt (* (- 0 2) (log u1)))    ;CHECK THIS
-    	              (cos (* (* 2 3.14159265) u2)))
-		      sigma)))
+                 (cos (* (* 2 3.14159265) u2)))
+              sigma)))
     answer))
 
 (define standard-gaussian-log-density
@@ -36,9 +37,9 @@
 
 (define gaussian
   (make-inference-procedure-from-sampler-and-scorer
-			"gaussian"
-      generate-gaussian
-      score-gaussian))
+   "gaussian"
+   generate-gaussian
+   score-gaussian))
 
 ;; defining a latent variable model using this new
 ;; primitive probability distribution
