@@ -208,7 +208,6 @@
 
 ;; This could go in prelude.clj, with some effort.
 
-
 (defn inf [name model implementation]
   (assoc
     ;; When called from Clojure:

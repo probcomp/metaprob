@@ -186,12 +186,12 @@
   (clojure.core/with-meta
     fun
     {:name (impl/trace-name exp name)
-    :generative-source exp
-    :environment
-    (if (empty? names)
-      top-env
-      (into {:parent top-env}
-            (map (fn [name value] [name value]) names values)))}))
+     :generative-source exp
+     :environment
+     (if (empty? names)
+       top-env
+       (into {:parent top-env}
+             (map (fn [name value] [name value]) names values)))}))
 
 ; Takes in a Metaprob environment and a Clojure
 ; fn expression, and evaluates the fn expression

@@ -1,5 +1,5 @@
 (ns metaprob.compositional-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is testing]]
             [metaprob.trace :refer :all :as trace]
             [metaprob.syntax :refer :all :as syntax]
             [metaprob.builtin-impl :refer :all :as impl :exclude [infer-apply]]
@@ -91,9 +91,6 @@
       (is (= (count result) 3))
       (is (= (first result) 8)))))
 
-;; Lift a generate method up to a infer method
-;; TBD: Set *ambient-interpreter*!
-
 (deftest lift-1
   (testing "lift a generate method up to a infer method"
     (let [m (gen [inputs context]
@@ -130,9 +127,6 @@
 
 (deftest or-1
   (testing "or smoke test"
-    ;; (is (= (ez-eval (mp-expand '(or))) false))
-    ;; ?? jmt should `(or)` => nil or false? in clojure.core, it's
-    ;; nil. but originally this test was as above, expecting `false`
     (is (= (ez-eval (mp-expand '(or))) nil))
     (is (= (ez-eval (mp-expand '(or 1))) 1))
     (is (= (ez-eval (mp-expand '(or 1 2))) 1))
@@ -216,12 +210,7 @@
                                    :intervene intervene
                                    :target no-trace
                                    :active? true})]
-      (is (= value 8))
-      ;; see below. this is _probably_ not how we want traces to
-      ;; behave (jmt)
-      ;; (is (and (trace-has-value? out '(0 "x"))
-      ;;          (= 5 (trace-value out '(0 "x")))))
-      )))
+      (is (= value 8)))))
 
 ;; in situations where an intervention targets a non-random site,
 ;; `infer`'s _value_ should be affected, but the returned trace should
@@ -244,38 +233,33 @@
                 (trace-value out '(0 "x" "predicate" "distributions/flip"))))))))
 
 
-;; an assert keeps this from happening. if that's expected, this test
+;; an assert keeps this from working. if that's expected, this test
 ;; should change to catch that AssertionError (jmt)
-(comment
-  (deftest intervene-target-disagree
-    (testing "intervention and target traces disagree"
-      (let [intervene (trace-set-value {} '(0 "x") 6)
-            target (trace-set-value {} '(0 "x") 5)
-            [value out s] (comp/infer-apply tst1 []
-                                            {:interpretation-id (clojure.core/gensym)
-                                             :intervene intervene
-                                             :target target
-                                             :active? true})]
-        (is (= value 8))
-        (is (= s builtin/negative-infinity))
-        (is (and (trace-has-value? out '(0 "x"))
-                 (= 5 (trace-value out '(0 "x")))))))))
+(deftest intervene-target-disagree
+  (testing "intervention and target traces disagree. this should throw."
+    (let [intervene (trace-set-value {} '(0 "x") 6)
+          target (trace-set-value {} '(0 "x") 5)]
+
+      (is (thrown? AssertionError
+                   (comp/infer-apply tst1 []
+                                     {:interpretation-id (clojure.core/gensym)
+                                      :intervene intervene
+                                      :target target
+                                      :active? true}))))))
+
 
 ;; an assert keeps this from happening. if that's expected, this test
 ;; should change to catch that AssertionError (jmt)
-  (comment
-    (deftest impossible-target
-      (testing "target is impossible value"
-        (let [target (trace-set-value {} '(0 "x") 5)
-              [value out s] (comp/infer-apply tst1 []
-                                              {:interpretation-id (clojure.core/gensym)
-                                               :intervene {}
-                                               :target target
-                                               :active? true})]
-          (is (= value 8))
-          (is (= s builtin/negative-infinity))
-          (is (and (trace-has-value? out '(0 "x"))
-                   (= 5 (trace-value out '(0 "x")))))))))
+(deftest impossible-target
+  (testing "target is impossible value"
+    (let [target (trace-set-value {} '(0 "x") 5)]
+
+      (is (thrown? AssertionError
+                   (comp/infer-apply tst1 []
+                                     {:interpretation-id (clojure.core/gensym)
+                                      :intervene {}
+                                      :target target
+                                      :active? true}))))))
 
 (deftest true-target
   (testing "target value is the true value"

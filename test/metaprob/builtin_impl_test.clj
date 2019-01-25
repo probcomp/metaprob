@@ -11,8 +11,6 @@
     (let [pp (make-foreign-procedure "pp" (fn [x] (+ x 1)))]
       (is (= (generate-foreign pp [6]) 7)))))
 
-;; addresses-of
-
 (deftest addresses-of-1
   (testing "Smoke test addresses-of"
     (let [tree {"x" {"a" {:value 1}
