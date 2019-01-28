@@ -31,3 +31,11 @@ parsings
 .lein-failures
 .lein_classpath
 bin/lein
+
+# Ad-hoc files.
+*.sublime-project
+*.sublime-workspace
+.cpcache
+.jupyter
+/a
+/venv/
