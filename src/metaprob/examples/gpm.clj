@@ -2,7 +2,9 @@
 ;; See also figure 29 of the 7/17 chapter mss
 
 (ns metaprob.examples.gpm
-  (:refer-clojure :only [ns declare defn])
+  (:refer-clojure :only [
+    declare defn let format filter fn float? int?
+    set])
   (:require
             [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
@@ -219,7 +221,84 @@
                           (eq-importance-assay 20 number-of-samples))))
 
 
+; START OF GPM WORK.
+
+; Make statistical data types
+
+(define make-ranged-type
+  (gen [low high]
+    (block
+      (define valid (gen [x] (and (< low x) (< x high))))
+      (define nam (format "real[low=%s high=%s]" low high))
+      {:name nam :valid valid :base-measure :continuous})))
+
+(define real-type
+  (block
+    (define valid (gen [x] (or (float? x) (int? x))))
+    {:name "real" :valid valid :base-measure :continuous}))
+
+(define integer-type
+  (block
+    (define valid (gen [x] (int? x)))
+    {:valid valid :base-measure :continuous}))
+
+
+; Initialize and return a GPM for the given Metaprob procedure.
+
+(define assert-same-length
+  (gen [set-a set-b name-a name-b]
+    (assert (= (count set-a) (count set-b))
+            (format "%s %s and %s %s must have same length"
+                    name-a set-a name-b set-b))))
+
+(define assert-no-overlap
+  (gen [set-a set-b name-a name-b]
+    (define overlap (clojure.set/intersection set-a set-b))
+    (assert (= (count overlap) 0)
+            (format "%s %s and %s %s must be disjoint"
+                    name-a set-a name-b set-b))))
+
+(define assert-has-keys
+  (gen [collection items]
+    (define missing (clojure.set/difference items (keys collection)))
+    (assert (= (count missing) 0)
+            (format "collection %s is missing keys %s" collection items))))
+
+(define make-cgpm
+  (gen [proc outputs inputs address-map]
+    (define output-addrs (set (keys outputs)))
+    (define input-addrs (set (keys inputs)))
+    (assert-no-overlap output-addrs input-addrs :outputs :inputs)
+    (assert-has-keys address-map (clojure.set/union output-addrs input-addrs))
+    (print "hi")
+    {:proc proc
+      :outputs outputs
+      :inputs inputs
+      :address-map address-map}))
+
+; Initialize and return a GPM for the given Metaprob procedure.
+
+(define validate-cell
+  (gen [stattype value]
+    (assert ((get stattype :valid) value)
+            (format "invalid value %s for stattype %s"
+                    value (get stattype :name)))))
+
+(define validate-row
+  (gen [types row]
+    (define violations
+        (filter (fn [[k v]] (validate-cell (get types :k) v))
+                row))
+    (assert (= (count violations) 0)
+               (format "invalid values %s for types %s" violations types))))
+
+
 (defn -main [& args]
-  (earthquake-histogram
-    "bayesnet samples from rejection sampling"
-    (eq-rejection-assay 100)))
+  (let [proc 1
+        outputs {1 real-type, 2 real-type}
+        inputs {3 real-type, 4 (make-ranged-type 0 10)}
+        address-map {1 :a, 2 :b, 3 :c, 4 :d}]
+      (define gpm (make-cgpm proc outputs inputs address-map))
+      (validate-cell (make-ranged-type 0 10) 2)
+      (validate-cell (make-ranged-type 0 10) 3)
+      (print gpm)))
