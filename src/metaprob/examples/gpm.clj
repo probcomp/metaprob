@@ -223,25 +223,50 @@
 
 ; START OF GPM WORK.
 
-; Make statistical data types
+; Statistical data types
+
+(define safe-get
+  (gen [collection item]
+    (if (contains? collection item)
+      (get collection item)
+      (assert false (format "no such key %s in key set %s"
+                            item (keys collection))))))
 
 (define make-ranged-type
   (gen [low high]
-    (block
-      (define valid (gen [x] (and (< low x) (< x high))))
-      (define nam (format "real[low=%s high=%s]" low high))
-      {:name nam :valid valid :base-measure :continuous})))
+      {:name (format "real[low=%s high=%s]" low high)
+        :valid? (gen [x] (and (< low x) (< x high)))
+        :base-measure :continuous}))
+
+(define make-nominal-type
+  (gen [categories]
+    {:name (format "nominal[categories=%s]" categories)
+      :valid? (gen [x] (clojure.core/contains? categories x))
+      :base-measure :discrete}))
 
 (define real-type
-  (block
-    (define valid (gen [x] (or (float? x) (int? x))))
-    {:name "real" :valid valid :base-measure :continuous}))
+  {:name "real"
+    :valid? (gen [x] (or (float? x) (int? x)))
+    :base-measure :continuous})
 
 (define integer-type
-  (block
-    (define valid (gen [x] (int? x)))
-    {:valid valid :base-measure :continuous}))
+  {:name "integer"
+    :valid? int?
+    :base-measure :discrete})
 
+
+(define validate-cell
+  (gen [stattype value]
+    (assert ((get stattype :valid?) value)
+            (format "invalid value %s for stattype %s"
+                    value (get stattype :name)))))
+(define validate-row
+  (gen [types row]
+    (define violations
+        (filter (fn [[k v]] (validate-cell (safe-get types k) v))
+                row))
+    (assert (= (count violations) 0)
+               (format "invalid values %s for types %s" violations types))))
 
 ; Initialize and return a GPM for the given Metaprob procedure.
 
@@ -276,29 +301,13 @@
       :inputs inputs
       :address-map address-map}))
 
-; Initialize and return a GPM for the given Metaprob procedure.
-
-(define validate-cell
-  (gen [stattype value]
-    (assert ((get stattype :valid) value)
-            (format "invalid value %s for stattype %s"
-                    value (get stattype :name)))))
-
-(define validate-row
-  (gen [types row]
-    (define violations
-        (filter (fn [[k v]] (validate-cell (get types :k) v))
-                row))
-    (assert (= (count violations) 0)
-               (format "invalid values %s for types %s" violations types))))
-
-
 (defn -main [& args]
   (let [proc 1
-        outputs {1 real-type, 2 real-type}
-        inputs {3 real-type, 4 (make-ranged-type 0 10)}
+        outputs {1 real-type, 2 (make-nominal-type #{"foo" "bar" "baz"})}
+        inputs {3 integer-type, 4 (make-ranged-type 0 10)}
         address-map {1 :a, 2 :b, 3 :c, 4 :d}]
       (define gpm (make-cgpm proc outputs inputs address-map))
       (validate-cell (make-ranged-type 0 10) 2)
-      (validate-cell (make-ranged-type 0 10) 3)
+      (validate-row outputs {1 100, 2 "bar"})
+      (validate-row inputs {3 100, 4 5})
       (print gpm)))
