@@ -4,7 +4,7 @@
 (ns metaprob.examples.gpm
   (:refer-clojure :only [
     declare defn let format filter fn float? int?
-    repeat set])
+    repeat set vals])
 (:require
             [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
@@ -233,11 +233,17 @@
       (assert false (format "no such key %s in key set %s"
                             item (keys collection))))))
 
-(define make-ranged-type
+(define make-real-ranged-type
   (gen [low high]
       {:name (format "real[low=%s high=%s]" low high)
         :valid? (gen [x] (and (< low x) (< x high)))
         :base-measure :continuous}))
+
+(define make-int-ranged-type
+  (gen [low high]
+      {:name (format "integer[low=%s high=%s]" low high)
+        :valid? (gen [x] (and (int? x) (<= low x) (<= x high)))
+        :base-measure :discrete}))
 
 (define make-nominal-type
   (gen [categories]
@@ -292,16 +298,36 @@
     (assert (= (count missing) 0)
             (format "collection %s is missing keys %s" collection items))))
 
+(define assert-valid-input-address-map
+  (gen [input-address-map]
+    (define invalid-address-values
+      (filter
+        (fn [[k v]] (not (int? v)))
+        input-address-map))
+    ; Make sure that the values are all integers.
+    (assert (= (count invalid-address-values) 0)
+            (format "input addresses must map to integers %s" input-address-map))
+    ; Make sure that the integers are consecutive 0...n-1
+    (define sorted-address-values (sort (vals input-address-map)))
+    (define num-inputs (count sorted-address-values))
+    (assert (= (range 0 num-inputs) sorted-address-values)
+            (format "input addresses must map to consecutive integers %s"
+                    input-address-map))))
+
 (define make-cgpm
-  (gen [proc output-addrs-types input-addrs-types address-map]
+  (gen [proc output-addrs-types input-addrs-types
+        output-address-map input-address-map]
     (define output-addrs (set (keys output-addrs-types)))
     (define input-addrs (set (keys input-addrs-types)))
     (assert-no-overlap output-addrs input-addrs :outputs :inputs)
-    (assert-has-keys address-map (clojure.set/union output-addrs input-addrs))
+    (assert-has-keys output-address-map output-addrs)
+    (assert-has-keys input-address-map input-addrs)
+    (assert-valid-input-address-map input-address-map)
     (assoc proc
       :outputs output-addrs-types
       :inputs input-addrs-types
-      :address-map address-map)))
+      :output-address-map output-address-map
+      :input-address-map input-address-map)))
 
 ; Define a minimal inf.
 
@@ -317,18 +343,23 @@
 
 (defn -main [& args]
   (let [proc generate-dummy-row
-        outputs {1 real-type, 2 (make-nominal-type #{"foo" "bar" "baz"})}
-        inputs {3 integer-type, 4 (make-ranged-type 0 10)}
-        address-map {1 :a, 2 :b, 3 :c, 4 :d}]
-    (define gpm (make-cgpm proc outputs inputs address-map))
+        outputs {
+          :x0 (make-nominal-type #{1 2 3 4})
+          :x1 (make-int-ranged-type 9 199)
+          :x2 real-type
+          :x3 (make-nominal-type #{"foo" "bar" "baz"})}
+        inputs {:y real-type}
+        output-addr-map {:x0 "x0", :x1 "x1", :x2 "x2", :x3 "x3"}
+        input-addr-map {:y 0}]
+    (define gpm (make-cgpm proc outputs inputs output-addr-map input-addr-map))
     (print (gaussian 1 10))
     (define [retval trace weight]
             (infer :procedure generate-dummy-row :inputs [1]
                    :target-trace {"x3" {:value 10}}))
     (print trace)
-    (validate-cell (make-ranged-type 0 10) 2)
-    (validate-row outputs {1 100, 2 "bar"})
-    (validate-row inputs {3 100, 4 5})
+    (validate-cell (make-real-ranged-type 0 10) 2)
+    (validate-row outputs {:x0 3, :x3 "bar"})
+    (validate-row inputs {:y 100})
     (print 1)))
 
 ; Reproduce the random polynomial example.
