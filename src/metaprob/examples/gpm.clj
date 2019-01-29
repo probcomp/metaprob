@@ -297,10 +297,10 @@
     (assert-no-overlap output-addrs input-addrs :outputs :inputs)
     (assert-has-keys address-map (clojure.set/union output-addrs input-addrs))
     (print "hi")
-    {:proc proc
+    (assoc proc
       :outputs outputs
       :inputs inputs
-      :address-map address-map}))
+      :address-map address-map)))
 
 ; Define a minimal inf.
 
@@ -324,7 +324,7 @@
     [x0 x1 x2 x3]))
 
 (defn -main [& args]
-  (let [proc 1
+  (let [proc generate-dummy-row
         outputs {1 real-type, 2 (make-nominal-type #{"foo" "bar" "baz"})}
         inputs {3 integer-type, 4 (make-ranged-type 0 10)}
         address-map {1 :a, 2 :b, 3 :c, 4 :d}]
