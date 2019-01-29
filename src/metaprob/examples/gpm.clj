@@ -358,11 +358,24 @@
     (define converter (fn [[k v]] [(safe-get address-map k) {:value v}]))
     (into {} (map converter addrs-vals))))
 
+(define rekey-addrs
+  (gen [address-map addrs]
+    (define convert (fn [k] (safe-get address-map k)))
+    (map convert addrs)))
+
 (define extract-input-list
   (gen [address-map addrs-vals]
     (define compr (fn [k1 k2] (< (get address-map k1) (get address-map k2))))
     (define ordered-keys (sort compr (keys addrs-vals)))
     (map (fn [k] (get addrs-vals k)) ordered-keys)))
+
+(define extract-samples-from-trace
+  (gen [trace target-addrs output-addr-map]
+    (define extract
+      (fn [k]
+        (let [result (get trace (safe-get output-addr-map k))]
+          [k (safe-get result :value)])))
+    (into {} (map extract target-addrs))))
 
 (define validate-cgpm-logpdf
   (gen [cgpm target-addrs-vals constraint-addrs-vals input-addrs-vals]
@@ -411,6 +424,41 @@
           ; There are no constraints: log weight is zero.
     (- log-weight-numer log-weight-denom)))
 
+(define validate-simulate
+  (gen [cgpm target-addrs constraint-addrs-vals input-addrs-vals]
+    ; Confirm addresses are valid and do not overlap.
+    (define constraint-addrs (set (keys constraint-addrs-vals)))
+    (define input-addrs (set (keys input-addrs-vals)))
+    (assert-no-overlap target-addrs constraint-addrs :targets :constraints)
+    (assert-has-keys (get cgpm :output-addrs-types) (set target-addrs))
+    (assert-has-keys (get cgpm :output-addrs-types) constraint-addrs)
+    (assert-has-keys (get cgpm :input-addrs-types) input-addrs)
+    ; Confirm values match the statistical data types.
+    (validate-row (get cgpm :output-addrs-types) constraint-addrs-vals false)
+    (validate-row (get cgpm :input-addrs-types) input-addrs-vals true)))
+
+(define cgpm-simulate
+  (gen [cgpm target-addrs constraint-addrs-vals input-addrs-vals num-samples]
+    ; Error checking on the arguments.
+    (validate-simulate cgpm target-addrs constraint-addrs-vals input-addrs-vals)
+    ; Convert target, constraint, and input addresses from CGPM to inf.
+    (define target-addrs'
+      (rekey-addrs (get cgpm :output-address-map) target-addrs))
+    (define constraint-addrs-vals'
+      (rekey-addrs-vals (get cgpm :output-address-map) constraint-addrs-vals))
+    (define input-args
+      (extract-input-list (get cgpm :input-address-map) input-addrs-vals))
+    ; Run infer to obtain the samples.
+    (define [retval trace log-weight-numer]
+            (infer :procedure cgpm
+                   :inputs input-args
+                   :target-trace constraint-addrs-vals'))
+    ; Extract and return the requested samples.
+    (pprint trace)
+    (pprint target-addrs')
+    (extract-samples-from-trace
+      trace target-addrs (get cgpm :output-address-map))))
+
 ; Define a minimal inf.
 
 (define generate-dummy-row
@@ -438,17 +486,11 @@
                       inputs-addrs-types
                       output-addr-map
                       input-addr-map))
-    (define [retval trace weight]
-            (infer :procedure generate-dummy-row
-                   :inputs [100]
-                   :target-trace {"x1" {:value 200}}))
-    (print weight)
-    ; (validate-cell (make-real-ranged-type 0 10) 2)
-    ; (validate-row outputs-addrs-types {:x0 3, :x3 "bar"} false)
-    ; (validate-row inputs-addrs-types {:y 100} true)
-    ; (print (cgpm-logpdf gpm {:x0 2} {} {:y 100}))
-    ; (print (cgpm-logpdf gpm {:x1 120} {} {:y 100}))
-    ; (print (cgpm-logpdf gpm {:x0 2 :x1 120} {} {:y 100}))
+    (print (cgpm-logpdf gpm {:x0 2} {} {:y 100}))
+    (print (cgpm-logpdf gpm {:x1 120} {} {:y 100}))
+    (print (cgpm-logpdf gpm {:x0 2 :x1 120} {} {:y 100}))
+    (print (cgpm-simulate gpm [:x0 :x1 :x2] {} {:y 100} 10))
+    (print (cgpm-simulate gpm [:x0 :x1 :x2] {:x3 "foo"} {:y 100} 10))
     (print "exit status 0")))
 
 ; Reproduce the random polynomial example.
