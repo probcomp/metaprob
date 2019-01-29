@@ -4,7 +4,7 @@
 (ns metaprob.examples.gpm
   (:refer-clojure :only [
     declare defn into let format filter fn float? int?
-    merge repeat set vals])
+    merge repeatedly set vals])
 (:require
             [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
@@ -239,13 +239,15 @@
     (define input-args
       (extract-input-list (get cgpm :input-address-map) input-addrs-vals))
     ; Run infer to obtain the samples.
-    (define [retval trace log-weight-numer]
-            (infer :procedure cgpm
-                   :inputs input-args
-                   :target-trace constraint-addrs-vals'))
-    ; Extract and return the requested samples.
-    (extract-samples-from-trace
-      trace target-addrs (get cgpm :output-address-map))))
+    (repeatedly num-samples
+      (gen []
+        (define [retval trace log-weight-numer]
+          (infer :procedure cgpm
+                 :inputs input-args
+                 :target-trace constraint-addrs-vals'))
+        ; Extract and return the requested samples.
+        (extract-samples-from-trace
+          trace target-addrs (get cgpm :output-address-map))))))
 
 ; Define a minimal inf.
 
