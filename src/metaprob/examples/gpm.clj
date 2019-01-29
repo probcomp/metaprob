@@ -296,7 +296,6 @@
     (define input-addrs (set (keys inputs)))
     (assert-no-overlap output-addrs input-addrs :outputs :inputs)
     (assert-has-keys address-map (clojure.set/union output-addrs input-addrs))
-    (print "hi")
     (assoc proc
       :outputs outputs
       :inputs inputs
@@ -314,15 +313,6 @@
                                              [0.25 0.5 0.25]))
       [x0 x1 x2 x3])))
 
-(define generate-dummy-row-2
-  (gen [y]
-    (define x0 (uniform-sample [1 2 3 4]))
-    (define x1 (uniform 9 199))
-    (define x2 (gaussian 0 10))
-    (define x3 (labeled-categorical ["foo" "bar" "baz"]
-                                    [0.25 0.5 0.25]))
-    [x0 x1 x2 x3]))
-
 (defn -main [& args]
   (let [proc generate-dummy-row
         outputs {1 real-type, 2 (make-nominal-type #{"foo" "bar" "baz"})}
@@ -333,7 +323,7 @@
     (define [retval trace weight]
             (infer :procedure generate-dummy-row :inputs [1]
                    :target-trace {"x3" {:value 10}}))
-    (pprint trace)
+    (print trace)
     (validate-cell (make-ranged-type 0 10) 2)
     (validate-row outputs {1 100, 2 "bar"})
     (validate-row inputs {3 100, 4 5})
