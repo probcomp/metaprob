@@ -244,8 +244,6 @@
                    :inputs input-args
                    :target-trace constraint-addrs-vals'))
     ; Extract and return the requested samples.
-    (pprint trace)
-    (pprint target-addrs')
     (extract-samples-from-trace
       trace target-addrs (get cgpm :output-address-map))))
 
