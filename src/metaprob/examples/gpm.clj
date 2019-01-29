@@ -339,4 +339,31 @@
     (validate-row inputs {3 100, 4 5})
     (print 1)))
 
+; Reproduce the random polynomial example.
 
+(defn pow [x n]
+  (reduce * 1 (repeat n x)))
+
+(define generate-curve
+  (gen []
+    (define degree (uniform-sample [1 2 3 4]))
+    (define coeffs (replicate degree (gen [] (gaussian 0 1))))
+    (gen [x] (reduce + 0 (map (gen [n] (* (nth coeffs n) (pow x n)))
+                              (range degree))))))
+
+(define add-noise-to-curve
+  (gen [curve]
+    (gen [x]
+      (define mean (curve x))
+      (define variance 0.1)
+      (gaussian mean variance))))
+
+(define curve-model
+  (gen [xs]
+    (map (add-noise-to-curve (generate-curve)) xs)))
+
+; (defn -main [& args]
+;   (define xs '(-0.5 -0.3 0.1 0.2 0.5))
+;   (define ys (curve-model xs))
+;   (define result (infer-apply curve-model [xs] nil {"map" {0 {"gaussian" {:value 0.06}}}} nil))
+;   (print result))
