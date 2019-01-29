@@ -262,12 +262,14 @@
             (format "invalid value %s for stattype %s"
                     value (get stattype :name)))))
 (define validate-row
-  (gen [types row]
+  (gen [output-addrs-types row]
     (define violations
-        (filter (fn [[k v]] (validate-cell (safe-get types k) v))
-                row))
+        (filter
+          (fn [[k v]] (validate-cell (safe-get output-addrs-types k) v))
+          row))
     (assert (= (count violations) 0)
-               (format "invalid values %s for types %s" violations types))))
+               (format "invalid values %s for types %s"
+                       violations output-addrs-types))))
 
 ; Initialize and return a GPM for the given Metaprob procedure.
 
@@ -291,14 +293,14 @@
             (format "collection %s is missing keys %s" collection items))))
 
 (define make-cgpm
-  (gen [proc outputs inputs address-map]
-    (define output-addrs (set (keys outputs)))
-    (define input-addrs (set (keys inputs)))
+  (gen [proc output-addrs-types input-addrs-types address-map]
+    (define output-addrs (set (keys output-addrs-types)))
+    (define input-addrs (set (keys input-addrs-types)))
     (assert-no-overlap output-addrs input-addrs :outputs :inputs)
     (assert-has-keys address-map (clojure.set/union output-addrs input-addrs))
     (assoc proc
-      :outputs outputs
-      :inputs inputs
+      :outputs output-addrs-types
+      :inputs input-addrs-types
       :address-map address-map)))
 
 ; Define a minimal inf.
