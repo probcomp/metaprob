@@ -355,7 +355,7 @@
     (define ordered-keys (sort compr (keys addrs-vals)))
     (map (fn [k] (get addrs-vals k)) ordered-keys)))
 
-(define cgpm-logpdf
+(define validate-cgpm-logpdf
   (gen [cgpm target-addrs-vals constraint-addrs-vals input-addrs-vals]
     ; Confirm addresses are valid and do not overlap.
     (define target-addrs (set (keys target-addrs-vals)))
@@ -368,18 +368,23 @@
     ; Confirm values match the statistical data types.
     (validate-row (get cgpm :output-addrs-types) target-addrs-vals false)
     (validate-row (get cgpm :output-addrs-types) constraint-addrs-vals false)
-    (validate-row (get cgpm :input-addrs-types) input-addrs-vals true)
+    (validate-row (get cgpm :input-addrs-types) input-addrs-vals true)))
+
+(define cgpm-logpdf
+  (gen [cgpm target-addrs-vals constraint-addrs-vals input-addrs-vals]
+    ; Error checking on the arguments.
+    (validate-cgpm-logpdf
+      cgpm target-addrs-vals constraint-addrs-vals input-addrs-vals)
     ; Convert target, constraint, and input addresses from CGPM to inf.
-    (define output-address-map (get cgpm :output-address-map))
-    (define input-address-map (get cgpm :input-address-map))
     (define target-addrs-vals'
-      (rekey-addrs-vals output-address-map target-addrs-vals))
+      (rekey-addrs-vals (get cgpm :output-address-map) target-addrs-vals))
     (define constraint-addrs-vals'
-      (rekey-addrs-vals output-address-map constraint-addrs-vals))
+      (rekey-addrs-vals (get cgpm :output-address-map) constraint-addrs-vals))
     (define target-constraint-addrs-vals
       (merge target-addrs-vals' constraint-addrs-vals'))
-    (define input-args (extract-input-list input-address-map input-addrs-vals))
-    ; Run infer.
+    (define input-args
+      (extract-input-list (get cgpm :input-address-map) input-addrs-vals))
+    ; Run infer to obtain probabilities.
     (define [retval trace log-weight-numer]
             (infer :procedure cgpm
                    :inputs input-args
