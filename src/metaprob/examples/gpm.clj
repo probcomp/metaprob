@@ -3,8 +3,8 @@
 
 (ns metaprob.examples.gpm
   (:refer-clojure :only [
-    declare defn let format filter fn float? int?
-    repeat set vals])
+    declare defn into let format filter fn float? int?
+    merge repeat set vals])
 (:require
             [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
@@ -261,30 +261,37 @@
     :valid? int?
     :base-measure :discrete})
 
-
 (define validate-cell
   (gen [stattype value]
     (assert ((get stattype :valid?) value)
-            (format "invalid value %s for stattype %s"
+            (format "invalid value \"%s\" for stattype %s"
                     value (get stattype :name)))))
+
 (define validate-row
-  (gen [output-addrs-types addrs-vals]
+  (gen [addrs-types addrs-vals check-all-exist?]
     (define violations
         (filter
-          (fn [[k v]] (validate-cell (safe-get output-addrs-types k) v))
+          (fn [[k v]] (validate-cell (safe-get addrs-types k) v))
           addrs-vals))
     (assert (= (count violations) 0)
                (format "invalid values %s for types %s"
-                       violations output-addrs-types))))
+                        violations addrs-types))
+    (if check-all-exist?
+        (assert (= (set (keys addrs-types)) (set (keys addrs-vals)))
+                (format "row %s must have values for %s"
+                        addrs-vals addrs-types))
+        nil)))
 
 ; Initialize and return a GPM for the given Metaprob procedure.
 
+; Check whether set-a and set-b have the same number of items.
 (define assert-same-length
   (gen [set-a set-b name-a name-b]
     (assert (= (count set-a) (count set-b))
             (format "%s %s and %s %s must have same length"
                     name-a set-a name-b set-b))))
 
+; Check whether set-a and set-b have no overlapping items.
 (define assert-no-overlap
   (gen [set-a set-b name-a name-b]
     (define overlap (clojure.set/intersection set-a set-b))
@@ -292,11 +299,14 @@
             (format "%s %s and %s %s must be disjoint"
                     name-a set-a name-b set-b))))
 
+; Check whether all the items are keys of the given collection.
 (define assert-has-keys
   (gen [collection items]
-    (define missing (clojure.set/difference items (keys collection)))
-    (assert (= (count missing) 0)
-            (format "collection %s is missing keys %s" collection items))))
+    (define collection-keys (set (keys collection)))
+    (define invalid-items (clojure.set/difference items collection-keys))
+    (assert (= (count invalid-items) 0)
+            (format "key set %s does not have some of the keys in %s"
+                     collection-keys items))))
 
 (define assert-valid-input-address-map
   (gen [input-address-map]
@@ -315,8 +325,11 @@
                     input-address-map))))
 
 (define make-cgpm
-  (gen [proc output-addrs-types input-addrs-types
-        output-address-map input-address-map]
+  (gen [proc
+        output-addrs-types
+        input-addrs-types
+        output-address-map
+        input-address-map]
     (define output-addrs (set (keys output-addrs-types)))
     (define input-addrs (set (keys input-addrs-types)))
     (assert-no-overlap output-addrs input-addrs :outputs :inputs)
@@ -324,10 +337,65 @@
     (assert-has-keys input-address-map input-addrs)
     (assert-valid-input-address-map input-address-map)
     (assoc proc
-      :outputs output-addrs-types
-      :inputs input-addrs-types
+      :output-addrs-types output-addrs-types
+      :input-addrs-types input-addrs-types
       :output-address-map output-address-map
       :input-address-map input-address-map)))
+
+; Implement logpdf and simulate.
+
+(define rekey-addrs-vals
+  (gen [address-map addrs-vals]
+    (define converter (fn [[k v]] [(safe-get address-map k) {:value v}]))
+    (into {} (map converter addrs-vals))))
+
+(define extract-input-list
+  (gen [address-map addrs-vals]
+    (define compr (fn [k1 k2] (< (get address-map k1) (get address-map k2))))
+    (define ordered-keys (sort compr (keys addrs-vals)))
+    (map (fn [k] (get addrs-vals k)) ordered-keys)))
+
+(define cgpm-logpdf
+  (gen [cgpm target-addrs-vals constraint-addrs-vals input-addrs-vals]
+    ; Confirm addresses are valid and do not overlap.
+    (define target-addrs (set (keys target-addrs-vals)))
+    (define constraint-addrs (set (keys constraint-addrs-vals)))
+    (define input-addrs (set (keys input-addrs-vals)))
+    (assert-no-overlap target-addrs constraint-addrs :targets :constraints)
+    (assert-has-keys (get cgpm :output-addrs-types) target-addrs)
+    (assert-has-keys (get cgpm :output-addrs-types) constraint-addrs)
+    (assert-has-keys (get cgpm :input-addrs-types) input-addrs)
+    ; Confirm values match the statistical data types.
+    (validate-row (get cgpm :output-addrs-types) target-addrs-vals false)
+    (validate-row (get cgpm :output-addrs-types) constraint-addrs-vals false)
+    (validate-row (get cgpm :input-addrs-types) input-addrs-vals true)
+    ; Convert target, constraint, and input addresses from CGPM to inf.
+    (define output-address-map (get cgpm :output-address-map))
+    (define input-address-map (get cgpm :input-address-map))
+    (define target-addrs-vals'
+      (rekey-addrs-vals output-address-map target-addrs-vals))
+    (define constraint-addrs-vals'
+      (rekey-addrs-vals output-address-map constraint-addrs-vals))
+    (define target-constraint-addrs-vals
+      (merge target-addrs-vals' constraint-addrs-vals'))
+    (define input-args (extract-input-list input-address-map input-addrs-vals))
+    ; Run infer.
+    (define [retval trace log-weight-numer]
+            (infer :procedure cgpm
+                   :inputs input-args
+                   :target-trace target-constraint-addrs-vals))
+    (define log-weight-denom
+      (if (> (count constraint-addrs-vals') 0)
+          ; There are constraints: find marginal probability of constraints.
+          (block
+            (define [retval trace weight]
+                    (infer :procedure cgpm
+                           :inputs input-args
+                           :target-trace target-constraint-addrs-vals))
+            weight)
+          0))
+          ; There are no constraints: log weight is zero.
+    (- log-weight-numer log-weight-denom)))
 
 ; Define a minimal inf.
 
@@ -343,24 +411,31 @@
 
 (defn -main [& args]
   (let [proc generate-dummy-row
-        outputs {
+        outputs-addrs-types {
           :x0 (make-nominal-type #{1 2 3 4})
           :x1 (make-int-ranged-type 9 199)
           :x2 real-type
           :x3 (make-nominal-type #{"foo" "bar" "baz"})}
-        inputs {:y real-type}
+        inputs-addrs-types {:y real-type}
         output-addr-map {:x0 "x0", :x1 "x1", :x2 "x2", :x3 "x3"}
         input-addr-map {:y 0}]
-    (define gpm (make-cgpm proc outputs inputs output-addr-map input-addr-map))
-    (print (gaussian 1 10))
+    (define gpm
+      (make-cgpm proc outputs-addrs-types
+                      inputs-addrs-types
+                      output-addr-map
+                      input-addr-map))
     (define [retval trace weight]
-            (infer :procedure generate-dummy-row :inputs [1]
-                   :target-trace {"x3" {:value 10}}))
-    (print trace)
-    (validate-cell (make-real-ranged-type 0 10) 2)
-    (validate-row outputs {:x0 3, :x3 "bar"})
-    (validate-row inputs {:y 100})
-    (print 1)))
+            (infer :procedure generate-dummy-row
+                   :inputs [100]
+                   :target-trace {"x1" {:value 200}}))
+    (print weight)
+    ; (validate-cell (make-real-ranged-type 0 10) 2)
+    ; (validate-row outputs-addrs-types {:x0 3, :x3 "bar"} false)
+    ; (validate-row inputs-addrs-types {:y 100} true)
+    ; (print (cgpm-logpdf gpm {:x0 2} {} {:y 100}))
+    ; (print (cgpm-logpdf gpm {:x1 120} {} {:y 100}))
+    ; (print (cgpm-logpdf gpm {:x0 2 :x1 120} {} {:y 100}))
+    (print "exit status 0")))
 
 ; Reproduce the random polynomial example.
 
