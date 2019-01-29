@@ -262,11 +262,11 @@
             (format "invalid value %s for stattype %s"
                     value (get stattype :name)))))
 (define validate-row
-  (gen [output-addrs-types row]
+  (gen [output-addrs-types addrs-vals]
     (define violations
         (filter
           (fn [[k v]] (validate-cell (safe-get output-addrs-types k) v))
-          row))
+          addrs-vals))
     (assert (= (count violations) 0)
                (format "invalid values %s for types %s"
                        violations output-addrs-types))))
