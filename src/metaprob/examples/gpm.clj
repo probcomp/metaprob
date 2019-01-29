@@ -324,6 +324,14 @@
             (format "input addresses must map to consecutive integers %s"
                     input-address-map))))
 
+(define assert-valid-output-address-map
+  (gen [output-address-map]
+    ; The values of the address map should be distinct.
+    (define values (vals output-address-map))
+    (assert (= (count (set values)) (count values))
+            (format "addresses should have distinct values %s"
+                    output-address-map))))
+
 (define make-cgpm
   (gen [proc
         output-addrs-types
@@ -335,6 +343,7 @@
     (assert-no-overlap output-addrs input-addrs :outputs :inputs)
     (assert-has-keys output-address-map output-addrs)
     (assert-has-keys input-address-map input-addrs)
+    (assert-valid-output-address-map output-address-map)
     (assert-valid-input-address-map input-address-map)
     (assoc proc
       :output-addrs-types output-addrs-types
