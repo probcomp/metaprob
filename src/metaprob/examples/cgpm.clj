@@ -298,12 +298,10 @@
         constraint-addrs-vals
         input-addrs-vals
         num-samples]
-    (print "computing mi")
     ; Obtain samples for simple Monte Carlo integration.
     (define samples
       (cgpm-simulate cgpm (into [] (concat target-addrs-0 target-addrs-1))
                           constraint-addrs-vals input-addrs-vals num-samples))
-    (print samples)
     ; Compute joint log probabilities.
     (define logp-joint
       (map (fn [sample] (cgpm-logpdf cgpm sample constraint-addrs-vals
@@ -319,9 +317,6 @@
                                      constraint-addrs-vals input-addrs-vals))
            samples))
     ; MI is average log joint minus the average sum of log marginals.
-    (print logp-joint)
-    (print logp-marginal-0)
-    (print logp-marginal-1)
     (- (compute-avg logp-joint)
        (+ (compute-avg logp-marginal-0)
           (compute-avg logp-marginal-1)))))
