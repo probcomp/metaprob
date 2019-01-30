@@ -22,8 +22,8 @@ To run the Metaprob tutorial in a Docker you will need to run the following comm
 
 Please visit Docker's own installation documentation:
 
-    * for Mac: [Install Docker Desktop for Mac](https://docs.docker.com/docker-for-mac/install/)
-    * for Linux: [Debian](https://docs.docker.com/install/linux/docker-ce/debian/), [Ubuntu](https://docs.docker.com/install/linux/docker-ce/ubuntu/), [Fedoroa](https://docs.docker.com/install/linux/docker-ce/fedora/), [CentOS](https://docs.docker.com/install/linux/docker-ce/centos/). Please remember to complete the [post-installation steps for Linux](https://docs.docker.com/install/linux/linux-postinstall/).
+* for Mac: [Install Docker Desktop for Mac](https://docs.docker.com/docker-for-mac/install/)
+* for Linux: [Debian](https://docs.docker.com/install/linux/docker-ce/debian/), [Ubuntu](https://docs.docker.com/install/linux/docker-ce/ubuntu/), [Fedoroa](https://docs.docker.com/install/linux/docker-ce/fedora/), [CentOS](https://docs.docker.com/install/linux/docker-ce/centos/). Please remember to complete the [post-installation steps for Linux](https://docs.docker.com/install/linux/linux-postinstall/).
 
 If you've installed Docker but the instructions above are still failing, make sure Docker is running. On the Mac, double-click the Docker application. The "whale" should appear in your status bar.
 
