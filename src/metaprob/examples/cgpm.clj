@@ -196,25 +196,25 @@
   (gen [cgpm
         target-addrs-0
         target-addrs-1
-        constraint-addrs
+        controlling-addrs
         constraint-addrs-vals
         input-addrs-vals
         num-samples-inner
         num-samples-outer]
     ; Make sure that fixed and controlling constraints do not overlap.
-    (assert-no-overlap (set constraint-addrs)
+    (assert-no-overlap (set controlling-addrs)
                        (set (keys constraint-addrs-vals))
                        :constraint-addrs
                        :constraint-addrs-vals)
     ; Determine whether to average over the controlling variables.
-    (if (= (count constraint-addrs) 0)
+    (if (= (count controlling-addrs) 0)
       ; No controlling variables: compute and return the MI directly.
       (compute-mi cgpm target-addrs-0 target-addrs-1 constraint-addrs-vals
                   input-addrs-vals num-samples-inner)
       ; Controlling variables: compute MI by averaging over them.
       (block
         ; Obtain samples for simple Monte Carlo integration.
-        (define samples (cgpm-simulate cgpm constraint-addrs
+        (define samples (cgpm-simulate cgpm controlling-addrs
                                        constraint-addrs-vals
                                        input-addrs-vals num-samples-outer))
         ; Pool the sampled constraints with user-provided constraints.
