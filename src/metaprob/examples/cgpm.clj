@@ -16,14 +16,14 @@
 ; ----------------------
 
 ; Constructor of real statistical type with support [low, high].
-(define make-real-ranged-type
+(define make-ranged-real-type
   (gen [low high]
       {:name (format "real[low=%s high=%s]" low high)
        :valid? (gen [x] (and (< low x) (< x high)))
        :base-measure :continuous}))
 
 ; Constructor of real statistical type with support {low, ..., high}.
-(define make-int-ranged-type
+(define make-ranged-integer-type
   (gen [low high]
       {:name (format "integer[low=%s high=%s]" low high)
        :valid? (gen [x] (and (int? x) (<= low x) (<= x high)))
@@ -32,7 +32,7 @@
 ; Constructor of a nominal statistical type with the given categories.
 (define make-nominal-type
   (gen [categories]
-    {:name (format "nominal[categories=%s]" categories)
+    {:name (format "nominal[set-of-values=%s]" categories)
      :valid? (gen [x] (clojure.core/contains? categories x))
      :base-measure :discrete}))
 
@@ -299,7 +299,7 @@
   ; Make the cgpm by defining output names, statistical types, and address maps.
   (define outputs-addrs-types
     {:x0 (make-nominal-type #{1 2 3 4})
-     :x1 (make-real-ranged-type 9 199)
+     :x1 (make-ranged-real-type 9 199)
      :x2 real-type
      :x3 (make-nominal-type #{"foo" "bar" "baz"})})
   (define inputs-addrs-types {:y real-type})
