@@ -393,12 +393,8 @@
     (validate-cgpm-kl-divergence cgpm target-addrs-0 target-addrs-1)
     ; Obtain the p samples for simple Monte Carlo integration.
     (define samples-p
-      (cgpm-simulate
-        cgpm
-        target-addrs-0
-        constraint-addrs-vals-0
-        input-addrs-vals
-        num-samples))
+      (cgpm-simulate cgpm target-addrs-0 constraint-addrs-vals-0
+                     input-addrs-vals num-samples))
     ; Obtain the q samples.
     (define keymap (zipmap target-addrs-0 target-addrs-1))
     (define samples-q
@@ -442,10 +438,11 @@
         output-addr-map {:x0 "x0", :x1 "x1", :x2 "x2", :x3 "x3"}
         input-addr-map {:y 0}]
     (define cgpm
-      (make-cgpm proc outputs-addrs-types
-                      inputs-addrs-types
-                      output-addr-map
-                      input-addr-map))
+      (make-cgpm proc
+                 outputs-addrs-types
+                 inputs-addrs-types
+                 output-addr-map
+                 input-addr-map))
     (print (cgpm-logpdf cgpm {:x0 2} {} {:y 100}))
     (print (cgpm-logpdf cgpm {:x1 120} {} {:y 100}))
     (print (cgpm-logpdf cgpm {:x0 2 :x1 120} {} {:y 100}))
