@@ -402,21 +402,18 @@
     ; Obtain the q samples.
     (define keymap (zipmap target-addrs-0 target-addrs-1))
     (define samples-q
-      (map
-        (fn [sample] (rekey-dict keymap sample))
-        samples-p))
+      (map (fn [sample] (rekey-dict keymap sample))
+           samples-p))
     ; Compute the probabilities under p.
     (define logp-p
-      (map
-        (fn [sample]
-          (cgpm-logpdf cgpm sample constraint-addrs-vals-0 input-addrs-vals))
-        samples-p))
+      (map (fn [sample] (cgpm-logpdf cgpm sample constraint-addrs-vals-0
+                         input-addrs-vals))
+           samples-p))
     ; Compute the probabilities under q.
     (define logp-q
-      (map
-        (fn [sample]
-          (cgpm-logpdf cgpm sample constraint-addrs-vals-1 input-addrs-vals))
-        samples-q))
+      (map (fn [sample] (cgpm-logpdf cgpm sample constraint-addrs-vals-1
+                         input-addrs-vals))
+           samples-q))
     ; KL is average log ratio.
     (- (compute-avg logp-p) (compute-avg logp-q))))
 
