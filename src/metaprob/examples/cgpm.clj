@@ -313,7 +313,7 @@
                input-addr-map))
   ; Example queries on simulate and logpdf.
   (print (cgpm-logpdf cgpm {:x0 2} {} {:y 100}))
-  (print (cgpm-logpdf cgpm {:x1 120} {} {:y 100}))
+  (print (cgpm-logpdf cgpm {:x1 120} {:x0 2} {:y 100}))
   (print (cgpm-logpdf cgpm {:x0 2 :x1 120} {} {:y 100}))
   (print (cgpm-simulate cgpm [:x0 :x1 :x2] {} {:y 100} 10))
   (print (cgpm-simulate cgpm [:x0 :x1 :x2] {:x3 "foo"} {:y 100} 10))
