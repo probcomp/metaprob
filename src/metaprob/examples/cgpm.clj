@@ -294,6 +294,7 @@
                                              [0.25 0.5 0.25]))
       [x0 x1 x2 x3])))
 
+; Main runner, invoke from command line via: clojure -m metaprob.examples.cgpm
 (defn -main [& args]
   ; Make the cgpm by defining output names, statistical types, and address maps.
   (define outputs-addrs-types
