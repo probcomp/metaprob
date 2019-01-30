@@ -15,7 +15,8 @@
             [metaprob.interpreters :refer :all]))
 
 
-; Statistical data types
+; Check if collection contains item before invoking get.
+; Throws an assertion error in item is not in collection (instead of nil).
 (define safe-get
   (gen [collection item]
     (if (contains? collection item)
@@ -23,40 +24,50 @@
       (assert false (format "no such key %s in key set %s"
                             item (keys collection))))))
 
+; Constructor of real statistical type with support [low, high].
 (define make-real-ranged-type
   (gen [low high]
       {:name (format "real[low=%s high=%s]" low high)
         :valid? (gen [x] (and (< low x) (< x high)))
         :base-measure :continuous}))
 
+; Constructor of real statistical type with support {low, ..., high}.
 (define make-int-ranged-type
   (gen [low high]
       {:name (format "integer[low=%s high=%s]" low high)
         :valid? (gen [x] (and (int? x) (<= low x) (<= x high)))
         :base-measure :discrete}))
 
+; Constructor of a nominal statistical type with the given categories.
 (define make-nominal-type
   (gen [categories]
     {:name (format "nominal[categories=%s]" categories)
       :valid? (gen [x] (clojure.core/contains? categories x))
       :base-measure :discrete}))
 
+; The real statistical type i.e. support in [-infinity, infinity].
 (define real-type
   {:name "real"
     :valid? (gen [x] (or (float? x) (int? x)))
     :base-measure :continuous})
 
+; The integer statistical type i.e. support {-infinity, ..., infinity}.
 (define integer-type
   {:name "integer"
     :valid? int?
     :base-measure :discrete})
 
+; Assert that value is valid for given statistical type.
 (define validate-cell
   (gen [stattype value]
     (assert ((get stattype :valid?) value)
             (format "invalid value \"%s\" for stattype %s"
                     value (get stattype :name)))))
 
+; Assert that row of values are valid for given statistical types.
+; addrs-types is a dictionary from keys to statistical types.
+; addrs-vals is a dictionary from keys to values.
+; check-all-exist? boolean to assert keys(addrs-vals) == keys(addrs-types).
 (define validate-row
   (gen [addrs-types addrs-vals check-all-exist?]
     (define violations
@@ -72,16 +83,14 @@
                         addrs-vals addrs-types))
         nil)))
 
-; Initialize and return a GPM for the given Metaprob procedure.
-
-; Check whether set-a and set-b have the same number of items.
+; Assert that set-a and set-b have the same number of items.
 (define assert-same-length
   (gen [set-a set-b name-a name-b]
     (assert (= (count set-a) (count set-b))
             (format "%s %s and %s %s must have same length"
                     name-a set-a name-b set-b))))
 
-; Check whether set-a and set-b have no overlapping items.
+; Assert that set-a and set-b have no overlapping items.
 (define assert-no-overlap
   (gen [set-a set-b name-a name-b]
     (define overlap (clojure.set/intersection set-a set-b))
@@ -89,7 +98,7 @@
             (format "%s %s and %s %s must be disjoint"
                     name-a set-a name-b set-b))))
 
-; Check whether all the items are keys of the given collection.
+; Assert that items is a subset of the keys of the given collection.
 (define assert-has-keys
   (gen [collection items]
     (define collection-keys (set (keys collection)))
@@ -98,6 +107,8 @@
             (format "key set %s does not have some of the keys in %s"
                      collection-keys items))))
 
+; Assert that the input-address-map for a CGPM is valid.
+; The values of input-address-map must be contiguous integers starting at 0.
 (define assert-valid-input-address-map
   (gen [input-address-map]
     (define invalid-address-values
@@ -114,6 +125,8 @@
             (format "input addresses must map to consecutive integers %s"
                     input-address-map))))
 
+; Assert that the output-address-map for a GPM is valid.
+; The values of output-address-map must be distinct.
 (define assert-valid-output-address-map
   (gen [output-address-map]
     ; The values of the address map should be distinct.
@@ -121,6 +134,8 @@
     (assert (= (count (set values)) (count values))
             (format "addresses should have distinct values %s"
                     output-address-map))))
+
+;; INITIALIZE
 
 (define make-cgpm
   (gen [proc
@@ -141,24 +156,26 @@
       :output-address-map output-address-map
       :input-address-map input-address-map)))
 
-; Implement logpdf and simulate.
-
+; Convert a CGPM row into a Metaprob target-trace.
 (define rekey-addrs-vals
   (gen [address-map addrs-vals]
     (define converter (fn [[k v]] [(safe-get address-map k) {:value v}]))
     (into {} (map converter addrs-vals))))
 
+; Convert a list of CGPM addresses into Metaprob addresses.
 (define rekey-addrs
   (gen [address-map addrs]
     (define convert (fn [k] (safe-get address-map k)))
     (map convert addrs)))
 
+; Convert a CGPM row into list of arguments of Metaprob gen.
 (define extract-input-list
   (gen [address-map addrs-vals]
     (define compr (fn [k1 k2] (< (get address-map k1) (get address-map k2))))
     (define ordered-keys (sort compr (keys addrs-vals)))
     (map (fn [k] (get addrs-vals k)) ordered-keys)))
 
+; Convert a Metaprob trace to a CGPM row.
 (define extract-samples-from-trace
   (gen [trace target-addrs output-addr-map]
     (define extract
@@ -166,6 +183,8 @@
         (let [result (get trace (safe-get output-addr-map k))]
           [k (safe-get result :value)])))
     (into {} (map extract target-addrs))))
+
+;; LOGPDF
 
 (define validate-cgpm-logpdf
   (gen [cgpm target-addrs-vals constraint-addrs-vals input-addrs-vals]
@@ -214,6 +233,8 @@
           ; There are no constraints: log weight is zero.
     (- log-weight-numer log-weight-denom)))
 
+;; SIMULATE
+
 (define validate-simulate
   (gen [cgpm target-addrs constraint-addrs-vals input-addrs-vals]
     ; Confirm addresses are valid and do not overlap.
@@ -249,7 +270,7 @@
         (extract-samples-from-trace
           trace target-addrs (get cgpm :output-address-map))))))
 
-; Define a minimal inf.
+;; TEST
 
 (define generate-dummy-row
   (gen [y]
