@@ -43,7 +43,7 @@
 
         (is (trace-has-value?
              output
-             '(2 "weight" "then" 0 "uniform")))
+             '(1 "weight" "then" "uniform")))
         (is (trace-has-value? output (datum-addr 1)))
         (is (trace-has-value? output (datum-addr 2)))
         (is (not (trace-has-value? output (datum-addr (+ number-of-flips 10)))))

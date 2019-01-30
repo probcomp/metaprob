@@ -31,3 +31,4 @@ parsings
 .lein-failures
 .lein_classpath
 bin/lein
+/src/metaprob/tutorial/.ipynb_checkpoints/
