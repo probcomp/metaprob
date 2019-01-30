@@ -1,13 +1,13 @@
 (ns metaprob.examples.cgpm_utils
   (:refer-clojure :only [
     int? into let filter fn format set vals])
-(:require
-            [metaprob.syntax :refer :all]
-            [metaprob.builtin :refer :all]
-            [metaprob.prelude :refer :all]
-            [metaprob.distributions :refer :all :exclude [flip]]
-            [metaprob.inference :refer :all]
-            [metaprob.interpreters :refer :all]))
+  (:require
+    [metaprob.syntax :refer :all]
+    [metaprob.builtin :refer :all]
+    [metaprob.prelude :refer :all]
+    [metaprob.distributions :refer :all :exclude [flip]]
+    [metaprob.inference :refer :all]
+    [metaprob.interpreters :refer :all]))
 
 ; ------------------------
 ; CGPM INTERFACE UTILITIES

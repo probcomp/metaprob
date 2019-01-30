@@ -1,16 +1,15 @@
 (ns metaprob.examples.cgpm
   (:refer-clojure :only [
     defn into int? float? fn format merge repeatedly set select-keys zipmap])
-(:require
-            [metaprob.syntax :refer :all]
-            [metaprob.builtin :refer :all]
-            [metaprob.prelude :refer :all]
-            [metaprob.distributions :refer :all :exclude [flip]]
-            [metaprob.examples.gaussian :refer [gaussian]]
-            [metaprob.examples.cgpm_utils :refer :all]
-            [metaprob.inference :refer :all]
-            [metaprob.interpreters :refer :all]))
-
+  (:require
+    [metaprob.syntax :refer :all]
+    [metaprob.builtin :refer :all]
+    [metaprob.prelude :refer :all]
+    [metaprob.distributions :refer :all :exclude [flip]]
+    [metaprob.examples.gaussian :refer [gaussian]]
+    [metaprob.examples.cgpm_utils :refer :all]
+    [metaprob.inference :refer :all]
+    [metaprob.interpreters :refer :all]))
 
 ; ----------------------
 ; STATISTICAL DATA TYPES
