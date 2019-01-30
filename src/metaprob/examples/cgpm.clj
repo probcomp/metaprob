@@ -241,7 +241,7 @@
             (define [retval trace weight]
                     (infer :procedure cgpm
                            :inputs input-args
-                           :target-trace target-constraint-addrs-vals))
+                           :target-trace constraint-addrs-vals'))
             weight)
           0))
           ; There are no constraints: log weight is zero.
