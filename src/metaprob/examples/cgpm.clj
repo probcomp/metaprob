@@ -1,7 +1,6 @@
 (ns metaprob.examples.cgpm
   (:refer-clojure :only [
-    declare defn into let format filter fn float? int?
-    merge repeatedly set select-keys vals zipmap])
+    defn into int? float? fn format merge repeatedly set select-keys zipmap])
 (:require
             [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
