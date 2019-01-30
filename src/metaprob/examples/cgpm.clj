@@ -1,7 +1,7 @@
 ;; Selected nuggets from python-metaprob's src/inference.vnts file
 ;; See also figure 29 of the 7/17 chapter mss
 
-(ns metaprob.examples.gpm
+(ns metaprob.examples.cgpm
   (:refer-clojure :only [
     declare defn into let format filter fn float? int?
     merge repeatedly set vals])
