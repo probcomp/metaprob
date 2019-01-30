@@ -23,34 +23,34 @@
 (define make-real-ranged-type
   (gen [low high]
       {:name (format "real[low=%s high=%s]" low high)
-        :valid? (gen [x] (and (< low x) (< x high)))
-        :base-measure :continuous}))
+       :valid? (gen [x] (and (< low x) (< x high)))
+       :base-measure :continuous}))
 
 ; Constructor of real statistical type with support {low, ..., high}.
 (define make-int-ranged-type
   (gen [low high]
       {:name (format "integer[low=%s high=%s]" low high)
-        :valid? (gen [x] (and (int? x) (<= low x) (<= x high)))
-        :base-measure :discrete}))
+       :valid? (gen [x] (and (int? x) (<= low x) (<= x high)))
+       :base-measure :discrete}))
 
 ; Constructor of a nominal statistical type with the given categories.
 (define make-nominal-type
   (gen [categories]
     {:name (format "nominal[categories=%s]" categories)
-      :valid? (gen [x] (clojure.core/contains? categories x))
-      :base-measure :discrete}))
+     :valid? (gen [x] (clojure.core/contains? categories x))
+     :base-measure :discrete}))
 
 ; The real statistical type i.e. support in [-infinity, infinity].
 (define real-type
   {:name "real"
-    :valid? (gen [x] (or (float? x) (int? x)))
-    :base-measure :continuous})
+   :valid? (gen [x] (or (float? x) (int? x)))
+   :base-measure :continuous})
 
 ; The integer statistical type i.e. support {-infinity, ..., infinity}.
 (define integer-type
   {:name "integer"
-    :valid? int?
-    :base-measure :discrete})
+   :valid? int?
+   :base-measure :discrete})
 
 
 ; ------------------------
