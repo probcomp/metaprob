@@ -1,4 +1,3 @@
-
 all: bin/lein .lein_classpath
 	@echo "Good to go!"
 
@@ -38,7 +37,7 @@ cljtest:
 .PHONY: cljtest
 
 cljtestlong:
-	time clojure -Atest -d src -n metaprob.examples.long-test
+	clojure -Atest -d src -n metaprob.examples.long-test
 .PHONY: cljtestlong
 
 # Create directory of .trace files from .vnts files.
@@ -79,7 +78,7 @@ SAMPLES=results/samples_from_the_gaussian_demo_prior.samples
 
 $(SAMPLES):
 	mkdir -p results
-	time clojure -Aexamples -a --samples $(COUNT)
+	clojure -Aexamples -a --samples $(COUNT)
 
 $(SAMPLES).png: $(SAMPLES)
 	for f in results/*.samples; do bin/gnuplot-hist $$f; done
@@ -90,3 +89,42 @@ view: $(SAMPLES).png
 # suppress '.#foo.clj' somehow
 tags:
 	etags --language=lisp `find src -name "[a-z]*.clj"` `find test -name "[a-z]*.clj"`
+
+# Targets for manipulating Docker below.
+docker-build:
+	docker build -t probcomp/metaprob-clojure:latest .
+.PHONY: docker-build
+
+docker-test:
+	docker run -t probcomp/metaprob-clojure:latest bash -c "make test"
+.PHONY: docker-test
+
+docker-bash:
+	docker run \
+		-it \
+		--mount type=bind,source=${HOME}/.m2,destination=/home/metaprob/.m2 \
+		--mount type=bind,source=${CURDIR},destination=/home/metaprob/projects/metaprob-clojure \
+		probcomp/metaprob-clojure:latest \
+		bash
+.PHONY: docker-cider
+
+docker-repl:
+	docker run \
+		-it \
+		--mount type=bind,source=${HOME}/.m2,destination=/home/metaprob/.m2 \
+		--mount type=bind,source=${CURDIR},destination=/home/metaprob/projects/metaprob-clojure \
+		probcomp/metaprob-clojure:latest \
+		bash -c "sleep 1;clj"
+# For more information on why this sleep is necessary see this pull request:
+# https://github.com/sflyr/docker-sqlplus/pull/2
+.PHONY: docker-repl
+
+docker-notebook:
+	docker run \
+		-it \
+		--mount type=bind,source=${HOME}/.m2,destination=/home/metaprob/.m2 \
+		--mount type=bind,source=${CURDIR},destination=/home/metaprob/projects/metaprob-clojure \
+		--publish 8888:8888/tcp \
+		probcomp/metaprob-clojure:latest \
+		bash -c "lein jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --notebook-dir ./tutorial"
+.PHONY: docker-notebook
