@@ -417,6 +417,7 @@
 ; AD-HOC SMOKE TEST HARNESS
 ; -------------------------
 
+; The Metaprob gen that will be converted into a CGPM.
 (define generate-dummy-row
   (gen [y]
     (with-explicit-tracer t
@@ -428,32 +429,33 @@
       [x0 x1 x2 x3])))
 
 (defn -main [& args]
-  (let [proc generate-dummy-row
-        outputs-addrs-types {
-          :x0 (make-nominal-type #{1 2 3 4})
-          :x1 (make-real-ranged-type 9 199)
-          :x2 real-type
-          :x3 (make-nominal-type #{"foo" "bar" "baz"})}
-        inputs-addrs-types {:y real-type}
-        output-addr-map {:x0 "x0", :x1 "x1", :x2 "x2", :x3 "x3"}
-        input-addr-map {:y 0}]
-    (define cgpm
-      (make-cgpm proc
-                 outputs-addrs-types
-                 inputs-addrs-types
-                 output-addr-map
-                 input-addr-map))
-    (print (cgpm-logpdf cgpm {:x0 2} {} {:y 100}))
-    (print (cgpm-logpdf cgpm {:x1 120} {} {:y 100}))
-    (print (cgpm-logpdf cgpm {:x0 2 :x1 120} {} {:y 100}))
-    (print (cgpm-simulate cgpm [:x0 :x1 :x2] {} {:y 100} 10))
-    (print (cgpm-simulate cgpm [:x0 :x1 :x2] {:x3 "foo"} {:y 100} 10))
-    (clojure.core/assert
-      (< (cgpm-mutual-information cgpm [:x0] [:x1] [] {:x3 "foo"}
-                                       {:y 100} 1 1))
-      1E-10)
-    (clojure.core/assert
-      (< (cgpm-kl-divergence cgpm [:x0] [:x0] [] {:x3 "foo"} {:y 100} 10)
-         1E-10))
-    (print (cgpm-kl-divergence cgpm [:x1] [:x2] [] {} {:y 100} 1000))
-    (print "exit status 0")))
+  ; Make the cgpm by defining output names, statistical types, and address maps.
+  (define outputs-addrs-types
+    {:x0 (make-nominal-type #{1 2 3 4})
+     :x1 (make-real-ranged-type 9 199)
+     :x2 real-type
+     :x3 (make-nominal-type #{"foo" "bar" "baz"})})
+  (define inputs-addrs-types {:y real-type})
+  (define output-addr-map {:x0 "x0", :x1 "x1", :x2 "x2", :x3 "x3"})
+  (define input-addr-map {:y 0})
+  (define cgpm
+    (make-cgpm generate-dummy-row
+               outputs-addrs-types
+               inputs-addrs-types
+               output-addr-map
+               input-addr-map))
+  ; Example queries on simulate and logpdf.
+  (print (cgpm-logpdf cgpm {:x0 2} {} {:y 100}))
+  (print (cgpm-logpdf cgpm {:x1 120} {} {:y 100}))
+  (print (cgpm-logpdf cgpm {:x0 2 :x1 120} {} {:y 100}))
+  (print (cgpm-simulate cgpm [:x0 :x1 :x2] {} {:y 100} 10))
+  (print (cgpm-simulate cgpm [:x0 :x1 :x2] {:x3 "foo"} {:y 100} 10))
+  ; Example queries on mutual information and KL divergence.
+  (clojure.core/assert
+    (< (cgpm-mutual-information cgpm [:x0] [:x1] [] {:x3 "foo"}
+                                     {:y 100} 1 1))
+    1E-10)
+  (clojure.core/assert
+    (< (cgpm-kl-divergence cgpm [:x0] [:x0] [] {:x3 "foo"} {:y 100} 10)
+       1E-10))
+  (print (cgpm-kl-divergence cgpm [:x1] [:x2] [] {} {:y 100} 1000)))
