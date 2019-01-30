@@ -4,7 +4,7 @@
 (ns metaprob.examples.cgpm
   (:refer-clojure :only [
     declare defn into let format filter fn float? int?
-    merge repeatedly set vals])
+    merge repeatedly set select-keys vals])
 (:require
             [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
@@ -56,6 +56,11 @@
 ; ------------------------
 ; CGPM INTERFACE UTILITIES
 ; ------------------------
+
+; Compute simple average of items.
+(define compute-avg
+  (gen [items]
+    (/ (reduce + 0 items) (count items))))
 
 ; Check if collection contains item before invoking get.
 ; Throws an assertion error in item is not in collection (instead of nil).
@@ -284,6 +289,81 @@
         (extract-samples-from-trace
           trace target-addrs (get cgpm :output-address-map))))))
 
+;; MUTUAL INFORMATION
+
+(define compute-mi
+  (gen [cgpm
+        target-addrs-0
+        target-addrs-1
+        constraint-addrs-vals
+        input-addrs-vals
+        num-samples]
+    (print "computing mi")
+    ; Obtain samples for simple Monte Carlo integration.
+    (define samples
+      (cgpm-simulate cgpm (into [] (concat target-addrs-0 target-addrs-1))
+                          constraint-addrs-vals input-addrs-vals num-samples))
+    (print samples)
+    ; Compute joint log probabilities.
+    (define logp-joint
+      (map (fn [sample] (cgpm-logpdf cgpm sample constraint-addrs-vals
+                                     input-addrs-vals))
+           samples))
+    ; Compute marginal log probabilities.
+    (define logp-marginal-0
+      (map (fn [sample] (cgpm-logpdf cgpm (select-keys sample target-addrs-0)
+                                     constraint-addrs-vals input-addrs-vals))
+           samples))
+    (define logp-marginal-1
+      (map (fn [sample] (cgpm-logpdf cgpm (select-keys sample target-addrs-1)
+                                     constraint-addrs-vals input-addrs-vals))
+           samples))
+    ; MI is average log joint minus the average sum of log marginals.
+    (print logp-joint)
+    (print logp-marginal-0)
+    (print logp-marginal-1)
+    (- (compute-avg logp-joint)
+       (+ (compute-avg logp-marginal-0)
+          (compute-avg logp-marginal-1)))))
+
+(define cgpm-mutual-information
+  (gen [cgpm
+        target-addrs-0
+        target-addrs-1
+        constraint-addrs
+        constraint-addrs-vals
+        input-addrs-vals
+        num-samples-inner
+        num-samples-outer]
+    ; Make sure that fixed and controlling constraints do not overlap.
+    (assert-no-overlap (set constraint-addrs)
+                       (set (keys constraint-addrs-vals))
+                       :constraint-addrs
+                       :constraint-addrs-vals)
+    ; Determine whether to average over the controlling variables.
+    (if (= (count constraint-addrs) 0)
+      ; No controlling variables: compute and return the MI directly.
+      (compute-mi cgpm target-addrs-0 target-addrs-1 constraint-addrs-vals
+                  input-addrs-vals num-samples-inner)
+      ; Controlling variables: compute MI by averaging over them.
+      (block
+        ; Obtain samples for simple Monte Carlo integration.
+        (define samples (cgpm-simulate cgpm constraint-addrs
+                                       constraint-addrs-vals
+                                       input-addrs-vals num-samples-outer))
+        ; Pool the sampled constraints with user-provided constraints.
+        (define constraints-merged
+          (map (fn [sample] (merge sample constraint-addrs-vals))
+               samples))
+        ; Compute the MI for each sample.
+        (define mutinf-values
+          (map (fn [constraints] (compute-mi cgpm target-addrs-0
+                                             target-addrs-1
+                                             constraints input-addrs-vals
+                                             num-samples-inner))
+               constraints-merged))
+        ; Return the average MI value.
+        (compute-avg mutinf-values)))))
 
 ; -------------------
 ; AD-HOC TEST HARNESS
@@ -319,4 +399,5 @@
     (print (cgpm-logpdf gpm {:x0 2 :x1 120} {} {:y 100}))
     (print (cgpm-simulate gpm [:x0 :x1 :x2] {} {:y 100} 10))
     (print (cgpm-simulate gpm [:x0 :x1 :x2] {:x3 "foo"} {:y 100} 10))
+    (assert (< (cgpm-mutual-information gpm [:x0] [:x1] [] {:x3 "foo"} {:y 100} 1 1)) 1E-10)
     (print "exit status 0")))
