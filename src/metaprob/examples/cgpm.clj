@@ -303,7 +303,7 @@
   (let [proc generate-dummy-row
         outputs-addrs-types {
           :x0 (make-nominal-type #{1 2 3 4})
-          :x1 (make-int-ranged-type 9 199)
+          :x1 (make-real-ranged-type 9 199)
           :x2 real-type
           :x3 (make-nominal-type #{"foo" "bar" "baz"})}
         inputs-addrs-types {:y real-type}
