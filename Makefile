@@ -1,6 +1,18 @@
 all: bin/lein .lein_classpath
 	@echo "Good to go!"
 
+# Starts a ClojureScript REPL
+cljs:
+	clojure -Acljs -m cljs.main --repl-env nashorn --repl
+.PHONY: cljsrepl
+
+cljstest:
+	clojure -Acljs:cljstest
+.PHONY: cljstest
+
+cljsclean:
+	rm -Rf out
+
 # This target is referenced in README.md
 bin/lein:
 	wget "https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein"
@@ -17,10 +29,16 @@ bin/lein:
 	bin/lein classpath > $@
 
 # Incudes long-running tests
-test:
-	clojure -Atest
-	time clojure -Atest -d src -n metaprob.examples.long-test
+test: cljtest cljtestlong cljstest
 .PHONY: test
+
+cljtest:
+	clojure -Atest
+.PHONY: cljtest
+
+cljtestlong:
+	time clojure -Atest -d src -n metaprob.examples.long-test
+.PHONY: cljtestlong
 
 # Create directory of .trace files from .vnts files.
 # Requires python-metaprob.

@@ -1,4 +1,3 @@
-
 (ns metaprob.examples.inference-on-gaussian-test
   (:require [clojure.test :refer :all]
             [metaprob.syntax :refer :all]
@@ -7,9 +6,10 @@
             [metaprob.distributions :refer :all]
             [metaprob.interpreters :refer :all]
             [metaprob.inference :refer :all]
-            [metaprob.examples.inference-on-gaussian :refer :all])
-  (:require [metaprob.prelude :as prelude]
-            [metaprob.builtin :as impl]))
+            [metaprob.examples.inference-on-gaussian :refer :all]
+            [metaprob.prelude :as prelude]
+            [metaprob.builtin :as impl])
+  (:refer-clojure :exclude [assoc dissoc]))
 
 (deftest smoke-1
   (testing "testing check-sampler"
@@ -32,4 +32,3 @@
 (deftest target-density-1
   (testing "checking prior density"
     (is (> (target-density 1) 0.01))))
-

@@ -5,126 +5,21 @@
   (:require [metaprob.syntax :refer :all])
   (:require [metaprob.builtin :refer :all]))
 
-(declare
-  drop
-  reverse
-  _reverse
-  iterate
-  ;; replicate
-  repeat
-  ;; map
-  _map
-  _imap
-  imap
-  zipmap
-  for-each
-  for-each2
-  _i_for_each2
-  i_for_each2
-  filter
-  concat)
-
-(define drop
-  (gen [lst index]
-    (block (if (> index 0) (drop (rest lst) (- index 1)) lst))))
-
-(define reverse
-  (gen [lst] (_reverse lst (if (mutable-trace? lst)
-                             (empty-trace)
-                             (list)))))
-
-(define _reverse
-  (gen [lst res]
-    (if (pair? lst)
-      (_reverse (rest lst) (pair (first lst) res))
-      res)))
-
-(define iterate
-  (gen [n f a]
-    (if (<= n 0) a (block (iterate (- n 1) f (f a))))))
-
-(define repeat
-  (gen [times pp]
-    (if (> times 0)
-      (block
-        (pp)
-        (repeat (- times 1) pp))
-      "ok")))
-
-(define _imap
-  (gen [f i l]
-    (if (pair? l)
-      (pair (f i (first l)) (_imap f (+ i 1) (rest l)))
-      l)))
-
-(define imap
-  (gen [f l]
-    (if (tuple? l)
-      (to-tuple (_imap f 0 (to-list l)))
-      (block (_imap f 0 l)))))
-
-(define zipmap
-  (gen [f l1 l2]
-    (if (and (pair? l1) (pair? l2))
-      (pair (f (first l1) (first l2)) (zipmap f (rest l1) (rest l2)))
-      (list))))
-
-(define for-each
-  (gen [l f]
-    (if (pair? l)
-      (block (f (first l)) (for-each (rest l) f))
-      "done")))
-
-(define for-each2
-  (gen [f l1 l2]
-    (if (and (pair? l1) (pair? l2))
-      (block
-        (f (first l1) (first l2))
-        (for-each2 f (rest l1) (rest l2)))
-      "done")))
-
-(define _i_for_each2
-  (gen [f i l1 l2]
-    (if (and (pair? l1) (pair? l2))
-      (block
-        (f i (first l1) (first l2))
-        (_i_for_each2 f (+ i 1) (rest l1) (rest l2)))
-      "done")))
-
-(define i_for_each2 (gen [f l1 l2] (_i_for_each2 f 0 l1 l2)))
-
-(define filter
-  (gen [pred l]
-    (if (pair? l)
-      (if (pred (first l))
-        (pair (first l) (filter pred (rest l)))
-        (block (filter pred (rest l))))
-      l)))
-
-(define concat
-  (gen [ll]
-    (if (pair? ll)
-      (append (first ll) (concat (rest ll)))
-      ll)))
-
 ;; -----------------------------------------------------------------------------
 ;; Interpreter utilities
 
+(define maybe-subtrace-1
+  (gen [x] x))
+
 (define maybe-subtrace
   (gen [tr adr]
-    (if (trace-has-subtrace? tr adr)
-      (trace-subtrace tr adr)
-      (trace))))
+    (or (trace-subtrace tr adr) {})))
 
 (define maybe-set-subtrace
-  (gen [output key suboutput]
-    (assert (trace? output) "bad output")
-    (if suboutput
-      (block (assert (trace? suboutput) ["bad suboutput" key suboutput])
-             (if (empty-trace? suboutput)
-               output
-               (trace-set-subtrace output key suboutput)))
-      output)))
+  (gen [output adr suboutput]
+    (if (empty? suboutput)
+      (trace-clear-subtrace output adr)
+      (trace-set-subtrace output adr suboutput))))
 
 ;; Utilities for interpreter
 
@@ -133,88 +28,115 @@
 
 (define name-for-definiens
   (gen [pattern]
-    (if (eq (trace-get pattern) "variable")
-      (block (define name (trace-get pattern "name"))
-             (if (or (eq name "_")           ;Cf. from-clojure-definition in syntax.clj
-                     (eq name "pattern"))
-               "definiens"
-               (trace-get pattern "name")))
-      "definiens")))
+    (if (or (vector? pattern) (= pattern '_))
+      "definiens"
+      (str pattern))))
 
 ;; Get the key to use for storing the result of a procedure call.
-
 (define application-result-key
   (gen [exp]
-    (define key (if (eq (trace-get exp) "variable")
-                  (trace-get exp "name")
-                  "call"))
-    (assert (ok-key? key) key)
-    key))
+    (if (symbol? exp) (str exp) "call")))
 
 (define native-procedure?
   (gen [thing]
-    (and (trace? thing)
-         (trace-has? thing "generative-source")
-         (trace-has? thing "environment"))))
+    (and (contains? thing :generative-source)
+         (contains? thing :environment))))
 
 ;; -----------------------------------------------------------------------------
 ;; Inf-based utilities.
 
-(define opaque
-  (gen [name proc]
-    (inf name
-         proc   ;model (generative procedure)
-         (gen [inputs intervene target output?]
-           ;; Ignore the traces.
-           (infer-apply proc inputs (trace) (trace) false)))))
 
 (define apply
-  (trace-as-procedure
-   (inf "apply"
-        clojure.core/apply   ;model (generative procedure)
-        (gen [inputs intervene target output?]
-          ; TODO: allow apply to be n-ary, with last argument a collection
-          (infer-apply (first inputs) (first (rest inputs)) intervene target output?)))
-   ;; Kludge
-   (gen [proc inputs]
-     (clojure.core/apply proc (to-immutable-list inputs)))))
+  (clojure.core/with-meta
+    ;; Kludge
+    clojure.core/apply
+    {:apply? true}))
 
-;; map defined using inf (instead of with-address)
 
-(define map-issue-20
-  (inf "map"
-       nil                              ;no model
-       (gen [[fun sequ] intervene target output?]
-         (block (define re
-                  (gen [i l]
-                    (if (pair? l)
-                      (block (define [value suboutput subscore]
-                               (infer-apply fun
-                                            [(first l)]
-                                            ;; advance traces by address i
-                                            (maybe-subtrace intervene i)
-                                            (maybe-subtrace target i)
-                                            output?))
+    ;(unbox
+    ;  (inf "apply"
+    ;      clojure.core/apply   ;model (generative procedure)
+    ;      (gen [inputs ctx]
+    ;        ; TODO: allow apply to be n-ary, with last argument a collection
+    ;        ; TODO: should use the currently active interpreter; whichever interpreter is evaluating the call to apply.
+    ;        (pprint ["Calling infer-apply with the context I was passed:" ctx])
+    ;        ; Note: this returns a trace, rather than a context!
+    ;        ; We need two versions of infer-apply: a context version and a trace version.
+    ;        ; I should figure out how *ambient-interpreter* and the tower of interpreters
+    ;        ; is supposed to work...
+    ;        (infer-apply (first inputs) (second inputs) {} {} true ctx))))))
+    ;        ; (assert false "Tracing `apply` is currently unimplemented."))))))
+    ;        ;(infer-apply (first inputs) (second inputs) ctx))))))
 
-                             ;; Recur over rest of list
-                             (define [values output score]
-                               (re (+ i 1)
-                                   (rest l)))
-                             [(pair value values)
-                              (maybe-set-subtrace output i suboutput)
-                              (+ subscore score)])
 
-                      ;; End of list
-                      [(if (tuple? sequ) (to-tuple l) l)
-                       (trace)
-                       0])))
+(define opaque
+  (gen [proc]
+    (gen [& args] (with-explicit-tracer _ (apply proc args)))))
 
-                ;; Fire it up
-                (re 0 (to-list sequ))))))
+;;; map defined using inf (instead of with-address)
+;
+;; TODO: This also depends on the ability to call infer-apply
+;(define map-issue-20
+;  (inf "map"
+;       nil                              ;no model
+;       (gen [[fun sequ] ctx]
+;         (define re
+;           (gen [i l]
+;             (if (empty? l)
+;               [(if (vector? sequ) [] l) ctx 0]
+;               (block (define [value suboutput subscore]
+;                        (infer-apply fun
+;                                     [(first l)]
+;                                     ;; advance traces by address i
+;                                     (maybe-subtrace intervene i)
+;                                     (maybe-subtrace target i)
+;                                     output?))
+;                      ;; Recur over rest of list
+;                      (define [values output score]
+;                        (re (+ i 1)
+;                            (rest l)))
+;                      [(cons value values)
+;                       (maybe-set-subtrace output i suboutput)
+;                       (+ subscore score)]))))
+;
+;                ;; Fire it up
+;                (re 0 (to-list sequ)))))
+;
+;(define map
+;  (gen [f l]
+;    (with-explicit-tracer t
+;      (define helper
+;        (gen [l i]
+;          (if (empty? l)
+;            '()
+;            (cons (t i f (first l))
+;                  (helper (rest l) (+ i 1))))))
+;      (helper l 0))))
+;
+;; (define map map-issue-20)
+;
+;(define replicate
+;  (gen [n f]
+;    (with-explicit-tracer t
+;      (define helper
+;        (gen [i acc]
+;          (if (= i n) acc (helper (+ i 1) (cons (t i f) acc)))))
+;      (helper 0 '()))))
 
-(define map map-issue-20)
+(define map
+  (gen [f l]
+    (with-explicit-tracer t
+      (clojure.core/doall
+        (clojure.core/map-indexed
+          (gen [i x] (t i f x)) l)))))
 
 (define replicate
   (gen [n f]
-    (map (gen [i] (f))
-         (range n))))
+    (map (gen [_] (f)) (range n))))
+
+(define reduce
+  (gen [f start coll]
+    (with-explicit-tracer t
+      (second
+        (clojure.core/doall
+          (clojure.core/reduce (gen [[i x] y] [(+ i 1) (t i f x y)]) [0 start] coll))))))

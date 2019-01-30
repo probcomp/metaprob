@@ -9,13 +9,14 @@
     (is (= ((gen [x] x) 1) 1))))
 
 (deftest gen-2
-  (testing "ara procedures traces?"
-    (is (trace? (gen [x] x)))))
+  (testing "Procedures are (no longer) traces"
+    (is (not (trace? (gen [x] x))))))
 
 (deftest gen-3
   (testing "are procedures named?"
     ;; Name would be something like "-1239293465-foo"
-    (is (.contains (impl/procedure-name (named-generator foo [x] x)) "foo"))))
+    (is (.contains (impl/procedure-name
+                    (named-generator foo true [x] x)) "foo"))))
 
 (deftest block-1
   (testing "Smoke test 1 for block macro"
@@ -66,7 +67,7 @@
                      (define [v _] [6 7])
                      v))
            6))))
-           
+
 (deftest block-4
   (testing "Nested pattern in let"
     (is (= (block (define [a [b c d]] [1 [2 3 4]])
@@ -87,3 +88,29 @@
         (eval form)
         (let [proc (eval 'foo)]
           (is (= (proc 17) 17) proc))))))
+
+(deftest free-vars-approximately-1
+  (testing "free-vars-approximately"
+    (testing "one level deep"
+      (are [vars form] (= vars (free-vars-approximately form))
+        '#{}    '[]
+        '#{a}   '[a]
+        '#{a}   (seq '[a])
+        '#{a b} '{a b}))
+    (testing "two levels deep"
+      (are [vars form] (= vars (free-vars-approximately form))
+        '#{a b}     '[a [b]]
+        '#{a b}     ['a (seq ['b])]
+        '#{a b}     (seq ['a (seq ['b])])
+        '#{a b c d} '[{a b} {c d}]
+        '#{a b c d} {'[a b] '[c d]}
+        '#{a b c d} {(seq '[a b]) (seq '[c d])}))
+    (testing "many levels deep"
+      (are [vars form] (= vars (free-vars-approximately form))
+        '#{a b c d e f g} '[a [b [c [d [e [f [g]]]]]]]
+        '#{a b c d}       (seq ['a (seq ['b (seq ['c (seq ['d])])])])))
+    (testing "filtering"
+      (are [vars form] (= vars (free-vars-approximately form))
+        '#{a b} '[a "filtered" b]
+        '#{a b} (seq '[a "filtered" b])
+        '#{a b} '{a ["filtered" b]}))))

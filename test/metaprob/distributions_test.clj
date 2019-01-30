@@ -1,7 +1,6 @@
 (ns metaprob.distributions-test
   (:require [clojure.test :refer :all]
             [metaprob.trace :refer :all]
-            [metaprob.sequence :refer :all]
             [metaprob.syntax :refer :all]
 
             [metaprob.builtin-impl :as impl]

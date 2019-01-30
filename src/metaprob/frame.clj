@@ -1,8 +1,9 @@
 (ns metaprob.frame
-  (:refer-clojure :only [declare ns])
-  (:require [metaprob.syntax :refer :all]
-            [metaprob.builtin :refer :all]
-            [metaprob.prelude :refer :all]))
+  (:refer-clojure :only [declare ns atom swap!])
+  (:require
+    [metaprob.syntax :refer :all]
+    [metaprob.builtin :refer :all]
+    [metaprob.prelude :refer :all]))
 
 ;; ----------------------------------------------------------------------------
 ;; Lexical environments, needed by gen macro.
@@ -10,9 +11,7 @@
 
 (define frame?
   (gen [obj]
-    (if (trace? obj)
-      (trace-has-subtrace? obj "*parent*")
-      false)))
+    (and (compound? obj) (contains? obj :parent))))
 
 (define environment?
   (gen [obj]
@@ -21,18 +20,18 @@
 
 (define frame-parent
   (gen [frame]
-    (trace-get frame "*parent*")))
+    (get frame :parent)))
 
 (define make-env
   (gen [parent]
     (assert (environment? parent) parent)
-    (mutable-trace "*parent*" parent)))
+    (atom {:parent parent})))
 
 (define env-lookup
   (gen [env name]
     (if (frame? env)
-      (if (trace-has? env name)
-        (trace-get env name)
+      (if (contains? env name)
+        (get env name)
         (env-lookup (frame-parent env) name))
       ;; Top level environment
       (top-level-lookup env name))))
@@ -40,7 +39,7 @@
 (define env-bind!
   (gen [env name val]
     (if (frame? env)
-      (trace-set! env name val)
+      (swap! env assoc name val)
       (assert false "bad env-bind!"))))
 
 ;; match-bind! - overrides original prelude.
@@ -48,51 +47,52 @@
 ;; tuple, at any level.
 
 (define match-bind!
-  ;; pattern is a parse-tree trace (variable or tuple expression) - not a tuple.
+  ;; pattern is a symbol or vector
   ;; input is anything.
   (gen [pattern input env]
-    (case (trace-get pattern)
-      "variable"
-      (env-bind! env (trace-get pattern "name") input)
-      "tuple"
-      (block (define count (trace-count pattern))
+    (cond
+      (symbol? pattern)
+      (env-bind! env pattern input)
 
-             (define loup
-               (gen [i cursor]
-                 (cond (eq i count)
-                       ;; We've reached the end of the patterns
-                       (assert (empty-trace? cursor)
-                               ["too many inputs"
-                                (length input)
-                                count
-                                (clojure.core/map to-immutable
-                                                  (to-immutable input))
+      (= (representation pattern) :vector)
+      (block
+        (define n (count pattern))
+        (define loup
+          (gen [i cursor]
+            (cond (= i n)
+                  ;; We've reached the end of the patterns
+                  (assert (empty? cursor)
+                          ["too many inputs"
+                                (count input)
+                                n
+                                input
                                 pattern
                                 env])
 
                        ;; The pattern [& x] matches anything
-                       (and (eq i (sub count 2))
-                            (eq (trace-get pattern i) "&"))
-                       (match-bind! (trace-subtrace pattern (+ i 1))
+                       (and (= i (- n 2))
+                            (= (nth pattern i) '&))
+                       (match-bind! (nth pattern (+ i 1))
                                     cursor
                                     env)
 
                        ;; Ensure that an input remains to match remaining pattern
-                       (empty-trace? cursor)
+                       (empty? cursor)
                        (assert false
                                ["too few inputs"
-                                (length input)
-                                count
-                                (clojure.core/map to-immutable
-                                                  (to-immutable input))
+                                (count input)
+                                n
+                                input
                                 pattern
                                 env])
 
                        ;; Bind pattern to input, and continue
                        true
-                       (block (match-bind! (trace-subtrace pattern i) (first cursor) env)
+                       (block (match-bind! (nth pattern i) (first cursor) env)
                               (loup (+ i 1) (rest cursor))))))
              (loup 0 (to-list input)))
+
+      true
       (do (pprint pattern)
           (assert false ["bad pattern" pattern input])))
     "return value of match-bind!"))
