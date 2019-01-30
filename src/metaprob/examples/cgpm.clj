@@ -5,7 +5,7 @@
     [metaprob.syntax :refer :all]
     [metaprob.builtin :refer :all]
     [metaprob.prelude :refer :all]
-    [metaprob.distributions :refer :all :exclude [flip]]
+    [metaprob.distributions :refer :all]
     [metaprob.examples.gaussian :refer [gaussian]]
     [metaprob.examples.cgpm_utils :refer :all]
     [metaprob.inference :refer :all]

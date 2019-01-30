@@ -5,7 +5,6 @@
     [metaprob.syntax :refer :all]
     [metaprob.builtin :refer :all]
     [metaprob.prelude :refer :all]
-    [metaprob.distributions :refer :all :exclude [flip]]
     [metaprob.inference :refer :all]
     [metaprob.interpreters :refer :all]))
 
