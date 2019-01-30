@@ -15,14 +15,9 @@
             [metaprob.interpreters :refer :all]))
 
 
-; Check if collection contains item before invoking get.
-; Throws an assertion error in item is not in collection (instead of nil).
-(define safe-get
-  (gen [collection item]
-    (if (contains? collection item)
-      (get collection item)
-      (assert false (format "no such key %s in key set %s"
-                            item (keys collection))))))
+; ----------------------
+; STATISTICAL DATA TYPES
+; ----------------------
 
 ; Constructor of real statistical type with support [low, high].
 (define make-real-ranged-type
@@ -56,6 +51,20 @@
   {:name "integer"
     :valid? int?
     :base-measure :discrete})
+
+
+; ------------------------
+; CGPM INTERFACE UTILITIES
+; ------------------------
+
+; Check if collection contains item before invoking get.
+; Throws an assertion error in item is not in collection (instead of nil).
+(define safe-get
+  (gen [collection item]
+    (if (contains? collection item)
+      (get collection item)
+      (assert false (format "no such key %s in key set %s"
+                            item (keys collection))))))
 
 ; Assert that value is valid for given statistical type.
 (define validate-cell
@@ -135,27 +144,6 @@
             (format "addresses should have distinct values %s"
                     output-address-map))))
 
-;; INITIALIZE
-
-(define make-cgpm
-  (gen [proc
-        output-addrs-types
-        input-addrs-types
-        output-address-map
-        input-address-map]
-    (define output-addrs (set (keys output-addrs-types)))
-    (define input-addrs (set (keys input-addrs-types)))
-    (assert-no-overlap output-addrs input-addrs :outputs :inputs)
-    (assert-has-keys output-address-map output-addrs)
-    (assert-has-keys input-address-map input-addrs)
-    (assert-valid-output-address-map output-address-map)
-    (assert-valid-input-address-map input-address-map)
-    (assoc proc
-      :output-addrs-types output-addrs-types
-      :input-addrs-types input-addrs-types
-      :output-address-map output-address-map
-      :input-address-map input-address-map)))
-
 ; Convert a CGPM row into a Metaprob target-trace.
 (define rekey-addrs-vals
   (gen [address-map addrs-vals]
@@ -183,6 +171,32 @@
         (let [result (get trace (safe-get output-addr-map k))]
           [k (safe-get result :value)])))
     (into {} (map extract target-addrs))))
+
+
+; --------------
+; CGPM INTERFACE
+; --------------
+
+;; INITIALIZE
+
+(define make-cgpm
+  (gen [proc
+        output-addrs-types
+        input-addrs-types
+        output-address-map
+        input-address-map]
+    (define output-addrs (set (keys output-addrs-types)))
+    (define input-addrs (set (keys input-addrs-types)))
+    (assert-no-overlap output-addrs input-addrs :outputs :inputs)
+    (assert-has-keys output-address-map output-addrs)
+    (assert-has-keys input-address-map input-addrs)
+    (assert-valid-output-address-map output-address-map)
+    (assert-valid-input-address-map input-address-map)
+    (assoc proc
+      :output-addrs-types output-addrs-types
+      :input-addrs-types input-addrs-types
+      :output-address-map output-address-map
+      :input-address-map input-address-map)))
 
 ;; LOGPDF
 
@@ -270,7 +284,10 @@
         (extract-samples-from-trace
           trace target-addrs (get cgpm :output-address-map))))))
 
-;; TEST
+
+; -------------------
+; AD-HOC TEST HARNESS
+; -------------------
 
 (define generate-dummy-row
   (gen [y]
