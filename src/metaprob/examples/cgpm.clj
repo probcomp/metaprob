@@ -417,9 +417,9 @@
     ; KL is average log ratio.
     (- (compute-avg logp-p) (compute-avg logp-q))))
 
-; -------------------
-; AD-HOC TEST HARNESS
-; -------------------
+; -------------------------
+; AD-HOC SMOKE TEST HARNESS
+; -------------------------
 
 (define generate-dummy-row
   (gen [y]
