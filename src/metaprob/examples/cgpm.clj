@@ -254,7 +254,7 @@
 
 ;; SIMULATE
 
-(define validate-simulate
+(define validate-cgpm-simulate
   (gen [cgpm target-addrs constraint-addrs-vals input-addrs-vals]
     ; Confirm addresses are valid and do not overlap.
     (define constraint-addrs (set (keys constraint-addrs-vals)))
@@ -270,7 +270,8 @@
 (define cgpm-simulate
   (gen [cgpm target-addrs constraint-addrs-vals input-addrs-vals num-samples]
     ; Error checking on the arguments.
-    (validate-simulate cgpm target-addrs constraint-addrs-vals input-addrs-vals)
+    (validate-cgpm-simulate
+      cgpm target-addrs constraint-addrs-vals input-addrs-vals)
     ; Convert target, constraint, and input addresses from CGPM to inf.
     (define target-addrs'
       (rekey-addrs (get cgpm :output-address-map) target-addrs))
