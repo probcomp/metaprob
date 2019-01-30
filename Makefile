@@ -37,7 +37,7 @@ cljtest:
 .PHONY: cljtest
 
 cljtestlong:
-	time clojure -Atest -d src -n metaprob.examples.long-test
+	clojure -Atest -d src -n metaprob.examples.long-test
 .PHONY: cljtestlong
 
 # Create directory of .trace files from .vnts files.
@@ -78,7 +78,7 @@ SAMPLES=results/samples_from_the_gaussian_demo_prior.samples
 
 $(SAMPLES):
 	mkdir -p results
-	time clojure -Aexamples -a --samples $(COUNT)
+	clojure -Aexamples -a --samples $(COUNT)
 
 $(SAMPLES).png: $(SAMPLES)
 	for f in results/*.samples; do bin/gnuplot-hist $$f; done
@@ -126,5 +126,5 @@ docker-notebook:
 		--mount type=bind,source=${CURDIR},destination=/home/metaprob/projects/metaprob-clojure \
 		--publish 8888:8888/tcp \
 		probcomp/metaprob-clojure:latest \
-		bash -c "lein jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --notebook-dir ./src/metaprob/tutorial"
+		bash -c "lein jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --notebook-dir ./tutorial"
 .PHONY: docker-notebook
