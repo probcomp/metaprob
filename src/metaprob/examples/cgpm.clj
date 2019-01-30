@@ -243,8 +243,8 @@
                            :inputs input-args
                            :target-trace constraint-addrs-vals'))
             weight)
-          0))
           ; There are no constraints: log weight is zero.
+          0))
     (- log-weight-numer log-weight-denom)))
 
 ;; SIMULATE
