@@ -4,7 +4,7 @@
 (ns metaprob.examples.cgpm
   (:refer-clojure :only [
     declare defn into let format filter fn float? int?
-    merge repeatedly set select-keys vals])
+    merge repeatedly set select-keys vals zipmap])
 (:require
             [metaprob.syntax :refer :all]
             [metaprob.builtin :refer :all]
@@ -177,6 +177,10 @@
           [k (safe-get result :value)])))
     (into {} (map extract target-addrs))))
 
+; Rewrite keys of dictionary according to keymap.
+(define rekey-dict
+  (gen [keymap dict]
+    (into {} (map (fn [[k v]] [(safe-get keymap k) v]) dict))))
 
 ; --------------
 ; CGPM INTERFACE
@@ -361,6 +365,58 @@
         ; Return the average MI value.
         (compute-avg mutinf-values)))))
 
+;; KL DIVERGENCE.
+
+(define validate-cgpm-kl-divergence
+  (gen [cgpm target-addrs-0 target-addrs-1]
+    ; Confirm target address have same length.
+    (assert-same-length target-addrs-0 target-addrs-1
+                        :target-addrs-0 :target-addrs-1)
+    ; Confirm base measures agree.
+    (define output-addrs-types (get cgpm :output-addrs-types))
+    (define gbm (fn [t] (get (safe-get output-addrs-types t) :base-measure)))
+    (define base-measures-0 (map gbm target-addrs-0))
+    (define base-measures-1 (map gbm target-addrs-1))
+    (assert (= base-measures-0 base-measures-1)
+            (format "targets %s and %s must have same base measures"
+                    target-addrs-0 target-addrs-1))))
+
+(define cgpm-kl-divergence
+  (gen [cgpm
+        target-addrs-0
+        target-addrs-1
+        constraint-addrs-vals-0
+        constraint-addrs-vals-1
+        input-addrs-vals
+        num-samples]
+    ; Make sure the base measures match.
+    (validate-cgpm-kl-divergence cgpm target-addrs-0 target-addrs-1)
+    ; Obtain the p samples for simple Monte Carlo integration.
+    (define samples-p
+      (cgpm-simulate
+        cgpm
+        target-addrs-0
+        constraint-addrs-vals-0
+        input-addrs-vals
+        num-samples))
+    ; Obtain the q samples.
+    (define keymap (zipmap target-addrs-0 target-addrs-1))
+    (define samples-q
+      (map (fn [sample] (rekey-dict keymap sample))
+           samples-p))
+    ; Compute the probabilities under p.
+    (define logp-p
+      (map (fn [sample] (cgpm-logpdf cgpm sample constraint-addrs-vals-0
+                         input-addrs-vals))
+           samples-p))
+    ; Compute the probabilities under q.
+    (define logp-q
+      (map (fn [sample] (cgpm-logpdf cgpm sample constraint-addrs-vals-1
+                         input-addrs-vals))
+           samples-q))
+    ; KL is average log ratio.
+    (- (compute-avg logp-p) (compute-avg logp-q))))
+
 ; -------------------
 ; AD-HOC TEST HARNESS
 ; -------------------
@@ -395,7 +451,12 @@
     (print (cgpm-logpdf cgpm {:x0 2 :x1 120} {} {:y 100}))
     (print (cgpm-simulate cgpm [:x0 :x1 :x2] {} {:y 100} 10))
     (print (cgpm-simulate cgpm [:x0 :x1 :x2] {:x3 "foo"} {:y 100} 10))
-    (assert (< (cgpm-mutual-information cgpm [:x0] [:x1] [] {:x3 "foo"}
-                                        {:y 100} 1 1))
-            1E-10)
+    (clojure.core/assert
+      (< (cgpm-mutual-information cgpm [:x0] [:x1] [] {:x3 "foo"}
+                                       {:y 100} 1 1))
+      1E-10)
+    (clojure.core/assert
+      (< (cgpm-kl-divergence cgpm [:x0] [:x0] [] {:x3 "foo"} {:y 100} 10)
+         1E-10))
+    (print (cgpm-kl-divergence cgpm [:x1] [:x2] [] {} {:y 100} 1000))
     (print "exit status 0")))
