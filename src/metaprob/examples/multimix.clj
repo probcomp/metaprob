@@ -18,7 +18,7 @@
 (define make-view
   (gen [vars-and-dists [cluster-probs cluster-params]]
     (define var-names (keys vars-and-dists))
-    (define view-name (clojure.string/join "," var-names))
+    (define view-name (str "view" (gensym)))
     ; Return an inf representing the view.
     ; (inf
     ;   (str "view" (gensym))
@@ -86,6 +86,11 @@
 
 (defn -main [& args]
   (define model (make-multi-mixture view))
-  (print (model)))
+  (print (model))
+  (define [retval trace weight] (infer :procedure model))
+  (print retval)
+  (pprint trace)
+  (print weight)
+  )
   ; (print trace)
   ; (print weight))
