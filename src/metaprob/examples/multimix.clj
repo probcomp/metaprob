@@ -25,8 +25,8 @@
   (gen [vars-and-dists [cluster-probs cluster-params]]
     (define view-name (str "view" (gensym)))
     (define var-names (keys vars-and-dists))
+    ; GENERATIVE MODEL.
     (define sampler
-      ; GENERATIVE MODEL.
       (gen [u]
         ; Sample a cluster assignment and obtain the parameters.
         (define cluster-idx
@@ -40,9 +40,8 @@
           (map (gen [v] (u v apply (get vars-and-dists v) (get params v)))
                var-names))
         (zipmap var-names row)))
-    (inf
-      view-name
-      sampler
+    ; PROPOSAL DISTRIBUTION.
+    (define proposal
       (gen [[t] ctx]
         (print (get t :target))
         (print (constrained? t "no_health_insurance"))
@@ -58,18 +57,20 @@
                 (define logprior (log (nth cluster-probs cluster-num)))
                 (define params (nth cluster-params cluster-num))
                 (define var-score
-                  (gen [var-name]
-                    (if (and (targeted? t var-name) (not (intervened? t var-name)))
+                  (gen [v]
+                    (if (and (targeted? t v) (not (intervened? t v)))
                       ((infer
-                         :procedure (get vars-and-dists var-name),
-                         :inputs (get params var-name),
-                         :target-trace (trace-subtrace (get t :target) var-name)) 2)
+                         :procedure (get vars-and-dists v),
+                         :inputs (get params v),
+                         :target-trace (trace-subtrace (get t :target) v)) 2)
                       0)))
                 (+ logprior  (apply + (map var-score var-names)))))
             (define scores (map cluster-score (range (count cluster-probs))))
             (define cluster (log-categorical scores))
             (define new-intervene (trace-set-value (get t :intervene) (str "cluster-for-" view-name) cluster))
-            [(sampler (intervene-on-captured-context t new-intervene)) {} 0]))))))
+            [(sampler (intervene-on-captured-context t new-intervene)) {} 0]))))
+    ; Return an inf packaging the sampler and proposal.
+    (inf view-name sampler proposal)))
 
 (define make-multi-mixture
   (gen [& views]
