@@ -1,6 +1,6 @@
 (ns metaprob.examples.multimix
   (:refer-clojure :only
-    [defn for frequencies gensym group-by last let nil? pos? zipmap])
+    [defn for frequencies gensym group-by last let merge nil? pos? zipmap])
   (:require
     [metaprob.trace :as trace]
     [metaprob.builtin-impl :as impl]
@@ -66,12 +66,11 @@
     [(clojure.core/take-nth 2 args)
      (clojure.core/take-nth 2 (rest args))]))
 
-; (define make-multi-mixture
-;   (gen [& views]
-;     (gen []
-;       (with-explicit-tracer u
-;         (apply concat (map (gen [view] (view u)) views))))))
-; Let's predict no health insurance vs. chlamydia.
+(define make-multi-mixture
+  (gen [& views]
+    (gen []
+      (with-explicit-tracer u
+        (apply merge (map (gen [view] (view u)) views))))))
 
 (define view
   (make-view
@@ -86,7 +85,7 @@
       0.02 {"no_health_insurance" [10.6 2.3], "chlamydia" [1369.9 629.4]})))
 
 (defn -main [& args]
-  (define result (with-explicit-tracer u (view u)))
-  (print result))
+  (define model (make-multi-mixture view))
+  (print (model)))
   ; (print trace)
   ; (print weight))
