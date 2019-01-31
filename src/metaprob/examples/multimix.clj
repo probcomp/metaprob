@@ -87,7 +87,8 @@
 (defn -main [& args]
   (define model (make-multi-mixture view))
   (print (model))
-  (define [retval trace weight] (infer :procedure model))
+  (define [retval trace weight] (infer :procedure model
+                                       :target-trace {"no_health_insurance" {:value 1}}))
   (print retval)
   (pprint trace)
   (print weight)
