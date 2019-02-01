@@ -1,6 +1,6 @@
 (ns metaprob.examples.multimix2
   (:refer-clojure :only
-    [defn for frequencies gensym group-by last let merge nil? pos? zipmap])
+    [defn for frequencies gensym group-by last let merge nil? pos? some])
   (:require
     [metaprob.trace :as trace]
     [metaprob.builtin-impl :as impl]
@@ -22,6 +22,8 @@
     (define log-normalizer (+ (log (apply + weights)) max-score))
     log-normalizer))
 
+(define get-cluster-name (gen [v] (str "cluster-for-" v)))
+
 (define clusters
   (gen [& args]
     [(clojure.core/take-nth 2 args)
@@ -36,17 +38,26 @@
 (define view
   (gen [vars-and-dists [cluster-probs cluster-params]]
     (define view-name (str "view" (gensym)))
-    (define cluster-assignment-addr (str "cluster-for-" view-name))
+    (define var-names (keys vars-and-dists))
+    (define cluster-assignment-addr (get-cluster-name view-name))
     ; GENERATIVE MODEL.
     (define model
       (gen []
         (with-explicit-tracer t
-          (define param-set
-            (nth cluster-params
-                 (t cluster-assignment-addr categorical cluster-probs)))
+          ; Sample the cluster assignment.
+          (define cluster-idx
+            (t cluster-assignment-addr categorical cluster-probs))
+          ; Set the cluster assignment for each output variable.
+          (define cluster-idxs
+            (map
+              (gen [v] (t (get-cluster-name v) exactly cluster-idx))
+              var-names))
+          ; Obtain parameters in sampled cluster.
+          (define params (nth cluster-params cluster-idx))
+          ; Sample the output variables.
           (map
-            (gen [v] (t v apply (get vars-and-dists v) (get param-set v)))
-            (keys vars-and-dists)))))
+            (gen [v] (t v apply (get vars-and-dists v) (get params v)))
+            var-names))))
     ; INFERENCE MODEL.
     (define scorer
       (gen [[] ctx]
