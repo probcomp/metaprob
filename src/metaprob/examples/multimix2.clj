@@ -34,18 +34,17 @@
         (apply concat (map (gen [vs] (t '() vs)) var-sets))))))
 
 (define var-set
-  ; The generative model.
   (gen [varset [cluster-probs cluster-params]]
     (define varset-name (clojure.string/join "," (keys varset)))
     (define cluster-assignment-addr (str "cluster-for-" varset-name))
+    ; GENERATIVE MODEL.
     (define model
       (gen []
         (with-explicit-tracer t
           (define param-set (nth cluster-params (t cluster-assignment-addr categorical cluster-probs)))
           (map (gen [var-name] (t var-name apply (get varset var-name) (get param-set var-name))) (keys varset)))))
-    (inf
-      (str "varset" (gensym))
-      model
+    ; INFERENCE MODEL.
+    (define scorer
       (gen [[] ctx]
         (if
           (or (empty? (get ctx :target)) (constrained? ctx cluster-assignment-addr))
@@ -60,7 +59,10 @@
             (define all-possibilities (map infer-apply-for-cluster (range (count cluster-probs))))
             (define cluster-scores (map #(nth % 2) all-possibilities))
             (define [o t _] (nth all-possibilities (log-categorical cluster-scores)))
-            [o t (logsumexp cluster-scores)]))))))
+            [o t (logsumexp cluster-scores)]))))
+    ; METAPROB INF.
+    (inf (str "varset" (gensym)) model scorer)))
+
 
 (defn -main [& args]
   (define model
