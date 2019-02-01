@@ -16,6 +16,13 @@
     [metaprob.examples.cgpm :refer :all]
     [metaprob.examples.multimixture :refer :all]))
 
+; Helper function to create an identity map.
+(define make-identity-output-addr-map
+  (gen [output-addrs-types]
+    (define output-addrs (keys output-addrs-types))
+    (define trace-addrs (map clojure.core/name output-addrs))
+    (clojure.core/zipmap output-addrs trace-addrs)))
+
 ; The dummy Metaprob gen that will be converted into a CGPM.
 (define generate-dummy-row
   (gen [y]
@@ -87,7 +94,7 @@
      :x2 real-type
      :x3 (make-nominal-type #{"foo" "bar" "baz"})})
   (define inputs-addrs-types {:y real-type})
-  (define output-addr-map {:x0 "x0", :x1 "x1", :x2 "x2", :x3 "x3"})
+  (define output-addr-map (make-identity-output-addr-map outputs-addrs-types))
   (define input-addr-map {:y 0})
   (define cgpm
     (make-cgpm generate-dummy-row
