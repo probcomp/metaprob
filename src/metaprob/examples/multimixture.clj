@@ -18,6 +18,7 @@
 ; UTILITIES
 ; ---------
 
+; TODO: Migrate to math utilities module for Metaprob.
 (define logsumexp
   (gen [scores]
     (define max-score (apply clojure.core/max scores))
@@ -96,7 +97,6 @@
                     (get-cluster-addr (first constrained-cluster-addresses)))))
               ; No constraints, so enumerate.
               (range (count cluster-probs)))))
-        (print cluster-idxs)
         (define cluster-traces (map infer-apply-for-cluster cluster-idxs))
         (define cluster-logps (map (gen [[r t w]] w) cluster-traces))
         (define [r t w] (nth cluster-traces (log-categorical cluster-logps)))
