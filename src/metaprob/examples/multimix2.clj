@@ -35,8 +35,8 @@
 
 (define view
   (gen [varset [cluster-probs cluster-params]]
-    (define varset-name (clojure.string/join "," (keys varset)))
-    (define cluster-assignment-addr (str "cluster-for-" varset-name))
+    (define view-name (str "view" (gensym)))
+    (define cluster-assignment-addr (str "cluster-for-" view-name))
     ; GENERATIVE MODEL.
     (define model
       (gen []
@@ -61,7 +61,7 @@
             (define [o t _] (nth all-possibilities (log-categorical cluster-scores)))
             [o t (logsumexp cluster-scores)]))))
     ; METAPROB INF.
-    (inf (str "varset" (gensym)) model scorer)))
+    (inf view-name model scorer)))
 
 
 (defn -main [& args]
