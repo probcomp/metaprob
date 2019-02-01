@@ -70,18 +70,23 @@
         (if cluster-constrained
           ; If constrained, then delegate to the sampler.
           (comp/infer-apply sampler [] ctx)
-          ; Otherwise, compute the probabilities by enumeration.
+          ; Otherwise, compute exact probabilities and sample by enumeration.
           (block
             (define infer-apply-for-cluster
               (gen [cluster-num]
                 (define interventions (get ctx :intervene))
-                (define observations 
-                  (trace-set-value (get ctx :target) cluster-assignment-addr cluster-num))
-                (infer :procedure sampler, :target-trace observations, :intervention-trace interventions)))
-            (define all-possibilities (map infer-apply-for-cluster (range (count cluster-probs))))
-            (define cluster-scores (map #(nth % 2) all-possibilities))
-            (define [o t _] (nth all-possibilities (log-categorical cluster-scores)))
-            [o t (logsumexp cluster-scores)]))))
+                (define observations
+                  (trace-set-value (get ctx :target)
+                                   cluster-assignment-addr
+                                   cluster-num))
+                (infer :procedure sampler
+                       :target-trace observations
+                       :intervention-trace interventions)))
+            (define cluster-idxs (range (count cluster-probs)))
+            (define cluster-traces (map infer-apply-for-cluster cluster-idxs))
+            (define cluster-logps (map (gen [[r t w]] w) cluster-traces))
+            (define [r t w] (nth cluster-traces (log-categorical cluster-logps)))
+            [r t (logsumexp cluster-logps)]))))
     ; METAPROB INF.
     (inf view-name sampler scorer)))
 
