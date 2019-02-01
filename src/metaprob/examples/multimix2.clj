@@ -22,7 +22,7 @@
     (define log-normalizer (+ (log (apply + weights)) max-score))
     log-normalizer))
 
-(define get-cluster-name (gen [v] (str "cluster-for-" v)))
+(define get-cluster-addr (gen [v] (str "cluster-for-" v)))
 
 (define clusters
   (gen [& args]
@@ -39,14 +39,14 @@
   (gen [vars-and-dists [cluster-probs cluster-params]]
     (define view-name (str "view" (gensym)))
     (define var-names (keys vars-and-dists))
-    (define cluster-assignment-addr (get-cluster-name view-name))
+    (define cluster-addr (get-cluster-addr view-name))
     ; GENERATIVE MODEL.
     (define sampler
       (gen []
         (with-explicit-tracer t
           ; Sample the cluster assignment.
           (define cluster-idx
-            (t cluster-assignment-addr categorical cluster-probs))
+            (t cluster-addr categorical cluster-probs))
           ; Set the cluster assignment for each output variable.
           ; This trick allows the INF to be CGPM-compliant, where each
           ; variable in the view has a corresponding latent variable
@@ -54,7 +54,7 @@
           ; is discrete the semantics of using exactly are well defined.
           (define cluster-idx-copies
             (map
-              (gen [v] (t (get-cluster-name v) exactly cluster-idx))
+              (gen [v] (t (get-cluster-addr v) exactly cluster-idx))
               var-names))
           ; Obtain parameters in sampled cluster.
           (define params (nth cluster-params cluster-idx))
@@ -69,8 +69,8 @@
         (define cluster-constrained
           (or
             (empty? (get ctx :target))
-            (constrained? ctx cluster-assignment-addr)
-            (some (gen [v] (constrained? ctx (get-cluster-name v))) var-names)))
+            (constrained? ctx cluster-addr)
+            (some (gen [v] (constrained? ctx (get-cluster-addr v))) var-names)))
         (if cluster-constrained
           ; If constrained, then delegate to the sampler.
           (comp/infer-apply sampler [] ctx)
@@ -81,7 +81,7 @@
                 (define interventions (get ctx :intervene))
                 (define observations
                   (trace-set-value (get ctx :target)
-                                   cluster-assignment-addr
+                                   cluster-addr
                                    cluster-num))
                 (infer :procedure sampler
                        :target-trace observations
