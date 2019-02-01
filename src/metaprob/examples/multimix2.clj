@@ -34,7 +34,7 @@
         (apply concat (map (gen [vs] (t '() vs)) views))))))
 
 (define view
-  (gen [varset [cluster-probs cluster-params]]
+  (gen [vars-and-dists [cluster-probs cluster-params]]
     (define view-name (str "view" (gensym)))
     (define cluster-assignment-addr (str "cluster-for-" view-name))
     ; GENERATIVE MODEL.
@@ -45,8 +45,8 @@
             (nth cluster-params
                  (t cluster-assignment-addr categorical cluster-probs)))
           (map
-            (gen [v] (t v apply (get varset v) (get param-set v)))
-            (keys varset)))))
+            (gen [v] (t v apply (get vars-and-dists v) (get param-set v)))
+            (keys vars-and-dists)))))
     ; INFERENCE MODEL.
     (define scorer
       (gen [[] ctx]
