@@ -22,7 +22,9 @@
     (define log-normalizer (+ (log (apply + weights)) max-score))
     log-normalizer))
 
-(define get-cluster-addr (gen [v] (str "cluster-for-" v)))
+(define get-cluster-addr
+  (gen [v]
+    (str "cluster-for-" v)))
 
 (define clusters
   (gen [& args]
@@ -173,8 +175,7 @@
                           "cluster-for-sepal_width" {:value 0}}
                           ))
   (print weight-conditional)
-
-    (define [retval trace weight-conditional-impossible]
+  (define [retval trace weight-conditional-impossible]
     (infer :procedure model
            :target-trace {"sepal_width" {:value 34}
                           "cluster-for-sepal_width" {:value 0}
