@@ -41,7 +41,7 @@
     (define var-names (keys vars-and-dists))
     (define cluster-assignment-addr (get-cluster-name view-name))
     ; GENERATIVE MODEL.
-    (define model
+    (define sampler
       (gen []
         (with-explicit-tracer t
           ; Sample the cluster assignment.
@@ -63,20 +63,20 @@
       (gen [[] ctx]
         (if
           (or (empty? (get ctx :target)) (constrained? ctx cluster-assignment-addr))
-          (comp/infer-apply model [] ctx)
+          (comp/infer-apply sampler [] ctx)
           (block
             (define infer-apply-for-cluster
               (gen [cluster-num]
                 (define interventions (get ctx :intervene))
                 (define observations 
                   (trace-set-value (get ctx :target) cluster-assignment-addr cluster-num))
-                (infer :procedure model, :target-trace observations, :intervention-trace interventions)))
+                (infer :procedure sampler, :target-trace observations, :intervention-trace interventions)))
             (define all-possibilities (map infer-apply-for-cluster (range (count cluster-probs))))
             (define cluster-scores (map #(nth % 2) all-possibilities))
             (define [o t _] (nth all-possibilities (log-categorical cluster-scores)))
             [o t (logsumexp cluster-scores)]))))
     ; METAPROB INF.
-    (inf view-name model scorer)))
+    (inf view-name sampler scorer)))
 
 
 (defn -main [& args]
