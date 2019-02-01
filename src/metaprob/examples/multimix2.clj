@@ -31,12 +31,6 @@
     [(clojure.core/take-nth 2 args)
      (clojure.core/take-nth 2 (rest args))]))
 
-(define make-multi-mixture
-  (gen [views]
-    (gen []
-      (with-explicit-tracer t
-        (apply concat (map (gen [vs] (t '() vs)) views))))))
-
 (define make-view
   (gen [vars-and-dists [cluster-probs cluster-params]]
     (define view-name (str "view" (gensym)))
@@ -106,6 +100,12 @@
         [r t (logsumexp cluster-logps)]))
     ; RETURN THE METAPROB INF.
     (inf view-name sampler scorer)))
+
+(define make-multi-mixture
+  (gen [views]
+    (gen []
+      (with-explicit-tracer t
+        (apply concat (map (gen [vs] (t '() vs)) views))))))
 
 ;; Massive hack, we cannot call `view` directly.
 ;; A bug in Metaprob since September makes that impossible.
