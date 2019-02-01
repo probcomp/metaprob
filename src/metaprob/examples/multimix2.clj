@@ -105,7 +105,7 @@
   (gen [views]
     (gen []
       (with-explicit-tracer t
-        (apply concat (map (gen [vs] (t '() vs)) views))))))
+        (apply concat (map (gen [view] (t '() view)) views))))))
 
 ;; Massive hack, we cannot call `view` directly.
 ;; A bug in Metaprob since September makes that impossible.
