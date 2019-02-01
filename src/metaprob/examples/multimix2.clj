@@ -41,8 +41,12 @@
     (define model
       (gen []
         (with-explicit-tracer t
-          (define param-set (nth cluster-params (t cluster-assignment-addr categorical cluster-probs)))
-          (map (gen [var-name] (t var-name apply (get varset var-name) (get param-set var-name))) (keys varset)))))
+          (define param-set
+            (nth cluster-params
+                 (t cluster-assignment-addr categorical cluster-probs)))
+          (map
+            (gen [v] (t v apply (get varset v) (get param-set v)))
+            (keys varset)))))
     ; INFERENCE MODEL.
     (define scorer
       (gen [[] ctx]
