@@ -1,4 +1,4 @@
-(ns metaprob.examples.multimix2
+(ns metaprob.examples.multimixture
   (:refer-clojure :only
     [defn filter gensym])
   (:require
