@@ -61,9 +61,16 @@
     ; INFERENCE MODEL.
     (define scorer
       (gen [[] ctx]
-        (if
-          (or (empty? (get ctx :target)) (constrained? ctx cluster-assignment-addr))
+        ; Check whether any cluster address is constrained.
+        (define cluster-constrained
+          (or
+            (empty? (get ctx :target))
+            (constrained? ctx cluster-assignment-addr)
+            (some (gen [v] (constrained? ctx (get-cluster-name v))) var-names)))
+        (if cluster-constrained
+          ; If constrained, then delegate to the sampler.
           (comp/infer-apply sampler [] ctx)
+          ; Otherwise, compute the probabilities by enumeration.
           (block
             (define infer-apply-for-cluster
               (gen [cluster-num]
