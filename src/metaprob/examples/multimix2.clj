@@ -48,7 +48,11 @@
           (define cluster-idx
             (t cluster-assignment-addr categorical cluster-probs))
           ; Set the cluster assignment for each output variable.
-          (define cluster-idxs
+          ; This trick allows the INF to be CGPM-compliant, where each
+          ; variable in the view has a corresponding latent variable
+          ; identifying the cluster assignment. Since the cluster assignment
+          ; is discrete the semantics of using exactly are well defined.
+          (define cluster-idx-copies
             (map
               (gen [v] (t (get-cluster-name v) exactly cluster-idx))
               var-names))
