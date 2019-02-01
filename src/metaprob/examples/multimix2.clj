@@ -28,12 +28,12 @@
      (clojure.core/take-nth 2 (rest args))]))
 
 (define multi-mixture
-  (gen [& var-sets]
+  (gen [& views]
     (gen []
       (with-explicit-tracer t
-        (apply concat (map (gen [vs] (t '() vs)) var-sets))))))
+        (apply concat (map (gen [vs] (t '() vs)) views))))))
 
-(define var-set
+(define view
   (gen [varset [cluster-probs cluster-params]]
     (define varset-name (clojure.string/join "," (keys varset)))
     (define cluster-assignment-addr (str "cluster-for-" varset-name))
@@ -67,12 +67,12 @@
 (defn -main [& args]
   (define model
     (multi-mixture
-    ;; Ideally, we would just call var-set here.
+    ;; Ideally, we would just call view here.
     ;; A bug in Metaprob since September makes that impossible.
     ;; (https://github.com/probcomp/metaprob/issues/52)
     (nth
       (infer
-        :procedure var-set
+        :procedure view
         :inputs
           [{"sepal_width" gaussian
             "petal_width" gaussian
