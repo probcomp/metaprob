@@ -1,6 +1,6 @@
 (ns metaprob.examples.multimix2
   (:refer-clojure :only
-    [defn for frequencies gensym group-by last let merge nil? pos? some])
+    [defn filter gensym])
   (:require
     [metaprob.trace :as trace]
     [metaprob.builtin-impl :as impl]
@@ -65,35 +65,45 @@
     ; INFERENCE MODEL.
     (define scorer
       (gen [[] ctx]
-        ; Check whether any cluster address is constrained.
-        (define cluster-constrained
-          (or
-            (empty? (get ctx :target))
+        ; Obtain the probability of trace within a fixed cluster.
+        (define infer-apply-for-cluster
+          (gen [cluster-num]
+            (define interventions (get ctx :intervene))
+            (define observations
+              (trace-set-value (get ctx :target)
+                               cluster-addr
+                               cluster-num))
+            (infer :procedure sampler
+                   :target-trace observations
+                   :intervention-trace interventions)))
+        ; Find cluster addresses which are constrained.
+        (define constrained-cluster-addresses
+          (filter (gen [v] (constrained? ctx (get-cluster-addr v))) var-names))
+        ; Get indexes of clusters to enumerate over.
+        (define cluster-idxs
+          (if
+            ; Easy case: view cluster address is constrained.
             (constrained? ctx cluster-addr)
-            (some (gen [v] (constrained? ctx (get-cluster-addr v))) var-names)))
-        (if cluster-constrained
-          ; If constrained, then delegate to the sampler.
-          (comp/infer-apply sampler [] ctx)
-          ; Otherwise, compute exact probabilities and sample by enumeration.
-          (block
-            (define infer-apply-for-cluster
-              (gen [cluster-num]
-                (define interventions (get ctx :intervene))
-                (define observations
-                  (trace-set-value (get ctx :target)
-                                   cluster-addr
-                                   cluster-num))
-                (infer :procedure sampler
-                       :target-trace observations
-                       :intervention-trace interventions)))
-            (define cluster-idxs (range (count cluster-probs)))
-            (define cluster-traces (map infer-apply-for-cluster cluster-idxs))
-            (define cluster-logps (map (gen [[r t w]] w) cluster-traces))
-            (define [r t w] (nth cluster-traces (log-categorical cluster-logps)))
-            [r t (logsumexp cluster-logps)]))))
-    ; METAPROB INF.
+            (list (constrained-value ctx cluster-addr))
+            (if
+              ; Harder case: variable cluster address is constrained.
+              (> (count constrained-cluster-addresses) 0)
+              (block
+                (assert
+                  (= (count constrained-cluster-addresses) 1)
+                  "Cannot specify multiple cluster constraints within a view.")
+                (list
+                  (constrained-value ctx
+                    (get-cluster-addr (first constrained-cluster-addresses)))))
+              ; No constraints, so enumerate.
+              (range (count cluster-probs)))))
+        (print cluster-idxs)
+        (define cluster-traces (map infer-apply-for-cluster cluster-idxs))
+        (define cluster-logps (map (gen [[r t w]] w) cluster-traces))
+        (define [r t w] (nth cluster-traces (log-categorical cluster-logps)))
+        [r t (logsumexp cluster-logps)]))
+    ; RETURN THE METAPROB INF.
     (inf view-name sampler scorer)))
-
 
 (defn -main [& args]
   (define model
@@ -152,6 +162,21 @@
                                "sepal_length" [58.433333 8.253013]
                                "petal_length" [37.586667 17.585292]})])
       0)))
-  (define observation (trace-set-value {} "sepal_width" 25))
-  (define [retval trace weight] (infer :procedure model :target-trace observation))
-  (print weight))
+  (define [retval trace weight-marginal]
+    (infer :procedure model
+           :target-trace {"sepal_width" {:value 34}}))
+  (print weight-marginal)
+
+  (define [retval trace weight-conditional]
+    (infer :procedure model
+           :target-trace {"sepal_width" {:value 34}
+                          "cluster-for-sepal_width" {:value 0}}
+                          ))
+  (print weight-conditional)
+
+    (define [retval trace weight-conditional-impossible]
+    (infer :procedure model
+           :target-trace {"sepal_width" {:value 34}
+                          "cluster-for-sepal_width" {:value 0}
+                          "cluster-for-petal_length" {:value 2}}))
+  (print weight-conditional-impossible))
