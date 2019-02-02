@@ -88,25 +88,29 @@
   (is (< (cgpm-logpdf dummy-cgpm {:x0 2 :x1 120} {} {:y 100}))))
 
 (deftest dummy-row-simulate
-  (define sample-1 (cgpm-simulate dummy-cgpm [:x0 :x1 :x2] {} {:y 100} 10))
-  (is (= (count sample-1)) 10)
-  (define sample-2
-    (cgpm-simulate dummy-cgpm [:x0 :x1 :x2 :x3] {:x3 "foo"} {:y 100} 20))
-  (is (= (count sample-2) 20))
-  (is (= (get (nth sample-2 0) :x3) "foo")))
+  (testing "dummy-row-simulate"
+    (define sample-1 (cgpm-simulate dummy-cgpm [:x0 :x1 :x2] {} {:y 100} 10))
+    (is (= (count sample-1)) 10)
+    (define sample-2
+      (cgpm-simulate dummy-cgpm [:x0 :x1 :x2 :x3] {:x3 "foo"} {:y 100} 20))
+    (is (= (count sample-2) 20))
+    (is (= (get (nth sample-2 0) :x3) "foo"))))
 
 (deftest dummy-row-mutual-information-zero
-  (is (< (cgpm-mutual-information dummy-cgpm [:x0] [:x1] [] {:x3 "foo"}
-                                             {:y 100} 10 1))
-          1E-10))
+  (testing "dummy-row-mutual-information-zero"
+    (is (< (cgpm-mutual-information dummy-cgpm [:x0] [:x1] [] {:x3 "foo"}
+                                               {:y 100} 10 1))
+            1E-10)))
 
 (deftest dummy-row-kl-divergence-zero
+  (testing "dummy-row-kl-divergence-zero"
   (is (< (cgpm-kl-divergence dummy-cgpm [:x0] [:x0] [] {:x3 "foo"} {:y 100} 10)
-         1E-10)))
+         1E-10))))
 
 (deftest dummy-row-kl-divergence-non-zero
+  (testing "dummy-row-kl-divergence-non-zero"
   (is (> (cgpm-kl-divergence dummy-cgpm [:x1] [:x2] [] {:x3 "foo"} {:y 100} 10)
-         1)))
+         1))))
 
 ; --------------------------
 ; TEST FOR MULTIMIXTURE CGPM
@@ -193,103 +197,110 @@
 ; 1. cluster-for-[varname] in same view contradict each other.
 
 (deftest crosscat-row-logpdf-agree-data
-  (define lp-multimix
-    (nth
-      (infer
-        :procedure generate-crosscat-row
-        :target-trace {"sepal_width" {:value 34}})
-      2))
-  (define lp-cgpm
-    (cgpm-logpdf crosscat-cgpm {:sepal_width 34} {} {}))
-  (is (< (relerr lp-cgpm lp-multimix) 1E-4)))
+  (testing "crosscat-row-logpdf-agree-data"
+    (define lp-multimix
+      (nth
+        (infer
+          :procedure generate-crosscat-row
+          :target-trace {"sepal_width" {:value 34}})
+        2))
+    (define lp-cgpm
+      (cgpm-logpdf crosscat-cgpm {:sepal_width 34} {} {}))
+    (is (< (relerr lp-cgpm lp-multimix) 1E-4))))
 
 (deftest crosscat-row-logpdf-agree-cluster
-  (define lp-multimix
-    (nth
-      (infer
-        :procedure generate-crosscat-row
-        :target-trace {"cluster-for-sepal_length" {:value 0}})
-    2))
-  (define lp-cgpm
-    (cgpm-logpdf crosscat-cgpm {:cluster-for-sepal_length 0} {} {}))
-  (is (< (relerr lp-cgpm lp-multimix) 1E-4)))
+  (testing "crosscat-row-logpdf-agree-cluster"
+    (define lp-multimix
+      (nth
+        (infer
+          :procedure generate-crosscat-row
+          :target-trace {"cluster-for-sepal_length" {:value 0}})
+      2))
+    (define lp-cgpm
+      (cgpm-logpdf crosscat-cgpm {:cluster-for-sepal_length 0} {} {}))
+    (is (< (relerr lp-cgpm lp-multimix) 1E-4))))
 
 (deftest crosscat-row-logpdf-agree-joint
-  (define lp-multimix
-    (nth
-      (infer
-        :procedure generate-crosscat-row
-        :target-trace {"sepal_width" {:value 34}
-                       "cluster-for-sepal_length" {:value 0}})
-      2))
-  (define lp-cgpm
-    (cgpm-logpdf
-      crosscat-cgpm
-      {:sepal_width 34 :cluster-for-sepal_length 0}
-      {} {}))
-  (is (< (relerr lp-cgpm lp-multimix) 1E-4)))
+  (testing "crosscat-row-logpdf-agree-joint"
+    (define lp-multimix
+      (nth
+        (infer
+          :procedure generate-crosscat-row
+          :target-trace {"sepal_width" {:value 34}
+                         "cluster-for-sepal_length" {:value 0}})
+        2))
+    (define lp-cgpm
+      (cgpm-logpdf
+        crosscat-cgpm
+        {:sepal_width 34 :cluster-for-sepal_length 0}
+        {} {}))
+    (is (< (relerr lp-cgpm lp-multimix) 1E-4))))
 
 (deftest crosscat-row-logpdf-conditional
-  (define lp-zx
-    (cgpm-logpdf
-      crosscat-cgpm
-      {:sepal_width 34 :cluster-for-sepal_length 0}
-      {} {}))
-  (define lp-z
-    (cgpm-logpdf
-      crosscat-cgpm
-      {:cluster-for-sepal_length 0}
-      {} {}))
-  (define lp-x-given-z
-    (cgpm-logpdf
-      crosscat-cgpm
-      {:sepal_width 34}
-      {:cluster-for-sepal_length 0}
-      {}))
-  (is (< (relerr lp-x-given-z (- lp-zx lp-z)) 1E-4))
-  (define lp-x
-    (cgpm-logpdf
-      crosscat-cgpm
-      {:sepal_width 34}
-      {} {}))
-  (define lp-z-given-x
-    (cgpm-logpdf
-      crosscat-cgpm
-      {:cluster-for-sepal_length 0}
-      {:sepal_width 34}
-      {}))
-  (is (< (relerr lp-z-given-x (- lp-zx lp-x)) 1E-4)))
+  (testing "crosscat-row-logpdf-conditional"
+    (define lp-zx
+      (cgpm-logpdf
+        crosscat-cgpm
+        {:sepal_width 34 :cluster-for-sepal_length 0}
+        {} {}))
+    (define lp-z
+      (cgpm-logpdf
+        crosscat-cgpm
+        {:cluster-for-sepal_length 0}
+        {} {}))
+    (define lp-x-given-z
+      (cgpm-logpdf
+        crosscat-cgpm
+        {:sepal_width 34}
+        {:cluster-for-sepal_length 0}
+        {}))
+    (is (< (relerr lp-x-given-z (- lp-zx lp-z)) 1E-4))
+    (define lp-x
+      (cgpm-logpdf
+        crosscat-cgpm
+        {:sepal_width 34}
+        {} {}))
+    (define lp-z-given-x
+      (cgpm-logpdf
+        crosscat-cgpm
+        {:cluster-for-sepal_length 0}
+        {:sepal_width 34}
+        {}))
+    (is (< (relerr lp-z-given-x (- lp-zx lp-x)) 1E-4))))
 
 ; TODO: Only run test under --slow option.
 (deftest crosscat-row-mi-nonzero
-  (define mi
-    (cgpm-mutual-information
-      crosscat-cgpm
-      [:sepal_length]
-      [:sepal_width]
-      {} {} {} 50 1))
-  (is (> mi 1E-1)))
+  (testing "crosscat-row-mi-nonzero"
+    (define mi
+      (cgpm-mutual-information
+        crosscat-cgpm
+        [:sepal_length]
+        [:sepal_width]
+        {} {} {} 50 1))
+    (is (> mi 1E-1))))
 
 ; TODO: Only run test under --slow option.
 (deftest crosscat-row-mi-conditional-indep-marginalize-z
-  (define mi
-    (cgpm-mutual-information
-      crosscat-cgpm
-      [:sepal_length]
-      [:sepal_width]
-      {}
-      {:cluster-for-sepal_length 0}
-      {} 50 10))
-  (is mi (< 1E-5)))
+  (testing "crosscat-row-mi-conditional-indep-marginalize-z"
+    (define mi
+      (cgpm-mutual-information
+        crosscat-cgpm
+        [:sepal_length]
+        [:sepal_width]
+        {}
+        {:cluster-for-sepal_length 0}
+        {} 50 10))
+    (is mi (< 1E-5))))
 
 ; TODO: Only run test under --slow option.
 (deftest crosscat-row-mi-conditional-indep-fixed-z
-  (define mi
-    (cgpm-mutual-information
-      crosscat-cgpm
-      [:sepal_length]
-      [:sepal_width]
-      [:cluster-for-sepal_length]
-      {}
-      {} 50 1))
-  (is mi (< 1E-5)))
+  (testing "crosscat-row-mi-conditional-indep-fixed-z"
+    (define mi
+      (cgpm-mutual-information
+        crosscat-cgpm
+        [:sepal_length]
+        [:sepal_width]
+        [:cluster-for-sepal_length]
+        {}
+        {} 50 1))
+    (is mi (< 1E-5))))
