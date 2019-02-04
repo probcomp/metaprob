@@ -66,6 +66,10 @@
     (define scorer
       (gen [[] ctx]
         ; Obtain the probability of trace within a fixed cluster.
+        ; TODO: Consider removing the call to metaprob infer here and
+        ; instead manually compute the probabilities.
+        ; Advantage: will likely be faster.
+        ; Disadvantage: more error prone, less elegant, less abstraction reuse.
         (define infer-apply-for-cluster
           (gen [cluster-num]
             (define interventions (get ctx :intervene))
