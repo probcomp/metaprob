@@ -71,12 +71,12 @@
         ; Advantage: will likely be faster.
         ; Disadvantage: more error prone, less elegant, less abstraction reuse.
         (define infer-apply-for-cluster
-          (gen [cluster-num]
+          (gen [cluster-idx]
             (define interventions (get ctx :intervene))
             (define observations
               (trace-set-value (get ctx :target)
                                cluster-addr
-                               cluster-num))
+                               cluster-idx))
             (infer :procedure sampler
                    :target-trace observations
                    :intervention-trace interventions)))
