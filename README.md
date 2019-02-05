@@ -90,9 +90,16 @@ Generic inference algorithms like rejection sampling, sampling/importance resamp
 (nth (map first particles) (log-categorical (map second particles)))))
 ```
 
+## Getting started
+
+For those eager to learn and experiment with Metaprob, we recommend starting with the tutorial notebook, a Docker container which runs a Jupyter notebook containing the language and learning material. Instructions can be found [here](tutorial/README.md).
+
+To work on Metaprob itself, please refer to the [installation instructions](INSTALL.md).
+
 ## Documentation
 
-  * [Installation instructions](INSTALL.md)
+  * [Tutorial instructions](tutorial/README.md)
+  * [Contributor installation instructions](INSTALL.md)
   * [Using metaprob-in-clojure](doc/interaction.md)
   * [Language reference](doc/language.md)
   * [Probabilistic inference examples](doc/examples.md)

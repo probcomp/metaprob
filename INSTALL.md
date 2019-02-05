@@ -1,6 +1,13 @@
 # Installing metaprob-in-clojure
 
-The system is not yet packaged up for easy installation.
+Setting up a development environment for Metaprob is still a somewhat
+manual process. Note that what follows are instructions for those
+interesting in working on Metaprob itself or users wanting to use
+Metaprob for specific projects.
+
+If you're interested in learning and experimenting with Metaprob, we
+strongly recommend starting with the [Tutorial](tutorial/README.md)
+rather than following these instructions.
 
 ## Install Java
 
