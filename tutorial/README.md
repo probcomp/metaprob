@@ -2,6 +2,8 @@
 
 This directory contains a work-in-progress tutorial for Metaprob, in the file `Tutorial.ipynb`. The tutorial should generally be run in a Docker container, though it's also possible to run as a Clojure / Jupyter project directly on your machine.
 
+If you're interested in using Metaprob outside a Jupyter notebook or contributing to the language itself, please refer to the [installation instructions](INSTALL.md).
+
 ## Running in a container
 
 To run the Metaprob tutorial in a Docker you will need to run the following commands from the root of this repository (in the same directory as `Makefile`):
