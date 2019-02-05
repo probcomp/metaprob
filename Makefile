@@ -92,6 +92,7 @@ tags:
 
 # Targets for manipulating Docker below.
 docker-build:
+	mkdir -p $(HOME)/.m2
 	docker build -t probcomp/metaprob-clojure:latest .
 .PHONY: docker-build
 
