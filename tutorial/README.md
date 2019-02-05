@@ -2,6 +2,16 @@
 
 This directory contains a work-in-progress tutorial for Metaprob, in the file `Tutorial.ipynb`. The tutorial should generally be run in a Docker container, though it's also possible to run as a Clojure / Jupyter project directly on your machine.
 
+If you're interested in using Metaprob outside a Jupyter notebook or contributing to the language itself, please refer to the general [installation instructions](INSTALL.md).
+
+## Getting started
+
+First, you should clone this repository:
+
+    git clone https://github.com/probcomp/metaprob.git
+
+Once the repository is cloned, `cd` into the newly-created `metaprob` directory.
+
 ## Running in a container
 
 To run the Metaprob tutorial in a Docker you will need to run the following commands from the root of this repository (in the same directory as `Makefile`):
@@ -12,11 +22,12 @@ To run the Metaprob tutorial in a Docker you will need to run the following comm
    of this repository. Note that you should only need to run this
    command once- this step can be skipped in the future when starting
    the container.
-3. Run the Docker image with `make docker-notebook`. A URL like `http://(<container-id> or 127.0.0.1):8888/?token=<token>` will be printed.
-4. Copy the URL from your terminal into the address bar of your browser.
-5. Replace `(<container-id> or 127.0.0.1)` with `127.0.0.1`. This should leave you with a URL like `http://127.0.0.1:8888/?token=<token>`.
-6. Hit enter to navigate to the provided URL.
-7. Click on `Tutorial.ipynb`.
+3. Confirm the container you built is present on your system. Running `docker images | grep probcomp` should print a line starting with `probcomp/metaprob-clojure`.
+4. Run the Docker image with `make docker-notebook`. A URL like `http://(<container-id> or 127.0.0.1):8888/?token=<token>` will be printed.
+5. Copy the URL from your terminal into the address bar of your browser.
+6. Replace `(<container-id> or 127.0.0.1)` with `127.0.0.1`. This should leave you with a URL like `http://127.0.0.1:8888/?token=<token>`.
+7. Hit enter to navigate to the provided URL.
+8. Click on `Tutorial.ipynb`.
 
 ### Installing Docker
 
