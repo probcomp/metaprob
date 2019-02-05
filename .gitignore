@@ -32,11 +32,3 @@ parsings
 .lein_classpath
 bin/lein
 /src/metaprob/tutorial/.ipynb_checkpoints/
-
-# Ad-hoc files.
-*.sublime-project
-*.sublime-workspace
-.cpcache
-.jupyter
-/a
-/venv/
