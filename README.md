@@ -92,7 +92,7 @@ Generic inference algorithms like rejection sampling, sampling/importance resamp
 
 ## Getting started
 
-For those eager to learn and experiment with Metaprob, we recommend starting with the tutorial notebook, a Docker container which runs a Jupyter notebook containing the language and learning material. Instructions can be found [here](tutorial/README.md).
+For those eager to learn and experiment with Metaprob we recommend starting with the tutorial notebook: a Docker container which runs a Jupyter notebook containing the language and learning material. Instructions for its installation and use can be found [here](tutorial/README.md).
 
 To work on Metaprob itself, please refer to the [installation instructions](INSTALL.md).
 
