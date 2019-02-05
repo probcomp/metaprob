@@ -104,12 +104,12 @@
 
 (deftest dummy-row-kl-divergence-zero
   (testing "dummy-row-kl-divergence-zero"
-  (is (< (cgpm-kl-divergence dummy-cgpm [:x0] [:x0] [] {:x3 "foo"} {:y 100} 10)
+  (is (< (cgpm-kl-divergence dummy-cgpm [:x0] [:x0] {} {:x3 "foo"} {:y 100} 10)
          1E-10))))
 
 (deftest dummy-row-kl-divergence-non-zero
   (testing "dummy-row-kl-divergence-non-zero"
-  (is (> (cgpm-kl-divergence dummy-cgpm [:x1] [:x2] [] {:x3 "foo"} {:y 100} 10)
+  (is (> (cgpm-kl-divergence dummy-cgpm [:x1] [:x2] {} {:x3 "foo"} {:y 100} 10)
          1))))
 
 ; --------------------------
