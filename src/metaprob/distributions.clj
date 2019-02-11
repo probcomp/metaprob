@@ -168,7 +168,9 @@
           (map (gen [x] (- x max-score)) scores))
        (define weights (map exp numerically-stable-scores))
        (define log-normalizer (+ (log (apply + weights)) max-score))
-       (map (gen [w] (exp (- w log-normalizer))) scores)))
+       (if (> (apply + weights) 0)
+         (map (gen [w] (exp (- w log-normalizer))) scores)
+         (map (gen [w] (/ 1 (count scores))) scores))))
 
 ;; ----------------------------------------------------------------------------
 ;; I'm going to defer the implementation of beta until later;
