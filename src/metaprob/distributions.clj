@@ -154,7 +154,7 @@
                       (scan (+ i 1) (rest probs) p))))
      (scan 0 (scores-to-probabilities scores) 0.0))
    (gen [i [scores]]
-     (nth (scores-to-probabilities scores) i))))
+     (log (nth (scores-to-probabilities scores) i)))))
 
 
 
@@ -162,28 +162,13 @@
 ;;  ^:private
 (define scores-to-probabilities
   (gen [scores]
-
-       ;; Alex's
-       (define weights (map exp scores))
-       (define normalizer (apply + weights))
-       (map (gen [w] (/ w normalizer)) weights)
-
-       (define weights (map exp scores))
-       (define normalizer (apply + weights))
-       (if (> normalizer 0)
-         (map (gen [w] (/ w normalizer)) weights)
-         (map (gen [w] (/ 1 (count weights))) weights))
-
        ;; master branch's
-       ;; (define max-score (apply clojure.core/max scores))
-       ;; (define numerically-stable-scores
-       ;;   (map (gen [x] (- x max-score))
-       ;;        (to-immutable-list scores)))
-       ;; (define weights (map exp numerically-stable-scores))
-       ;; (define log-normalizer (+ (log (apply + weights)) max-score))
-       ;; (map (gen [w] (exp (- w log-normalizer))) (to-immutable-list scores))
-    ))
-
+       (define max-score (apply clojure.core/max scores))
+       (define numerically-stable-scores
+          (map (gen [x] (- x max-score)) scores))
+       (define weights (map exp numerically-stable-scores))
+       (define log-normalizer (+ (log (apply + weights)) max-score))
+       (map (gen [w] (exp (- w log-normalizer))) scores)))
 
 ;; ----------------------------------------------------------------------------
 ;; I'm going to defer the implementation of beta until later;
