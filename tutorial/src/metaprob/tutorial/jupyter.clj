@@ -3,7 +3,7 @@
    [clojure.data.json :as json]
    [clojure.java.io :as io]
    [clojupyter.misc.display :as display]
-   [metaprob.builtin :as builtin]))
+   [metaprob.trace :as trace]))
 
 (defn enable-inline-viz []
   (display/hiccup-html
@@ -13,14 +13,14 @@
 
 (defn trace-as-json
   [tr]
-  (let [base (if (builtin/trace-has-value? tr)
-               (let [v (builtin/trace-value tr)]
+  (let [base (if (trace/trace-has-value? tr)
+               (let [v (trace/trace-value tr)]
                  {:value (if (float? v)
                            (format "%f" v)
                            (pr-str v))})
                {})
-        children (for [key (builtin/trace-keys tr)]
-                   (into (trace-as-json (builtin/trace-subtrace tr key)) [[:name (pr-str key)]]))]
+        children (for [key (trace/trace-keys tr)]
+                   (into (trace-as-json (trace/trace-subtrace tr key)) [[:name (pr-str key)]]))]
     (into base [[:children (vec children)]])))
 
 (defn plot-trace
@@ -191,7 +191,7 @@
                                (= (((first l) :x) 0) (next 0)))
                         (cons
                           {:x [(next 0)] :y [(next 1)] :marker {:color "red"}}
-                          (cons {:x [(next 0)] :y [(next 1)] :marker {:color "white"}}
+                          (cons {:x [(next 0)] :y [(next 1)] :marker {:color "red"}}
                             l))
                         (cons {:x [(next 0)] :y [(next 1)] :marker {:color "black"}}
                         l)))
@@ -204,7 +204,7 @@
               :updatemenus
                      [{ :type "buttons" :xanchor "left" :yanchor "top" :pad {:t 50}
                        :x 0 :y 0
-                       :buttons [{:method "animate" :args [nil {:mode "immediate" :transition {:duration 600} :frame {:duration 500 :redraw false}}]
+                       :buttons [{:method "animate" :args [nil {:mode "immediate" :transition {:duration 60} :frame {:duration 50 :redraw false}}]
                                   :label "Play"}] }]}
       config {:displayModeBar false}
       ]

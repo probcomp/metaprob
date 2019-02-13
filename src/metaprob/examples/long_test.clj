@@ -6,7 +6,7 @@
             [metaprob.inference :refer :all]
             [metaprob.examples.gaussian :refer :all]
             [metaprob.examples.inference-on-gaussian :refer :all]
-            [metaprob.builtin-impl :as impl]))
+            [metaprob.builtin :as impl]))
 
 ;; These tests are smoke tests, not real tests of the methods - the
 ;; real tests take too long and make `clojure -Atest` take too long.

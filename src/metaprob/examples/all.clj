@@ -5,9 +5,8 @@
 ;; the REPL.
 
 (ns metaprob.examples.all
-  (:refer-clojure :only [ns declare in-ns require])
+  (:refer-clojure :exclude [get contains? dissoc assoc empty? keys get-in map reduce apply])
   (:require [metaprob.trace :as trace])
-  (:require [metaprob.builtin-impl :as impl])
   (:require [metaprob.syntax :refer :all])
   (:require [metaprob.builtin :refer :all])
   (:require [metaprob.prelude :refer :all])
@@ -27,7 +26,7 @@
 ;; You may prefer to invoke particular demos in the REPL, rather than
 ;; run them all wholesale
 
-(define demo
+(def demo
   (gen []
 
     ;; Coin flips
@@ -54,8 +53,8 @@
     ;;   4 calls / plots: prior, rejection, importance, MH
     ;; (demo-gaussian)
 
-    (define number-of-runs 100)
-    (gaussian-prior-samples number-of-runs)
-    (rejection-assay number-of-runs)
-    (importance-assay number-of-runs)
-    (MH-assay number-of-runs)))
+    (let [number-of-runs 100]
+      (gaussian-prior-samples number-of-runs)
+      (rejection-assay number-of-runs)
+      (importance-assay number-of-runs)
+      (MH-assay number-of-runs))))

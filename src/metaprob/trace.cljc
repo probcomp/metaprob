@@ -48,13 +48,20 @@
   ([tr] (dissoc tr :value))
   ([tr adr] (trace-set-subtrace tr adr (trace-clear-value (trace-subtrace tr adr)))))
 
+(declare trace-clear-subtrace)
+(defn maybe-set-subtrace
+  [output adr suboutput]
+  (if (empty? suboutput)
+    (trace-clear-subtrace output adr)
+    (trace-set-subtrace output adr suboutput)))
+
 (defn trace-clear-subtrace [tr adr]
   (if (seq? adr)
     (if (empty? adr)
       {}
       (if (empty? (rest adr))
         (dissoc tr (first adr))
-        (trace-set-subtrace
+        (maybe-set-subtrace
          tr
          (first adr)
          (trace-clear-subtrace (trace-subtrace tr (first adr)) (rest adr)))))
@@ -102,6 +109,15 @@
       (if (trace-has-value? tr2)
         (trace-set-value merged (trace-value tr2))
         merged))))
+
+
+(defn maybe-subtrace
+  [tr adr]
+  (or (trace-subtrace tr adr) {}))
+
+(defn merge-subtrace
+  [trace addr subtrace]
+  (trace-merge trace (maybe-set-subtrace {} addr subtrace)))
 
 ;; -----------------------------------------------------------------------------
 ;; Lexicographic ordering on traces.  Used by prettyprinter.
@@ -218,3 +234,36 @@
    (pprint-indented x "" out)
    (metaprob-newline out)
    (.flush out)))
+
+
+(defn addresses-of [tr]
+  (letfn [(get-sites [tr]
+            ;; returns a seq of traces
+            (let [site-list
+                  (mapcat (fn [key]
+                            (map (fn [site]
+                                   (cons key site))
+                                 (get-sites (trace-subtrace tr key))))
+                          (trace-keys tr))]
+              (if (trace-has-value? tr)
+                (cons '() site-list)
+                site-list)))]
+    (let [s (get-sites tr)]
+      (doseq [site s]
+        (assert (trace-has-value? tr site) ["missing value at" site]))
+      s)))
+
+
+(defn copy-addresses
+  [src dst paths]
+  "Copy values from a source trace to a destination trace, at the given paths."
+  (reduce #(trace-set-value %1 %2 (trace-value src %2))
+          dst paths))
+
+(defn partition-trace
+  [trace paths]
+  (let [path-set (into #{} (map #(if (not (seq? %)) (list %) %) paths))
+        addresses (into #{} (addresses-of trace))
+        all-addresses (group-by #(clojure.core/contains? path-set %) addresses)]
+    [(copy-addresses trace {} (get all-addresses true))
+     (copy-addresses trace {} (get all-addresses false))]))

@@ -1,142 +1,81 @@
 ;; See doc/about-the-prelude.md
 
 (ns metaprob.prelude
-  (:refer-clojure :only [declare ns])
+  (:refer-clojure :exclude [get contains? dissoc assoc empty? keys get-in map reduce replicate apply])
   (:require [metaprob.syntax :refer :all])
+  (:require [metaprob.trace :refer :all])
+  (:require [metaprob.compound :refer :all])
   (:require [metaprob.builtin :refer :all]))
 
-;; -----------------------------------------------------------------------------
-;; Interpreter utilities
 
-(define maybe-subtrace-1
-  (gen [x] x))
+;; Eager versions of common list functions
+(def map
+  (gen {:tracing-with t}
+    [f l]
+    (doall (map-indexed (gen [i x] (t i f x)) l))))
 
-(define maybe-subtrace
-  (gen [tr adr]
-    (or (trace-subtrace tr adr) {})))
+(def replicate
+  (gen {:tracing-with t} [n f]
+    (map (gen [i] (t i f)) (range n))))
 
-(define maybe-set-subtrace
-  (gen [output adr suboutput]
-    (if (empty? suboutput)
-      (trace-clear-subtrace output adr)
-      (trace-set-subtrace output adr suboutput))))
+(def doall*
+  (gen [s]
+    (dorun (tree-seq seq? seq s)) s))
 
-;; Utilities for interpreter
+;; infer-and-score
+(def primitive?
+  (gen [f]
+    (and (contains? f :implementation)
+         (nil? (get f :model)))))
 
-;; This is used to compute the key under which to store the value that
-;; is the binding of a definition.
+(def infer-and-score
+  (gen {:tracing-with t, :name infer-and-score}
+    [& {:keys [procedure inputs observation-trace]
+        :or {inputs [], observation-trace {}}}]
+    (cond
+      (contains? procedure :apply?)
+      (t '() infer-and-score
+         :procedure (first inputs),
+         :inputs (second inputs),
+         :observation-trace observation-trace)
 
-(define name-for-definiens
-  (gen [pattern]
-    (if (or (vector? pattern) (= pattern '_))
-      "definiens"
-      (str pattern))))
+      (primitive? procedure)
+      (if (trace-has-value? observation-trace)
+        ((get procedure :implementation) inputs observation-trace)
+        (let [value (t '() apply procedure inputs)]
+          [value {:value value} 0]))
 
-;; Get the key to use for storing the result of a procedure call.
-(define application-result-key
-  (gen [exp]
-    (if (symbol? exp) (str exp) "call")))
+      (contains? procedure :implementation)
+      (t '() (get procedure :implementation) inputs observation-trace)
 
-(define native-procedure?
-  (gen [thing]
-    (and (contains? thing :generative-source)
-         (contains? thing :environment))))
+      (get procedure :clojure-impl)
+      (let [trace (atom {})
+            score (atom 0)
+            tracer
+            (gen [addr proc & args]
+              (let [[v tr s] (t addr infer-and-score
+                                :procedure proc,
+                                :inputs args,
+                                :observation-trace (maybe-subtrace observation-trace addr))]
+                (swap! trace merge-subtrace addr tr)
+                (swap! score + s)
+                v))
+            retval (doall* (apply ((get procedure :clojure-impl) tracer) inputs))
+            final-trace (deref trace)
+            final-score (deref score)]
+        [retval final-trace final-score])
 
-;; -----------------------------------------------------------------------------
-;; Inf-based utilities.
+      true
+      [(apply procedure inputs) {} 0])))
 
+;; Creating custom inference procedures
+(def inf
+  (gen [model implementation]
+    (assoc
+      ;; When called from Clojure:
+      (fn [& inputs]
+        (nth (implementation inputs {}) 0))
 
-(define apply
-  (clojure.core/with-meta
-    ;; Kludge
-    clojure.core/apply
-    {:apply? true}))
-
-
-    ;(unbox
-    ;  (inf "apply"
-    ;      clojure.core/apply   ;model (generative procedure)
-    ;      (gen [inputs ctx]
-    ;        ; TODO: allow apply to be n-ary, with last argument a collection
-    ;        ; TODO: should use the currently active interpreter; whichever interpreter is evaluating the call to apply.
-    ;        (pprint ["Calling infer-apply with the context I was passed:" ctx])
-    ;        ; Note: this returns a trace, rather than a context!
-    ;        ; We need two versions of infer-apply: a context version and a trace version.
-    ;        ; I should figure out how *ambient-interpreter* and the tower of interpreters
-    ;        ; is supposed to work...
-    ;        (infer-apply (first inputs) (second inputs) {} {} true ctx))))))
-    ;        ; (assert false "Tracing `apply` is currently unimplemented."))))))
-    ;        ;(infer-apply (first inputs) (second inputs) ctx))))))
-
-
-(define opaque
-  (gen [proc]
-    (gen [& args] (with-explicit-tracer _ (apply proc args)))))
-
-;;; map defined using inf (instead of with-address)
-;
-;; TODO: This also depends on the ability to call infer-apply
-;(define map-issue-20
-;  (inf "map"
-;       nil                              ;no model
-;       (gen [[fun sequ] ctx]
-;         (define re
-;           (gen [i l]
-;             (if (empty? l)
-;               [(if (vector? sequ) [] l) ctx 0]
-;               (block (define [value suboutput subscore]
-;                        (infer-apply fun
-;                                     [(first l)]
-;                                     ;; advance traces by address i
-;                                     (maybe-subtrace intervene i)
-;                                     (maybe-subtrace target i)
-;                                     output?))
-;                      ;; Recur over rest of list
-;                      (define [values output score]
-;                        (re (+ i 1)
-;                            (rest l)))
-;                      [(cons value values)
-;                       (maybe-set-subtrace output i suboutput)
-;                       (+ subscore score)]))))
-;
-;                ;; Fire it up
-;                (re 0 (to-list sequ)))))
-;
-;(define map
-;  (gen [f l]
-;    (with-explicit-tracer t
-;      (define helper
-;        (gen [l i]
-;          (if (empty? l)
-;            '()
-;            (cons (t i f (first l))
-;                  (helper (rest l) (+ i 1))))))
-;      (helper l 0))))
-;
-;; (define map map-issue-20)
-;
-;(define replicate
-;  (gen [n f]
-;    (with-explicit-tracer t
-;      (define helper
-;        (gen [i acc]
-;          (if (= i n) acc (helper (+ i 1) (cons (t i f) acc)))))
-;      (helper 0 '()))))
-
-(define map
-  (gen [f l]
-    (with-explicit-tracer t
-      (clojure.core/doall
-        (clojure.core/map-indexed
-          (gen [i x] (t i f x)) l)))))
-
-(define replicate
-  (gen [n f]
-    (map (gen [_] (f)) (range n))))
-
-(define reduce
-  (gen [f start coll]
-    (with-explicit-tracer t
-      (second
-        (clojure.core/doall
-          (clojure.core/reduce (gen [[i x] y] [(+ i 1) (t i f x y)]) [0 start] coll))))))
+      ;; Annotations:
+      :model model,
+      :implementation implementation)))

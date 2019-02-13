@@ -6,7 +6,7 @@
             [metaprob.inference :refer :all]
             [metaprob.examples.gaussian :refer :all]
             [metaprob.examples.inference-on-gaussian :refer :all]
-            [metaprob.builtin-impl :as impl]))
+            [metaprob.builtin :as impl]))
 
 ;; These tests are smoke tests, not real tests of the methods - we don't expect
 ;; to get meaningful results with only 16 samples. The real tests take too long

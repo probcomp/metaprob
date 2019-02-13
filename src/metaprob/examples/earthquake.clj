@@ -10,16 +10,13 @@
             [metaprob.inference :refer :all]
             [metaprob.interpreters :refer :all]))
 
-(define flip
+(def flip
   (assoc metaprob.distributions/flip :support '(true false)))
-
-
-(define quake-env (make-top-level-env 'metaprob.examples.earthquake))
 
 ;; Convert a tuple of booleans to an integer.
 ;; Tuple element 0 determines the highest order bit.
 
-(define booleans-to-binary
+(def booleans-to-binary
   (opaque        ;Do not score
    (gen [qu]
      (define len (count qu))

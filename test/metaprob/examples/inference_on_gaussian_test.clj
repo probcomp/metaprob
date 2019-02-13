@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [metaprob.syntax :refer :all]
             [metaprob.trace :refer :all]
-            [metaprob.builtin-impl :refer :all]
+            [metaprob.builtin :refer :all]
             [metaprob.distributions :refer :all]
             [metaprob.interpreters :refer :all]
             [metaprob.inference :refer :all]
