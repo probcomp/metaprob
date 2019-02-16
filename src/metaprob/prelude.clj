@@ -2,11 +2,10 @@
 
 (ns metaprob.prelude
   (:refer-clojure :exclude [get contains? dissoc assoc empty? keys get-in map reduce replicate apply])
-  (:require [metaprob.syntax :refer :all])
-  (:require [metaprob.trace :refer :all])
-  (:require [metaprob.compound :refer :all])
-  (:require [metaprob.builtin :refer :all]))
-
+  (:require [metaprob.syntax :refer [gen]]
+            [metaprob.trace :refer :all]
+            [metaprob.compound :refer :all]
+            [metaprob.builtin :refer :all]))
 
 ;; Eager versions of common list functions
 (def map

@@ -3,7 +3,7 @@ all: bin/lein .lein_classpath
 
 # Starts a ClojureScript REPL
 cljs:
-	clojure -Acljs -m cljs.main --repl-env nashorn --repl
+	clj -Acljs -m cljs.main --repl-env nashorn --repl
 .PHONY: cljsrepl
 
 cljstest:

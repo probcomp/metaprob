@@ -39,7 +39,8 @@
 (defn gen-tracer-name
   [expr]
   (if (map? (second expr))
-    (get (second expr) :tracing-with) nil))
+    (get (second expr) :tracing-with)
+    nil))
 
 (defn gen-has-annotations?
   [expr]

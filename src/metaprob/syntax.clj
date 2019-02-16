@@ -1,30 +1,34 @@
 (ns metaprob.syntax
   (:refer-clojure :exclude [get contains? dissoc assoc empty? apply keys get-in])
-  (:require [metaprob.code-handlers :refer :all]
-            [metaprob.expander :refer :all]
-            [metaprob.trace :refer :all]
-            [metaprob.builtin :refer :all]
-            [metaprob.compound :refer :all]))
+  (:require [metaprob.code-handlers :as code]
+            [metaprob.expander :as expander]
+            [metaprob.builtin :as builtin]
+            [metaprob.compound :as compound]))
 
-
-(declare gen)
+(defmacro gen
+  "like fn, but for metaprob procedures"
+  {:style/indent 1}
+  [& form]
+  `(generator
+     ~(not (compound/get (meta &form) :no-expand?))
+     ~&form))
 
 (defmacro generator [expand? gen-expr]
   {:style/indent 2}
   (let [expr
-        (if expand? (map-gen mark-as-already-macroexpanded (mp-expand gen-expr)) gen-expr)
+        (if expand? (code/map-gen expander/mark-as-already-macroexpanded (expander/mp-expand gen-expr)) gen-expr)
 
         body
-        (gen-body expr)
+        (code/gen-body expr)
 
         name
-        (gen-name expr)
+        (code/gen-name expr)
 
         tracer-name
-        (gen-tracer-name expr)
+        (code/gen-tracer-name expr)
 
         params
-        (gen-pattern expr)
+        (code/gen-pattern expr)
 
         thunk-name
         (gensym (str (if name name "") "thunk"))
@@ -40,7 +44,7 @@
 
         clojure-fn-expr
         (if tracer-name
-          `(let [~tracer-name (fn [~'_ ~'f & ~'args] (apply ~'f ~'args))]
+          `(let [~tracer-name (fn [~'_ ~'f & ~'args] (metaprob.builtin/apply ~'f ~'args))]
              ~innermost-fn-expr)
           innermost-fn-expr)
 
@@ -51,11 +55,3 @@
 
         `(let [~thunk-name (fn ~thunk-name [] (with-meta ~clojure-fn-expr {:generative-source '~expr, :clojure-impl ~clojure-impl-expr, :name '~name}))]
              (~thunk-name))))
-
-(defmacro gen
-  "like fn, but for metaprob procedures"
-  {:style/indent 1}
-  [& form]
-  `(generator
-     ~(not (get (meta &form) :no-expand?))
-     ~&form))
