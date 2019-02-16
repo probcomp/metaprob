@@ -16,11 +16,9 @@
 ;; "mark-as-macroexpanded" can only happen after transform is done.
 ;; Gen body is expanded given to transformation, new gen expression comes out, which is evaluated.
 
-
-(defmacro def-transformation
+(defn register-transformation!
   [name f]
-  `(swap! transformations assoc '~name ~f))
-
+  (swap! transformations assoc name f))
 
 ;; Translate a Clojure fn* expression, which defines a potentially
 ;; anonymous function that dispatches to different function bodies

@@ -57,7 +57,7 @@
 
 ;; A transformation can assume its argument is of the form
 ;; (gen {...} [...] body), where body has been expanded.
-(def-transformation
+(register-transformation!
   "autotrace"
   (gen [expr]
     (let [tracer-name (gensym "trace")
