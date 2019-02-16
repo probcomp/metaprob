@@ -1,6 +1,5 @@
 (ns metaprob.compound
-  (:refer-clojure :exclude [get contains? keys assoc dissoc get-in empty?])
-  (:import [clojure.lang IPersistentMap]))
+  (:refer-clojure :exclude [get contains? keys assoc dissoc get-in empty?]))
 
 (defprotocol MPCompound
   (get [thing key] "Get value associated with `key` in `thing`")

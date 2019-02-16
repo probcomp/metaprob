@@ -1,7 +1,5 @@
 (ns metaprob.code-handlers
-  (:refer-clojure :exclude [get contains? dissoc assoc empty? keys get-in])
-  (:require [metaprob.compound :refer :all]
-            [clojure.pprint :as pprint]))
+  (:require [metaprob.compound :as compound]))
 
 (defn name-checker
   [n]
@@ -22,7 +20,7 @@
   [expr]
   (cond
     (symbol? (second expr)) (second expr)
-    (map? (second expr)) (get (second expr) :name)
+    (map? (second expr)) (compound/get (second expr) :name)
     true nil))
 
 (defn gen-annotations
@@ -34,12 +32,12 @@
 (defn gen-transformation
   [expr]
   (if (map? (second expr))
-    (get (second expr) :transform) nil))
+    (compound/get (second expr) :transform) nil))
 
 (defn gen-tracer-name
   [expr]
   (if (map? (second expr))
-    (get (second expr) :tracing-with)
+    (compound/get (second expr) :tracing-with)
     nil))
 
 (defn gen-has-annotations?
@@ -123,4 +121,4 @@
   [expr]
   (or
     (and (not (seq? expr)) (not (vector? expr)) (not (map? expr)))
-    (empty? expr)))
+    (compound/empty? expr)))
