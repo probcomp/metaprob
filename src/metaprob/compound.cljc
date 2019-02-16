@@ -95,25 +95,6 @@
   (single-dissoc [l k] (single-dissoc (to-map l) k))
   (representation [thing] :list)
 
-  #?(:clj clojure.lang.LazySeq
-     :cljs cljs.core/List)
-  (get [l k] (case k :first (first l), :rest (rest l), nil))
-  (contains? [l k] (and (not (empty? l)) (or (= k :first) (= k :rest))))
-  (keys [l] (if (clojure.core/empty? l) '() '(:first :rest)))
-  (unbox [thing] thing)
-  (single-assoc [l k v] (single-assoc (to-map l) k v))
-  (single-dissoc [l k] (single-dissoc (to-map l) k))
-  (representation [thing] :list)
-
-  #?(:clj clojure.lang.Cons
-     :cljs cljs.core/List)
-  (get [l k] (case k :first (first l), :rest (rest l), nil))
-  (contains? [l k] (and (not (empty? l)) (or (= k :first) (= k :rest))))
-  (keys [l] (if (clojure.core/empty? l) '() '(:first :rest)))
-  (unbox [thing] thing)
-  (single-assoc [l k v] (single-assoc (to-map l) k v))
-  (single-dissoc [l k] (single-dissoc (to-map l) k))
-  (representation [thing] :list)
 
   #?(:clj clojure.lang.IFn
      :cljs function)
@@ -121,7 +102,7 @@
   (contains? [f k] (contains? (meta f) k)) ; zs: use metaprob.compound/keys?
   (keys [f] (keys (meta f)))
   (unbox [f] (if (meta f) (unbox (meta f)) nil)) ; (comp unbox meta)
-  (single-assoc [f k v] (vary-meta f single-dissoc k v))
+  (single-assoc [f k v] (vary-meta f single-assoc k v))
   (single-dissoc [f k] (vary-meta f single-dissoc k))
   (representation [f] (representation (meta f)))
 
@@ -143,6 +124,52 @@
   (single-assoc [thing k v] (clojure.core/assoc thing k v))
   (single-dissoc [thing k] (clojure.core/dissoc thing k))
   (representation [_] :list)) ; should nil be a list, a vector, or...?
+
+#?(:clj (extend-protocol MPCompound
+          clojure.lang.PersistentList$EmptyList
+          (get [l k] (case k :first (first l), :rest (rest l), nil))
+          (contains? [l k] (and (not (empty? l)) (or (= k :first) (= k :rest))))
+          (keys [l] (if (clojure.core/empty? l) '() '(:first :rest)))
+          (unbox [thing] thing)
+          (single-assoc [l k v] (single-assoc (to-map l) k v))
+          (single-dissoc [l k] (single-dissoc (to-map l) k))
+          (representation [thing] :list)
+
+          clojure.lang.LazySeq
+          (get [l k] (case k :first (first l), :rest (rest l), nil))
+          (contains? [l k] (and (not (empty? l)) (or (= k :first) (= k :rest))))
+          (keys [l] (if (clojure.core/empty? l) '() '(:first :rest)))
+          (unbox [thing] thing)
+          (single-assoc [l k v] (single-assoc (to-map l) k v))
+          (single-dissoc [l k] (single-dissoc (to-map l) k))
+          (representation [thing] :list)
+
+          clojure.lang.ArraySeq
+          (get [l k] (case k :first (first l), :rest (rest l), nil))
+          (contains? [l k] (and (not (empty? l)) (or (= k :first) (= k :rest))))
+          (keys [l] (if (clojure.core/empty? l) '() '(:first :rest)))
+          (unbox [thing] thing)
+          (single-assoc [l k v] (single-assoc (to-map l) k v))
+          (single-dissoc [l k] (single-dissoc (to-map l) k))
+          (representation [thing] :list)
+
+          clojure.lang.Cons
+          (get [l k] (case k :first (first l), :rest (rest l), nil))
+          (contains? [l k] (and (not (empty? l)) (or (= k :first) (= k :rest))))
+          (keys [l] (if (clojure.core/empty? l) '() '(:first :rest)))
+          (unbox [thing] thing)
+          (single-assoc [l k v] (single-assoc (to-map l) k v))
+          (single-dissoc [l k] (single-dissoc (to-map l) k))
+          (representation [thing] :list))
+   :cljs (extend-protocol MPCompound
+           cljs.core/List
+           (get [l k] (case k :first (first l), :rest (rest l), nil))
+           (contains? [l k] (and (not (empty? l)) (or (= k :first) (= k :rest))))
+           (keys [l] (if (clojure.core/empty? l) '() '(:first :rest)))
+           (unbox [thing] thing)
+           (single-assoc [l k v] (single-assoc (to-map l) k v))
+           (single-dissoc [l k] (single-dissoc (to-map l) k))
+           (representation [thing] :list)))
 
 (defn assoc
   ([m k v] (single-assoc m k v))
