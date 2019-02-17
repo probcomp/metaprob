@@ -7,7 +7,7 @@
             [metaprob.trace :refer :all]
             [metaprob.prelude :refer :all]
             [metaprob.distributions :refer :all]
-            [metaprob.expander :refer [def-transformation]]
+            [metaprob.expander :refer [register-transformation!]]
             [metaprob.syntax :refer :all]))
 
 (declare autotrace-expression)
