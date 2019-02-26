@@ -1,6 +1,10 @@
 {:deps {org.clojure/clojure {:mvn/version "1.9.0"}
         org.clojure/tools.cli {:mvn/version "0.4.1"}
-        kixi/stats {:mvn/version "0.4.0"}}
+        kixi/stats {:mvn/version "0.4.0"}
+
+        http-kit {:mvn/version "2.3.0"}
+        compojure {:mvn/version "1.6.1"}
+        cheshire {:mvn/version "5.8.1"}}
 
  :aliases {:examples {:jvm-opts ["-Xss50M"]
                       :main-opts ["-m" "metaprob.examples.main"]}
@@ -13,7 +17,7 @@
                   :jvm-opts ["-Xss50M"]
                   :main-opts ["-m" "cognitect.test-runner"]}
 
-           :cljs {:extra-deps {org.clojure/clojurescript {:mvn/version "1.10.339"}}}
+           :cljs {:extra-deps {org.clojure/clojurescript {:mvn/version "1.10.520"}}}
            :cljstest {:extra-paths ["test"]
                       :main-opts ["-m"  "cljs.main"
                                   "-re" "nashorn"
