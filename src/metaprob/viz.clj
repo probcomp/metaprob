@@ -1,32 +1,36 @@
 (ns metaprob.viz-server
   (:require [org.httpkit.server :as httpkit]
-            [compojure.core :refer [defroutes GET POST DELETE ANY context]]
+            [compojure.core :refer [defroutes GET ]]
             [compojure.route :refer [files not-found]]
             [clojure.string :as str]
-            [clojure.walk :refer [keywordize-keys]]
             [ring.util.response :refer [file-response]]
             [cheshire.core :as json]))
 
 (defonce server (atom nil))
 (defonce visualizations (atom {}))
 
+(defn uuid [] (str (java.util.UUID/randomUUID)))
+
+;;;;;;;;;;
+;; websocket handling
+;;;;;;;;;;
 (defn handle-connect
   [{:keys [clientId vizId]} channel]
   (do
-    (println "looks like a connection from" clientId "to" vizId "on" channel)
     (swap! visualizations assoc-in [vizId :clients clientId] channel)
-    (println @visualizations)
     (httpkit/send! channel (json/generate-string
                             {:action "initialize"
                              :traces (get-in @visualizations [vizId :traces])
                              :info   (get-in @visualizations [vizId :info])}))))
 
 (defn handle-disconnect [{:keys [clientId vizId]}]
-  (do (println "Disconnect from " clientId)
-      (swap! visualizations update-in [vizId :clients] dissoc clientId)
-      (println @visualizations)))
+  (swap! visualizations update-in [vizId :clients] dissoc clientId)
+  (println @visualizations))
 
-(defn ws-handler [request]
+(defn ws-handler
+  "Ring handler for managing the web socket. Accept 'messages', dispatch
+  to functions based on :action"
+  [request]
   (httpkit/with-channel request channel
     (httpkit/on-receive channel
                         (fn [data]
@@ -36,18 +40,20 @@
                                   "connect" (handle-connect msg channel)
                                   "disconnect" (handle-disconnect msg))))))))
 
-(defn uuid [] (str (java.util.UUID/randomUUID)))
 
-(defn stop-server []
-  (when-not (nil? @server)
-    (@server :timeout 100)
-    (reset! server nil)))
+;;;;;;;;;;
+;; ring middleware
+;;;;;;;;;;
 
-(defn viz-disk-path [v]
+(defn viz-disk-path
+  "Given a visualization ID, return the path to its renderer"
+  [v]
   (get-in @visualizations [v :path]))
 
 (defn wrap-viz
-  "Requests for visualizations arrive looking like:
+  "Ring middleware for handling requests involving visualization IDs,
+  which return static content based on the path of the
+  visualzation. Requests for visualizations arrive looking like:
 
        http://localhost/<visualization-id>/
 
@@ -56,9 +62,9 @@
       http://localhost/<visualization-id>/path/to/main.js
 
   Attempt to map `visualization-id` to a registered visualization. If
-  we succeed, return static HTML/js/CSS of the 'renderer' of the
-  registered visualization. If we fail to map the ID, call the wrapped
-  handler.
+  we succeed, return the static HTML/js/CSS content being requested,
+  rooted at the visualization's :path. If we fail to map the ID, call
+  the wrapped handler.
   "
   [handler]
   (fn [{:keys [uri] :as req}]
@@ -74,19 +80,25 @@
         (file-response viz-resource {:root viz-path})))))
 
 (defn wrap-ws
-  "This is a websocket request? Bounce it to the websocket
-  handler. Otherwise, carry on."
+  "Ring middleware to detect if the request is a websocket upgrade
+  request, in which case we call our websocket handler. If not, we
+  pass the request through unchanged."
   [handler]
   (fn [req]
     (if (:websocket? req)
-      (do (println "Looks like a websocket connection")
-          (ws-handler req))
+      (ws-handler req)
       (handler req))))
 
+;; The bottom of our handler stack: serve static files, a placeholder
+;; index page, 404's.
 (defroutes routes
   (GET "/" [] "<html><body>Metaprob Viz Server. Hi!</body></html>")
   (files "/public")
   (not-found "<p>Page not found.</p>"))
+
+;;;;;;;;;
+;; API- functions to register visualizations, to add and remove traces
+;;;;;;;;;
 
 (defn add-viz!
   [path info]
@@ -100,18 +112,65 @@
             :html ""})
     id))
 
+(defn put-trace!
+  [viz-id trace]
+  (let [trace-id (uuid)]
+    (swap! visualizations assoc-in [viz-id :traces trace-id] trace)
+    (doall (map (fn [channel]
+                  (httpkit/send! channel (json/generate-string
+                                          {:action "putTrace"
+                                           :tId    trace-id
+                                           :t      trace})))
+                (vals (get-in @visualizations [viz-id :clients]))))
+    trace-id))
+
+(defn delete-trace!
+  [viz-id trace-id]
+  (do
+    (swap! visualizations update-in [viz-id :traces] dissoc trace-id)
+    (doall (map (fn [channel]
+                  (httpkit/send! channel (json/generate-string
+                                          {:action "removeTrace"
+                                           :tId    trace-id})))
+                (vals (get-in @visualizations [viz-id :clients]))))))
+
+(defn stop-server []
+  (when-not (nil? @server)
+    (@server :timeout 100)
+    (reset! server nil)))
+
 (comment
+  ;; create a server and start it listening
   (reset! server (httpkit/run-server
                   (-> #'routes
                       wrap-ws
                       wrap-viz)
                   {:port 8081}))
+
+  ;; stop the running server
   (stop-server)
+
+  ;; clear any visualizations (does not update the clients)
   (reset! visualizations {})
-  (swap! visualizations assoc "1234" {:path "public/vue/dist/"})
-  (def vid (add-viz! "public/vue/dist/" [[-1.0 -0.5 0 0.5 1]
-                                         [-1.2 -0.39 0.02 0.56 0.98]]))
+
+
+  ;; add an example visualization
+  (def vid (add-viz! "public/vue/dist/" [[-2.0 -1.0    0 1.0 2.0]
+                                         [-2.0  -1.0   0 1.0 2.0]]))
 
   (println vid)
+  ;; try visiting `http://localhost:8081/<vid>/`
 
+  ;; define an example trace
+  (def t {:slope 1.4
+          :intercept 0
+          :inlier_std 0.2
+          :outlier_std 1.2
+          :outliers [false false true false true]})
+
+  ;; add that trace. this should update the connected client
+  (def tid (put-trace! vid t))
+
+  ;; remove the trace
+  (delete-trace! vid tid)
   )
