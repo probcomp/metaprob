@@ -23,11 +23,16 @@ To run the Metaprob tutorial in a Docker you will need to run the following comm
    command once- this step can be skipped in the future when starting
    the container.
 3. Confirm the container you built is present on your system. Running `docker images | grep probcomp` should print a line starting with `probcomp/metaprob-clojure`.
-4. Run the Docker image with `make docker-notebook`. A URL like `http://(<container-id> or 127.0.0.1):8888/?token=<token>` will be printed.
-5. Copy the URL from your terminal into the address bar of your browser.
-6. Replace `(<container-id> or 127.0.0.1)` with `127.0.0.1`. This should leave you with a URL like `http://127.0.0.1:8888/?token=<token>`.
-7. Hit enter to navigate to the provided URL.
-8. Click on `Tutorial.ipynb`.
+4. Run the Docker image with `make docker-notebook`. A message along the lines of
+
+
+    [I 04:07:35.953 NotebookApp] The Jupyter Notebook is running at:
+    [I 04:07:35.953 NotebookApp] http://(fc7b1750d0a9 or 127.0.0.1):8888/
+
+will be displayed.
+
+5. In your browser, visit [http://127.0.0.1:8888/](http://127.0.0.1:8888)
+6. Click on `Tutorial.ipynb`.
 
 ### Installing Docker
 
