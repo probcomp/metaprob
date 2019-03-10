@@ -9,19 +9,32 @@
             [metaprob.distributions :refer :all]
             [metaprob.syntax :refer :all]))
 
+;(def g (gen {:tracing-with t} [] (map (fn [i] (t i flip [0.5])) (range 2))))
+;
+;(def g
+;  (gen {:transform "autotrace"} []
+;    (do (flip 0.2) (replicate 2 (gen [] (flip 0.5))))))
+
 (def g
   (gen {:transform "autotrace"} []
-    (replicate 2 (gen {:transform "autotrace"} []
-             (flip 0.5)))))
+    (let [p (beta 1 1)
+          f (flip p)]
+      (if f
+        (replicate 2 #(flip p))
+        (replicate 3 #(flip p))))))
 
 ;(def g
 ;  (gen {:transform "autotrace"} []
 ;    (log-categorical [1 1 1]) (flip 0.2)))
 
-(def f (gen {:tracing-with t} [] (t '("hello") log-categorical [1 1 1]) (t '("goodbye") flip 0.2)))
+(def f (gen {:tracing-with t} [] (t '("hello") log-categorical [[1 1 1]]) (t '("goodbye") flip [0.2])))
 
 (defn -main []
+  (pprint/pprint (g))
   (pprint/pprint (infer-and-score :procedure g))
+  (pprint/pprint (meta g))
+  (pprint/pprint (infer-and-score :procedure f :observation-trace {"hello" {:value 1}}))
+  (pprint/pprint (infer-and-score :procedure infer-and-score :inputs [:procedure f :observation-trace {"hello" {:value 1}}]))
   (pprint/pprint (infer-and-score :procedure infer-and-score
                                   :inputs [:procedure f :observation-trace {"hello" {:value 1}}]
                                   :observation-trace {"goodbye" {:value false}}))

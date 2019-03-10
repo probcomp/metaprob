@@ -97,6 +97,16 @@
   [& elems]
   (vec elems))
 
+(defn expand-let-expr [form]
+  (if (empty? (let-bindings form))
+    (mp-expand `((~'gen [] ~@(let-body form))))
+    (let [[first-name first-value] (first (let-bindings form))
+          other-bindings (apply concat (rest (let-bindings form)))]
+      (mp-expand `((~'gen [~first-name]
+                     (let [~@other-bindings]
+                       ~@(let-body form))) ~first-value)))))
+
+
 (defn mp-expand [form]
  ; (pprint/pprint ["Expanding" form])
   (cond
@@ -126,10 +136,12 @@
         (doall (map-gen mp-expand form)))
 
       "do"
-      (cons 'do (doall (map mp-expand (rest form))))
+      (recur `((~'gen [] ~@(rest form))))
+      ; (cons 'do (doall (map mp-expand (rest form))))
 
       "let"
-      (doall (map-let mp-expand form))
+      (expand-let-expr form)
+      ; (doall (map-let mp-expand form))
 
       "letfn"
       form

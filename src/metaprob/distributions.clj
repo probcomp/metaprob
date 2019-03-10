@@ -8,106 +8,72 @@
             [metaprob.trace :refer :all]
             [clojure.pprint :as pprint]))
 
-
-;; TODO: Can exactly's implementation be made traceable?
 (def exactly
-  (inf
-    ; No model
-    nil
-    ; Implementation
-    (gen [[x] observations]
-         (let [result
-               (if (trace-has-value? observations)
-                 (trace-value observations) x)]
-           [result {:value result} (if (not= result x) negative-infinity 0)]))))
-
-(def make-inference-procedure-from-sampler-and-scorer
-  (gen [sampler scorer]
-       (inf
-         ;; Model
-         nil
-         ;(gen {:tracing-with t} [& args]
-         ;  (t '() exactly (apply sampler args)))
-
-         ;; Inference implementation
-         (gen {:tracing-with t} [args observations]
-              (let [result
-                    (if (trace-has-value? observations)
-                      (trace-value observations)
-                      (t '() exactly (apply sampler args)))]
-                [result
-                 {:value result}
-                 (if (trace-has-value? observations)
-                   (scorer result args)
-                   0)])))))
+  (make-primitive
+    (fn [x] x)
+    (fn [y [x]] (if (not= y x) negative-infinity 0))))
 
 (def uniform
-  (make-inference-procedure-from-sampler-and-scorer
-    (gen [a b] (sample-uniform a b))
-    (gen [x [a b]]
-         (- 0.0 (log (- b a))))))
+  (make-primitive
+    (fn [a b] (sample-uniform a b))
+    (fn [x [a b]] (if (<= a x b) (- (log (- b a))) negative-infinity))))
 
-(def uniform-sample
-  (make-inference-procedure-from-sampler-and-scorer
-    (gen [items]
-         (let [n (uniform 0 (count items))]
-           (nth items (floor n))))
-    (gen [item [items]]
-         (- (log (count (filter (gen [x] (= x item)) items)))
-            (log (count items))))))
+(def uniform-discrete
+  (make-primitive
+    (fn [items] (nth items (Math/floor (rand (count items)))))
+    (fn [item [items]]
+      (- (log (count (filter #(= % item) items)))
+         (log (count items))))))
 
 (def flip
-  (make-inference-procedure-from-sampler-and-scorer
-    (gen [weight] (< (uniform 0 1) weight))
-    (gen [value [weight]]
-         (if value
-           (log weight)
-           (log1p (- 0 weight))))))
+  (make-primitive
+    (fn [weight] (< (uniform 0 1) weight))
+    (fn [value [weight]]
+      (if value
+        (log weight)
+        (log1p (- weight))))))
 
-;; Cf. CategoricalOutputPSP from discrete.py in Venturecxx
-;; This is just the one-argument form, so is simpler than what's in Venture.
+(defn normalize-numbers [nums]
+  (let [total (clojure.core/reduce + nums)] (map #(/ % total) nums)))
 
 (def categorical
-  (make-inference-procedure-from-sampler-and-scorer
-    (gen [probabilities]
-         ;; Returns an index i.
-         ;; Assume that probabilities add to 1.
-         ;; return simulateCategorical(vals[0], args.np_prng(),
-         ;;   [VentureInteger(i) for i in range(len(vals[0]))])
-         (let [threshold (uniform 0 1)
-               scan (gen scan [i probs running-prob]
-                         (if (empty? probs)
-                           (- i 1)
-                           (let [next-prob (+ (first probs) running-prob)]
-                             (if (> next-prob threshold) i (scan (+ i 1) (rest probs) next-prob)))))]
-           (scan 0 probabilities 0.0)))
-    (gen [i [probabilities]]
-         ;; return logDensityCategorical(val, vals[0],
-         ;;   [VentureInteger(i) for i in range(len(vals[0]))])
-         (log (nth probabilities i)))))
+  (make-primitive
+    (fn [probs]
+      (if (map? probs)
+        (nth (keys probs) (categorical (normalize-numbers (vals probs)))) ;; TODO: normalization not needed here?
+        (let [total (clojure.core/reduce + probs)
+              r (rand total)]
+          (loop [i 0, sum 0]
+            (if (< r (+ (nth probs i) sum)) i (recur (inc i) (+ (nth probs i) sum)))))))
+    (fn [i [probs]]
+      (if (map? probs)
+        (if (not (contains? probs i)) negative-infinity (- (log (get probs i)) (log (clojure.core/reduce + (vals probs)))))
+        (log (nth probs i))))))
 
-(def scores-to-probabilities
-  (gen [scores]
-    (let [max-score (apply max scores)
-           numerically-stable-scores (map #(- % max-score) scores)
-           weights (map exp numerically-stable-scores)
-           log-normalizer (+ (log (apply + weights)) max-score)]
-       (map #(exp (- % log-normalizer)) scores))))
+(defn logsumexp [scores]
+  (let [max-score (apply max scores)
+        weights (map #(Math/exp (- % max-score)) scores)]
+    (+ (Math/log (clojure.core/reduce + weights)) max-score)))
+
+(defn log-scores-to-probabilities [scores]
+  (let [log-normalizer (logsumexp scores)]
+    (map #(Math/exp (- % log-normalizer)) scores)))
+
 
 (def log-categorical
-  (make-inference-procedure-from-sampler-and-scorer
+  (make-primitive
     (gen [scores]
-      (let [threshold (uniform 0 1)
-            scan (gen scan [i probs running-prob]
-                   (let [p (+ (first probs) running-prob)]
-                     (if (> p threshold)
-                       i
-                       (scan (+ i 1) (rest probs) p))))] ;; TODO: test recur
-        (scan 0 (scores-to-probabilities scores) 0.0)))
+      (let [probs
+            (if (map? scores) (into {} (clojure.core/map (fn [a b] [a b]) (keys scores) (log-scores-to-probabilities (vals scores))))
+                              (log-scores-to-probabilities scores))]
+        (categorical probs)))
     (gen [i [scores]]
-      (log (nth (scores-to-probabilities scores) i)))))
-
-
+      (let [probs
+            (if (map? scores) (into {} (clojure.core/map (fn [a b] [a b]) (keys scores) (log-scores-to-probabilities (vals scores))))
+                              (log-scores-to-probabilities scores))]
+        (if (map? probs)
+          (if (not (contains? probs i)) negative-infinity (- (log (get probs i)) (log (clojure.core/reduce + (vals probs)))))
+          (log (nth probs i)))))))
 
 (def generate-gaussian
   (gen [mu sigma]
@@ -117,38 +83,38 @@
                               (cos (* (* 2 3.14159265) u2)))
                            sigma)))))
 
-(def standard-gaussian-log-density
-  (gen [x]
-    (- (* (- 0 0.5) (log (* 2 3.14159265)))
-       (* (* 0.5 x) x))))
-
-(def score-gaussian
-  (gen [x [mu sigma]]
-    (- (standard-gaussian-log-density
-         (/ (- x mu) sigma))
-       (log sigma))))
+(defn generate-gaussian [mu sigma]
+  (+ mu (* sigma (Math/sqrt (* -2 (Math/log (rand)))) (Math/cos (* 2 Math/PI (rand))))))
+(defn standard-gaussian-log-density [x] (* -0.5 (+ (Math/log (* 2 Math/PI)) (* x x))))
+(defn score-gaussian [x [mu sigma]]
+  (- (standard-gaussian-log-density (/ (- x mu) sigma)) (Math/log sigma)))
 
 (def gaussian
-  (make-inference-procedure-from-sampler-and-scorer
+  (make-primitive
     generate-gaussian
     score-gaussian))
 
+(def geometric
+  (make-primitive
+    (fn [p] (loop [i 0] (if (flip p) (recur (+ i 1)) i)))
+    (fn [v [p]] (+ (log1p (- p)) (* (log p) v)))))
+
 (def gamma
-  (make-inference-procedure-from-sampler-and-scorer
-    (gen [shape scale]
+  (make-primitive
+    (fn [shape scale]
       (distributions/draw
         (distributions/gamma-distribution shape scale)))
-    (gen [x [shape scale]]
+    (fn [x [shape scale]]
       (log (distributions/pdf
              (distributions/gamma-distribution shape scale)
              x)))))
 
 (def beta
-  (make-inference-procedure-from-sampler-and-scorer
-    (gen [alpha beta]
+  (make-primitive
+    (fn [alpha beta]
       (distributions/draw
         (distributions/beta-distribution alpha beta)))
-    (gen [x [alpha beta]]
+    (fn [x [alpha beta]]
       (log (distributions/pdf
              (distributions/beta-distribution alpha beta)
              x)))))
