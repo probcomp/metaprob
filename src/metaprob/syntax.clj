@@ -12,10 +12,10 @@
 ;; methods. All other ways of creating generative functions boil down, ultimately, to
 ;; a call to this function.
 (defn make-generative-function
-  ([run-in-clojure observe] (make-generative-function run-in-clojure observe {}))
-  ([run-in-clojure observe others] (with-meta run-in-clojure (assoc others :observe observe))))
+  ([run-in-clojure make-constrained-generator] (make-generative-function run-in-clojure make-constrained-generator {}))
+  ([run-in-clojure make-constrained-generator others] (with-meta run-in-clojure (assoc others :make-constrained-generator make-constrained-generator))))
 
-(declare make-observe-implementation-from-traced-code)
+(declare make-implementation-of-make-constrained-generator-from-traced-code)
 
 ;; Create a generative function using executable code that samples from other generative functions.
 (defmacro gen [& gen-expr]
@@ -55,33 +55,30 @@
              ~innermost-fn-expr)
           innermost-fn-expr) ;; TODO: should untraced gens be allowed?
 
-        observe-expression
-        `(make-observe-implementation-from-traced-code (fn [~(or tracer-name (gensym 'unused-tracer))] ~innermost-fn-expr))]
-        ;(if tracer-name
-        ;  `(make-observe-implementation-from-traced-code
-        ;       (fn [~tracer-name] ~innermost-fn-expr))
-        ;  nil)] ;; TODO: should untraced gens be allowed?
+        make-constrained-generator-expression
+        `(make-implementation-of-make-constrained-generator-from-traced-code
+           (fn [~(or tracer-name (gensym 'unused-tracer))] ~innermost-fn-expr))]
 
-        `(let [~thunk-name (fn ~thunk-name [] (make-generative-function ~run-in-clojure-expr ~observe-expression
+        `(let [~thunk-name (fn ~thunk-name [] (make-generative-function ~run-in-clojure-expr ~make-constrained-generator-expression
                                                                         {:name ~name, :generative-source '~expr}))]
            (~thunk-name))))
 
-;; observe : generative function, observation trace -> generative function
-(defn observe [procedure observations]
-  ((or (get procedure :observe)
+;; make-constrained-generator : generative function, observation trace -> generative function
+(defn make-constrained-generator [procedure observations]
+  ((or (get procedure :make-constrained-generator)
       (fn [observations]
         (gen [& args]
           [(apply procedure args) {} 0]))) observations))
 
 
 ;; Helper used by macroexpanded (gen ...) code.
-(defn make-observe-implementation-from-traced-code [fn-accepting-tracer]
+(defn make-implementation-of-make-constrained-generator-from-traced-code [fn-accepting-tracer]
   (fn [observations]
     (gen {:tracing-with u} [& args]
       (let [score (atom 0)
             trace (atom {})
-            t (fn [addr traceable args]
-                (let [[v tr s] (u addr (observe traceable (maybe-subtrace observations addr)) args)]
+            t (fn [addr gf args]
+                (let [[v tr s] (u addr (make-constrained-generator gf (maybe-subtrace observations addr)) args)]
                   (swap! score + s)
                   (swap! trace merge-subtrace addr tr)
                   v))
@@ -110,56 +107,3 @@
     (fn [& args] (first (impl args {})))
     (fn [observations] (gen {:tracing-with t} [& args] (t '() impl [args observations])))
     {:model model}))
-
-
-
-;(defmacro generator [expand? gen-expr]
-;  {:style/indent 2}
-;  (let [expr
-;        (if expand? (map-gen mark-as-already-macroexpanded (mp-expand gen-expr)) gen-expr)
-;
-;        body
-;        (gen-body expr)
-;
-;        name
-;        (gen-name expr)
-;
-;        tracer-name
-;        (gen-tracer-name expr)
-;
-;        params
-;        (gen-pattern expr)
-;
-;        thunk-name
-;        (gensym (str (if name name "") "thunk"))
-;
-;        named-fn-body
-;        (if name
-;          `((let [~name (~thunk-name)]
-;             ~@body))
-;          body)
-;
-;        innermost-fn-expr
-;        `(fn ~params ~@named-fn-body)
-;
-;        clojure-fn-expr
-;        (if tracer-name
-;          `(let [~tracer-name (fn [~'_ ~'f & ~'args] (apply ~'f ~'args))]
-;             ~innermost-fn-expr)
-;          innermost-fn-expr)
-;
-;        clojure-impl-expr
-;        (if tracer-name
-;          `(fn [~tracer-name] ~innermost-fn-expr)
-;          nil)]
-;
-;        `(let [~thunk-name (fn ~thunk-name [] (with-meta ~clojure-fn-expr {:generative-source '~expr, :clojure-impl ~clojure-impl-expr, :name '~name}))]
-;             (~thunk-name))))
-;
-;(defmacro gen
-;  "like fn, but for metaprob procedures"
-;  {:style/indent 1}
-;  [& form]
-;  `(generator
-;     ~(not (get (meta &form) :no-expand?))
-;     ~&form))

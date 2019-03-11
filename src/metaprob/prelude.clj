@@ -31,7 +31,7 @@
 (def infer-and-score
   (gen {:tracing-with t} [& {:keys [procedure inputs observation-trace]
                                                     :or {inputs [], observation-trace {}}}]
-    (t '() (observe procedure observation-trace) inputs)))
+    (t '() (make-constrained-generator procedure observation-trace) inputs)))
 
 
 ;
