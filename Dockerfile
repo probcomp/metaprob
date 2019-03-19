@@ -7,13 +7,18 @@ FROM clojure:lein-2.8.1
 # install time so we can measure how long it takes to run the examples, install
 # rlwrap for use with clj, and install pip so we can install jupyter.
 
+RUN curl -sL https://deb.nodesource.com/setup_11.x | bash -
+
 RUN apt-get update -qq \
       && apt-get upgrade -qq \
       && apt-get install -qq -y \
         curl \
         time \
         rlwrap \
-        python3-pip
+        python3-pip \
+        software-properties-common \
+        nodejs
+
 
 # Install the Clojure command line tools. These instructions are taken directly
 # from the Clojure "Getting Started" guide:
@@ -26,7 +31,7 @@ RUN curl -O https://download.clojure.org/install/linux-install-${CLOJURE_VERSION
 
 # Install jupyter.
 
-RUN pip3 install jupyter
+RUN pip3 install jupyterlab
 
 # Create a new user to run commands as per the best practice.
 # https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#user
@@ -37,7 +42,6 @@ RUN groupadd metaprob && \
 
 # Switch users early so files created by subsequent operations will be owned by the
 # runtime user. This also makes it so that commands will not be run as root.
-
 USER metaprob
 
 ENV METAPROB_DIR /home/metaprob/projects/metaprob-clojure
@@ -52,8 +56,9 @@ COPY --chown=metaprob:metaprob ./project.clj $METAPROB_DIR
 RUN clojure -e "(clojure-version)"
 
 # Install the Clojure jupyter kernel.
-
 RUN lein jupyter install-kernel
+
+RUN jupyter labextension install @jupyterlab/javascript-extension
 
 # Copy in the rest of our source.
 
