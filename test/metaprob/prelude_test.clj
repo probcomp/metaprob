@@ -1,14 +1,31 @@
 (ns metaprob.prelude-test
   (:require [clojure.test :refer :all :exclude [function?]]
-            [metaprob.syntax :refer :all]
+            [metaprob.generative-functions :refer :all]
             [metaprob.trace :refer :all]
-            [metaprob.builtin :refer :all]
+            [metaprob.prelude :refer :all]
             [metaprob.prelude :as prelude])
   (:refer-clojure :exclude [assoc dissoc]))
 
+(deftest sample-1
+  (testing "sample-uniform smoke tests"
+    (let [x (sample-uniform)
+          y (sample-uniform)]
+      (is (> x 0))
+      (is (< x 1))
+      (is (> y 0))
+      (is (< y 1))
+      (is (not (= x y))))))
+
+
+(deftest apply-1
+  (testing "apply smoke test"
+    (is (= (apply - [3 2]) 1))
+    (is (= (apply - (list 3 2)) 1))
+    (is (= (apply apply (list - (list 3 2))) 1))))
+
+
 (deftest smoke-1
   (testing "Prelude smoke test"
-    ;; These tests have to run after the call to sp
     (is (= (ns-resolve 'metaprob.prelude 'v) nil)
         "namespacing sanity check 1")
     (is (not (contains? (ns-publics 'metaprob.prelude) 'v))

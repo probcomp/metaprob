@@ -11,5 +11,4 @@
     (if outpath
       (metaprob.to-clojure/convert inpath outpath (symbol nsname))
       (throw (Exception. "no outpath")))
-    (throw (Exception. "no inpath")))
-)
+    (throw (Exception. "no inpath"))))

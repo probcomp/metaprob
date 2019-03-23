@@ -5,34 +5,31 @@
 ;; the REPL.
 
 (ns metaprob.examples.all
-  (:refer-clojure :exclude [get contains? dissoc assoc empty? keys get-in map reduce apply])
-  (:require [metaprob.trace :as trace])
-  (:require [metaprob.syntax :refer :all])
-  (:require [metaprob.builtin :refer :all])
-  (:require [metaprob.prelude :refer :all])
-  (:require [metaprob.distributions :refer :all])
-  (:require [metaprob.interpreters :refer :all])
-  (:require [metaprob.inference :refer :all])
-  (:require [metaprob.compositional :as comp])
-  (:require [metaprob.examples.gaussian :refer :all])
-  (:require [metaprob.examples.flip-n-coins :refer :all])
-  (:require [metaprob.examples.earthquake :refer :all :exclude [flip]])
-  (:require [metaprob.examples.inference-on-gaussian :refer :all])
+  (:refer-clojure :exclude [map reduce apply])
+  (:require
+    [metaprob.trace :refer :all]
+    [metaprob.generative-functions :refer :all]
+    [clojure.pprint :refer [pprint]]
+    [metaprob.prelude :refer :all]
+    [metaprob.distributions :refer :all]
+    [metaprob.inference :refer :all]
+    [metaprob.examples.flip-n-coins :refer :all]
+    [metaprob.examples.earthquake :refer :all :exclude [flip]]
+    [metaprob.examples.inference-on-gaussian :refer :all]))
   ;; The following would simplify startup a bit but I'm getting
   ;; an error in `clojure -Atest`
   ;; (:require [clojure.tools.namespace.repl :refer [refresh]])
-  )
+
 
 ;; You may prefer to invoke particular demos in the REPL, rather than
 ;; run them all wholesale
 
-(def demo
-  (gen []
-
+(defn demo
+   []
     ;; Coin flips
     ;; (demo-coin-flips)
-    (coin-flips-demo-n-flips 2)
-    (coin-flips-demo-biased 10)    ;; with intervention
+    (pprint (coin-flips-demo-n-flips 2))
+    (pprint (coin-flips-demo-biased 10))    ;; with intervention
 
     ;; Bayes net (earthquake)
     ;;   prior:
@@ -56,5 +53,6 @@
     (let [number-of-runs 100]
       (gaussian-prior-samples number-of-runs)
       (rejection-assay number-of-runs)
-      (importance-assay number-of-runs)
-      (MH-assay number-of-runs))))
+      (importance-assay 100 number-of-runs)
+     ;; (MH-assay number-of-runs)
+      ))

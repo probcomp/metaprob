@@ -1,7 +1,9 @@
 (ns metaprob.examples.main
+  (:refer-clojure :exclude [map replicate apply])
   (:import [java.io File])
   (:require [clojure.test :as test]
             [clojure.tools.cli :as cli]
+            [metaprob.prelude :refer [apply replicate map]]
             [metaprob.examples.inference-on-gaussian :as ginf]
             [metaprob.examples.earthquake :as quake]
             [metaprob.examples.long-test]))
@@ -65,7 +67,7 @@
    ["-s" "--samples SAMPLES" "Number of samples for all examples"
     :parse-fn parse-int
     :validate (greater-than 1)
-    :default 5]
+    :default 1000]
    [nil "--gaussian-samples SAMPLES" "Number of gaussian samples"
     ;; For a more serious test, try 100 (takes about an hour?)
     :default-fn :samples
@@ -76,7 +78,7 @@
     :parse-fn parse-int
     :validate (greater-than 1)]
    [nil "--particles PARTICLES" "Number of particles"
-    :default 20
+    :default 1000
     :parse-fn parse-int
     :validate (greater-than 0)]
    [nil "--mh-count COUNT" "Metropolis Hastings count"
@@ -132,17 +134,17 @@
            (format "importance sampling gaussian demo with %s particles" particles)
            (instrument ginf/importance-assay particles gaussian-samples)))
 
-        (when (:mh options)
-          ;; MH is fast
-          (print-header "Metropolis Hastings")
-          (ginf/gaussian-histogram
-           (format "samples from gaussian demo lightweight single-site MH with %s iterations"
-                   mh-count)
-           (instrument ginf/MH-assay mh-count gaussian-samples)))
+        ;(when (:mh options)
+        ;  ;; MH is fast
+        ;  (print-header "Metropolis Hastings")
+        ;  (ginf/gaussian-histogram
+        ;   (format "samples from gaussian demo lightweight single-site MH with %s iterations"
+        ;           mh-count)
+        ;   (instrument ginf/MH-assay mh-count gaussian-samples)))
 
         (when (:quake options)
           (print-header "Earthquake Bayesnet")
           ;; (quake/demo-earthquake) - doesn't work yet
           (quake/earthquake-histogram
            "bayesnet samples from rejection sampling"
-           (quake/eq-rejection-assay quake-samples)))))))
+           (map quake/trace-to-binary (quake/eq-rejection-assay quake-samples))))))))

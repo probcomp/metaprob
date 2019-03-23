@@ -1,8 +1,7 @@
 (ns metaprob.compositional-test
   (:require [clojure.test :refer [deftest is testing]]
             [metaprob.trace :refer :all :as trace]
-            [metaprob.builtin :refer :all]
-            [metaprob.syntax :refer :all]
+            [metaprob.generative-functions :refer :all]
             [metaprob.distributions :refer :all :as distributions]
             [metaprob.prelude :refer :all])
   (:refer-clojure :exclude [assoc dissoc]))
@@ -49,28 +48,79 @@
       (is (= (count result) 3))
       (is (= (first result) 8)))))
 
-(deftest lift-1
-  (testing "lift a generate method up to a infer method"
-    (let [m (gen [inputs observation-trace intervention-trace]
-              (let [[x y] inputs]
-                [(+ x 1) {} 19]))
-          l (inf nil m)]
-      (is (= (l 17 "z") 18)))))
 
-(deftest lift-and-call
-  (testing "can we lift a procedure and then call it"
-    (let [qq
-          (fn [inputs & junk]
-            [(+ (nth inputs 0) (nth inputs 1))
-             {}
-             50])
-          lifted (inf :no-model qq)]
-      (is (= (lifted 7 8) 15))
-      (let [[answer output score] (infer-and-score
-                                   :procedure lifted :inputs [7 8])]
-        (is (= answer 15))
-        (is (= score 50))))))
-;
+(deftest traced-and-scored-execution
+  (testing "traced and scored execution"
+    (let [f (gen {:tracing-with t} [p] (t "x" flip [p]))
+          p 0.4
+          [v1 t1 s1] (infer-and-score :procedure f :inputs [p])
+          [v2 t2 s2] (infer-and-score :procedure f :inputs [p] :observation-trace t1)]
+
+      (is (boolean? (f 0.5)))
+      (is (true? (f 1)))
+      (is (false? (f 0)))
+      (is (= '(("x")) (addresses-of t1)))
+      (is (not (trace-has-value? t1)))
+      (is (= v1 (trace-value t1 "x")))
+      (is (= s1 0))
+      (is (= s2 (if v1 (log p) (log (- 1 p)))))
+      (is (= t1 t2))
+      (is (= v1 v2)))))
+
+(deftest control-flow
+  (testing "infer-and-score with weird control flow"
+    (let [bar (gen {:tracing-with t} [mu] (t "a" gaussian [mu 1]))
+          baz (gen {:tracing-with t} [mu] (t "b" gaussian [mu 1]))
+          foo
+          (gen {:tracing-with t} [mu]
+            (if (t "branch" flip [0.4])
+              (do (t "x" gaussian [mu 1])
+                  (t "u" bar [mu]))
+              (do (t "y" gaussian [mu 1])
+                  (t "v" baz [mu]))))
+
+          mu
+          0.123
+
+          [_ first-branch-trace _]
+          (infer-and-score :procedure foo :inputs [mu] :observation-trace {"branch" {:value true}})
+
+          x
+          (trace-value first-branch-trace "x")
+
+          a
+          (trace-value first-branch-trace '("u" "a"))
+
+          [_ fixed-choices]
+          (partition-trace first-branch-trace '(("branch")))]
+
+      (loop [i 0]
+        (when (< i 10)
+          (let [[v t s] (infer-and-score :procedure foo :inputs [mu] :observation-trace fixed-choices)]
+            (if (trace-value t "branch")
+              (do (is (= t first-branch-trace))
+                  (is (not= s 0)))
+              (do (is (trace-has-value? t "y"))
+                  (is (trace-has-value? t '("v" "b")))
+                  (is (= s 0))
+                  (is (= 3 (count (addresses-of t))))))
+            (recur (inc i))))))))
+
+(deftest self-execution
+  (testing "running infer-and-score on infer-and-score"
+    (let [f (gen {:tracing-with t} [] (and (t 1 flip [0.1]) (t 2 flip [0.4])))
+          [[inner-v inner-t inner-s] t s]
+          (infer-and-score
+            :procedure infer-and-score
+            :inputs [:procedure f, :observation-trace {2 {:value true}}]
+            :observation-trace {1 {:value true}})]
+      (is (= (count (addresses-of inner-t)) 2))
+      (is (not (trace-has-value? t 2)))
+      (is (= s (log 0.1)))
+      (is (= inner-s (log 0.4)))
+      (is inner-v))))
+
+
 ;;; `case` expands to use clojure-internal `case*`, which can't work in
 ;;; metaprob until we implement that (or manually expand `case`). Until
 ;;; we do that, I'm going to leave this commented-out and file an
@@ -81,58 +131,7 @@
 ;            (is (= (ez-eval (mp-expand '(case 1 1 2))) 2))
 ;            (is (= (ez-eval (mp-expand '(case 1 1 2 3))) 2))
 ;            (is (= (ez-eval (mp-expand '(case 1 2 3 1 4))) 4)))))
-;
-;(deftest intervene-1
-;  (testing "simple intervention"
-;    (let [form '(block 17 (+ 19))
-;          [value1 output1 _] (comp/infer-eval form top
-;                                              {:interpretation-id (clojure.core/gensym)
-;                                               :intervene no-trace
-;                                               :target no-trace
-;                                               :active? true})
-;          adr 1]
-;      (is (= value1 19))
-;      (let [intervene {1 {:value 23}}]
-;        (let [[value2 output2 _] (comp/infer-eval form top
-;                                                  {:interpretation-id (clojure.core/gensym)
-;                                                   :intervene intervene
-;                                                   :target no-trace
-;                                                   :active? true})]
-;          (is (= value2 23)))))))
-;
-;(deftest intervene-2
-;  (testing "output capture, then intervention"
-;    (let [form '(block (+ 15 2) (- 21 2))
-;          [value1 output _] (comp/infer-eval form top
-;                                             {:interpretation-id (clojure.core/gensym)
-;                                              :intervene no-trace
-;                                              :target no-trace
-;                                              :active? true})]
-;      (is (= value1 19))
-;      (let [intervene (-> {}
-;                          (builtin/trace-set-value '(0 "+") 23)
-;                          (builtin/trace-set-value '(1 "-") 23))
-;            addresses (builtin/addresses-of output)]
-;        (let [[value2 output2 _] (comp/infer-eval form top
-;                                                  {:interpretation-id (clojure.core/gensym)
-;                                                   :intervene intervene
-;                                                   :target no-trace
-;                                                   :active? true})]
-;          (is (= value2 23)))))))
-;
-;(deftest intervene-3
-;    (testing "intervention value is not recorded when it is not usually in output trace"
-;      (let [form '(block (define x (+ 15 2)) (- x 2))
-;            intervene (trace-set-value {} '(0 "x" "+") 23)
-;            [value out _] (comp/infer-eval form top
-;                                           {:interpretation-id (clojure.core/gensym)
-;                                            :intervene intervene
-;                                            :target no-trace
-;                                            :active? true})]
-;        (is (= value 21))
-;        (is (empty? out)))))
-;
-;
+
 ;(define tst1
 ;  (gen []
 ;    (define x (if (distributions/flip 0.5) 0 1))

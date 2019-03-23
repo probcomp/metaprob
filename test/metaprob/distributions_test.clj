@@ -3,8 +3,7 @@
   (:require [clojure.test :refer :all]
             [metaprob.trace :refer :all]
             [metaprob.prelude :refer :all]
-            [metaprob.syntax :refer :all]
-            [metaprob.builtin :refer :all]
+            [metaprob.generative-functions :refer :all]
             [metaprob.distributions :refer :all]))
 
 (defn get-score
@@ -66,14 +65,48 @@
     (every? (fn [x] x) (clojure.core/map close? probabilities measured))))
 
 (deftest categorical-1
-  (testing "categorical"
+  (testing "categorical with normalized probabilities"
     (let [weights (range 10)
           probabilities (normalize weights)]
       (is (test-generator (fn [] (categorical probabilities))
                           (clojure.core/map (fn [i p] [i p])
                                weights
                                probabilities)
-                          10000)))))
+                          100000)))))
+
+
+(deftest categorical-2
+  (testing "categorical with unnormalized probabilities"
+    (let [weights (range 10)
+          probabilities (normalize weights)]
+      (is (test-generator (fn [] (categorical weights))
+                          (clojure.core/map (fn [i p] [i p])
+                                            weights
+                                            probabilities)
+                          100000)))))
+
+
+(deftest categorical-3
+  (testing "categorical"
+    (let [weights (range 10)
+          probabilities (normalize weights)]
+      (is (test-generator (fn [] (categorical (zipmap (range 10) probabilities)))
+                          (clojure.core/map (fn [i p] [i p])
+                                            weights
+                                            probabilities)
+                          100000)))))
+
+
+(deftest categorical-4
+  (testing "categorical"
+    (let [weights (range 10)
+          probabilities (normalize weights)]
+      (is (test-generator (fn [] (categorical (zipmap (range 10) weights)))
+                          (clojure.core/map (fn [i p] [i p])
+                                            weights
+                                            probabilities)
+                          100000)))))
+
 
 (deftest log-categorical-1
   (testing "log-categorical"
@@ -88,4 +121,20 @@
                           (clojure.core/map (fn [i p] [i p])
                                weights
                                probabilities)
+                          100000)))))
+
+
+(deftest log-categorical-2
+  (testing "log-categorical"
+    (let [weights (range 10)
+          probabilities (normalize weights)
+          scores (map (fn [p]
+                        (if (= p 0)
+                          Double/NEGATIVE_INFINITY
+                          (log p)))
+                      probabilities)]
+      (is (test-generator (fn [] (log-categorical (zipmap (range 10) scores)))
+                          (clojure.core/map (fn [i p] [i p])
+                                            weights
+                                            probabilities)
                           100000)))))

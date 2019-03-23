@@ -1,14 +1,7 @@
 (ns metaprob.autotrace
-  (:refer-clojure :exclude [apply get contains? dissoc assoc empty? keys get-in map replicate reduce])
-  (:require [clojure.pprint :as pprint]
-            [metaprob.builtin :refer :all]
-            [metaprob.compound :refer :all]
-            [metaprob.code-handlers :refer :all]
-            [metaprob.trace :refer :all]
-            [metaprob.prelude :refer :all]
-            [metaprob.distributions :refer :all]
-            [metaprob.expander :refer [register-transformation!]]
-            [metaprob.syntax :refer :all]))
+  (:require [metaprob.code-handlers :refer :all]
+            [metaprob.expander :refer [mp-expand]]
+            [metaprob.generative-functions :refer [gen]]))
 
 (declare autotrace-expression)
 
@@ -16,13 +9,22 @@
   [expressions tracer-name stack]
   (map-indexed #(autotrace-expression %2 tracer-name (cons %1 stack)) expressions))
 
+(defmacro autotrace [gen-expr]
+  (let [tracer-name (gensym "trace")
+        expr (mp-expand gen-expr)
+        result
+        `(gen ~(assoc (gen-annotations expr) :tracing-with tracer-name)
+           ~(gen-pattern expr)
+           ~@(autotrace-expressions (gen-body expr) tracer-name '()))]
+    result))
+
 (defn autotrace-expression
   [expr tracer-name stack]
   (cond
     (gen-expr? expr)
-    (if (gen-has-annotations? expr)
+    (if (gen-tracer-name expr)
       expr
-      `(gen {:transform "autotrace"} ~(gen-pattern expr) ~@(gen-body expr)))
+      `(autotrace ~expr))
 
     (quote-expr? expr)
     expr
@@ -38,16 +40,3 @@
            (list f (vec args))))
 
     true expr))
-
-;; A transformation can assume its argument is of the form
-;; (gen {...} [...] body), where body has been expanded.
-(register-transformation!
-  "autotrace"
-  (fn [expr]
-    (let [tracer-name (gensym "trace")
-          result
-          `(gen ~(assoc (gen-annotations expr) :tracing-with tracer-name)
-             ~(gen-pattern expr)
-             ~@(autotrace-expressions (gen-body expr) tracer-name '()))]
-      result)))
-

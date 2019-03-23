@@ -1,24 +1,7 @@
 (ns metaprob.expander
-  (:refer-clojure :exclude [get contains? dissoc assoc empty? keys get-in])
-  (:require [metaprob.code-handlers :refer :all]
-            [metaprob.compound :refer :all]
-            [clojure.pprint :as pprint]))
+  (:require [metaprob.code-handlers :refer :all]))
 
 (declare mp-expand)
-
-(def transformations (atom {}))
-
-;; Most permissive:
-;; Strip transform,
-;; Expand body,
-;; Pass to transform,
-;; Use as syntax.
-;; "mark-as-macroexpanded" can only happen after transform is done.
-;; Gen body is expanded given to transformation, new gen expression comes out, which is evaluated.
-
-(defn register-transformation!
-  [name f]
-  (swap! transformations assoc name f))
 
 ;; Translate a Clojure fn* expression, which defines a potentially
 ;; anonymous function that dispatches to different function bodies
@@ -84,11 +67,6 @@
       `(let [~name ~gen-expr] ~name)
       gen-expr)))
 
-(defmacro or-nil?
-  ([] nil)
-  ([x] x)
-  ([x & next] `(let [or# ~x] (if (nil? or#) (or-nil? ~@next) or#))))
-
 (defn map-from-pairs
   [& pairs]
   (into {} pairs))
@@ -125,15 +103,11 @@
     true
     (case (if (symbol? (first form)) (name (first form)) "")
       ;; Metaprob special forms
-      "quote" form
+      "quote"
+      form
 
       "gen"
-      (if (gen-transformation form)
-        (recur
-          ((get transformations (gen-transformation form))
-           `(~(first form) ~(dissoc (second form) :transform)
-             ~(gen-pattern form) ~@(map mp-expand (gen-body form)))))
-        (doall (map-gen mp-expand form)))
+      (map-gen mp-expand form)
 
       "do"
       (recur `((~'gen [] ~@(rest form))))
@@ -185,20 +159,3 @@
         (if (= next form)
           (map mp-expand form)
           (recur next))))))
-
-
-; Mark every `gen` as having already undergone macroexpansion
-(defn mark-as-already-macroexpanded
-  [form]
-  (cond
-    (or (literal? form) (variable? form)) form
-    (not (seq? form)) (throw (IllegalArgumentException. (str "Weird form: " form "--of type--" (type form))))
-
-    (gen-expr? form) (vary-meta (map-gen mark-as-already-macroexpanded form) assoc :no-expand? true)
-    (let-expr? form) (map-let mark-as-already-macroexpanded form)
-    (quote-expr? form) `(~'quote ~(quote-quoted form))
-
-    ((name-checker "letfn") form) form
-
-    true (map mark-as-already-macroexpanded form)))
-

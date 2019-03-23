@@ -1,7 +1,4 @@
-(ns metaprob.code-handlers
-  (:refer-clojure :exclude [get contains? dissoc assoc empty? keys get-in])
-  (:require [metaprob.compound :refer :all]
-            [clojure.pprint :as pprint]))
+(ns metaprob.code-handlers)
 
 (defn name-checker
   [n]
@@ -97,10 +94,6 @@
 (def let-bindings #(partition 2 (second %)))
 (def let-patterns #(vec (map first (let-bindings %))))
 (def let-values #(vec (map second (let-bindings %))))
-
-(def letgen-expr? (name-checker "letgen"))
-(def letgen-specs second)
-(def letgen-body #(rest (rest %)))
 
 ;; If f is a function that transforms expressions,
 ;; apply it to each Metaprob sub-expression within a let.

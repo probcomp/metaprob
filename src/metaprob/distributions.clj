@@ -1,12 +1,8 @@
 (ns metaprob.distributions
-  (:refer-clojure :exclude [apply get contains? dissoc assoc empty? keys get-in map replicate reduce])
-  (:require [metaprob.builtin :refer :all]
-            [metaprob.compound :refer [get contains? empty? keys get-in]]
-            [metaprob.prelude :refer :all]
-            [incanter.distributions :as distributions]
-            [metaprob.syntax :refer :all]
-            [metaprob.trace :refer :all]
-            [clojure.pprint :as pprint]))
+  (:refer-clojure :exclude [apply map replicate reduce])
+  (:require [metaprob.prelude :refer :all]
+            [metaprob.generative-functions :refer [make-primitive]]
+            [incanter.distributions :as distributions]))
 
 (def exactly
   (make-primitive
@@ -20,14 +16,14 @@
 
 (def uniform-discrete
   (make-primitive
-    (fn [items] (nth items (Math/floor (rand (count items)))))
+    (fn [items] (nth items (Math/floor (* (sample-uniform) (count items)))))
     (fn [item [items]]
       (- (log (count (filter #(= % item) items)))
          (log (count items))))))
 
 (def flip
   (make-primitive
-    (fn [weight] (< (uniform 0 1) weight))
+    (fn [weight] (< (sample-uniform) weight))
     (fn [value [weight]]
       (if value
         (log weight)
@@ -42,7 +38,7 @@
       (if (map? probs)
         (nth (keys probs) (categorical (normalize-numbers (vals probs)))) ;; TODO: normalization not needed here?
         (let [total (clojure.core/reduce + probs)
-              r (rand total)]
+              r (* (sample-uniform) total)]
           (loop [i 0, sum 0]
             (if (< r (+ (nth probs i) sum)) i (recur (inc i) (+ (nth probs i) sum)))))))
     (fn [i [probs]]
@@ -55,6 +51,9 @@
         weights (map #(Math/exp (- % max-score)) scores)]
     (+ (Math/log (clojure.core/reduce + weights)) max-score)))
 
+(defn logmeanexp [scores]
+  (- (logsumexp scores) (log (count scores))))
+
 (defn log-scores-to-probabilities [scores]
   (let [log-normalizer (logsumexp scores)]
     (map #(Math/exp (- % log-normalizer)) scores)))
@@ -62,12 +61,12 @@
 
 (def log-categorical
   (make-primitive
-    (gen [scores]
+    (fn [scores]
       (let [probs
             (if (map? scores) (into {} (clojure.core/map (fn [a b] [a b]) (keys scores) (log-scores-to-probabilities (vals scores))))
                               (log-scores-to-probabilities scores))]
         (categorical probs)))
-    (gen [i [scores]]
+    (fn [i [scores]]
       (let [probs
             (if (map? scores) (into {} (clojure.core/map (fn [a b] [a b]) (keys scores) (log-scores-to-probabilities (vals scores))))
                               (log-scores-to-probabilities scores))]
@@ -75,16 +74,9 @@
           (if (not (contains? probs i)) negative-infinity (- (log (get probs i)) (log (clojure.core/reduce + (vals probs)))))
           (log (nth probs i)))))))
 
-(def generate-gaussian
-  (gen [mu sigma]
-    (let [u1 (uniform 0 1)
-          u2 (uniform 0 1)]
-      (+ mu (* (* (sqrt (* (- 0 2) (log u1)))    ;CHECK THIS
-                              (cos (* (* 2 3.14159265) u2)))
-                           sigma)))))
 
 (defn generate-gaussian [mu sigma]
-  (+ mu (* sigma (Math/sqrt (* -2 (Math/log (rand)))) (Math/cos (* 2 Math/PI (rand))))))
+  (+ mu (* sigma (Math/sqrt (* -2 (Math/log (sample-uniform)))) (Math/cos (* 2 Math/PI (sample-uniform))))))
 (defn standard-gaussian-log-density [x] (* -0.5 (+ (Math/log (* 2 Math/PI)) (* x x))))
 (defn score-gaussian [x [mu sigma]]
   (- (standard-gaussian-log-density (/ (- x mu) sigma)) (Math/log sigma)))

@@ -1,88 +1,80 @@
-;; See doc/about-the-prelude.md
+;; This module is intended for import by metaprob code.
 
 (ns metaprob.prelude
-  (:refer-clojure :exclude [get contains? dissoc assoc empty? keys get-in map reduce replicate apply])
-  (:require [metaprob.syntax :refer :all])
-  (:require [metaprob.trace :refer :all])
-  (:require [metaprob.compound :refer :all])
-  (:require [metaprob.builtin :refer :all]))
+  (:refer-clojure :exclude [map reduce apply replicate])
+  (:require [clojure.set :as set]
+            [metaprob.trace :refer :all]
+            [metaprob.generative-functions :refer [gen make-generative-function make-constrained-generator]]
+            [clojure.java.io :as io])
+  (:import (java.util Random)))
 
 
-;; Eager versions of common list functions
+;; Useful math
+(defn exp [x] (Math/exp x))
+(defn expt [x y] (Math/pow x y))
+(defn sqrt [x] (Math/sqrt x))
+(defn log [x] (Math/log x))
+(defn cos [x] (Math/cos x))
+(defn sin [x] (Math/sin x))
+(defn log1p [x] (Math/log1p x))
+(defn floor [x] (Math/floor x))
+(defn round [x] (Math/round x))
+(def negative-infinity Double/NEGATIVE_INFINITY)
+
+;; Randomness
+(def ^:dynamic *rng* (Random. 42))
+(defn sample-uniform
+  ([] (.nextDouble *rng*))
+  ([a b] (+ a (* (.nextDouble *rng*) (- b a)))))
+
+;; Set difference
+(defn set-difference [s1 s2]
+  (seq (set/difference (set s1) (set s2))))
+
+;; Apply
+(def apply
+  (with-meta clojure.core/apply {:apply? true}))
+
+
+;; Eager, generative-function versions of common list functions
 (def map
   (gen {:tracing-with t}
-    [f l]
-    (doall (map-indexed (gen [i x] (t i f [x])) l))))
+       [f l]
+       (doall (map-indexed (gen [i x] (t i f [x])) l))))
 
 (def replicate
   (gen {:tracing-with t} [n f]
-    (map (gen [i] (t i f [])) (range n))))
+       (map (gen [i] (t i f [])) (range n))))
 
 (def doall*
   (gen [s]
-    (dorun (tree-seq seq? seq s)) s))
+       (dorun (tree-seq seq? seq s)) s))
+;; -----------------------------------------------------------------------------
+;; Graphical output (via gnuplot or whatever)
 
-;; infer-and-score
-(def primitive?
-  (gen [f]
-    (and (contains? f :implementation)
-         (nil? (get f :model)))))
+(defn binned-histogram [& {:keys [name samples overlay-densities
+                                  sample-lower-bound sample-upper-bound
+                                  number-of-intervals]}]
+  (let [samples (seq samples)
+        sample-lower-bound (or sample-lower-bound -5)
+        sample-upper-bound (or sample-upper-bound 5)
+        number-of-intervals (or number-of-intervals 20)
+        fname (clojure.string/replace name " " "_")
+        path (str "results/" fname ".samples")
+        commands-path (str path ".commands")]
+    (print (format "Writing commands to %s for histogram generation\n" commands-path))
+    ;;(print (format " overlay-densities = %s\n" (freeze overlay-densities)))
+    (with-open [writor (io/writer commands-path)]
+      (.write writor (format "reset\n"))
+      (.write writor (format "min=%s.\n" sample-lower-bound))
+      (.write writor (format "max=%s.\n" sample-upper-bound))
+      (.write writor (format "n=%s\n" number-of-intervals))
+      (.close writor))
+    (print (format "Writing samples to %s\n" path))
+    (with-open [writor (io/writer path)]
+      (doseq [sample samples]
+        (.write writor (str sample))
+        (.write writor "\n"))
+      (.close writor))))
 
-(def infer-and-score
-  (gen {:tracing-with t} [& {:keys [procedure inputs observation-trace]
-                                                    :or {inputs [], observation-trace {}}}]
-    (t '() (make-constrained-generator procedure observation-trace) inputs)))
-
-
-;
-;(def infer-and-score
-;  (gen {:tracing-with t, :name infer-and-score}
-;    [& {:keys [procedure inputs observation-trace]
-;        :or {inputs [], observation-trace {}}}]
-;    (cond
-;      (contains? procedure :apply?)
-;      (t '() infer-and-score
-;         :procedure (first inputs),
-;         :inputs (second inputs),
-;         :observation-trace observation-trace)
-;
-;      (primitive? procedure)
-;      (if (trace-has-value? observation-trace)
-;        ((get procedure :implementation) inputs observation-trace)
-;        (let [value (t '() apply procedure inputs)]
-;          [value {:value value} 0]))
-;
-;      (contains? procedure :implementation)
-;      (t '() (get procedure :implementation) inputs observation-trace)
-;
-;      (get procedure :clojure-impl)
-;      (let [trace (atom {})
-;            score (atom 0)
-;            tracer
-;            (gen [addr proc & args]
-;              (let [[v tr s] (t addr infer-and-score
-;                                :procedure proc,
-;                                :inputs args,
-;                                :observation-trace (maybe-subtrace observation-trace addr))]
-;                (swap! trace merge-subtrace addr tr)
-;                (swap! score + s)
-;                v))
-;            retval (doall* (apply ((get procedure :clojure-impl) tracer) inputs))
-;            final-trace (deref trace)
-;            final-score (deref score)]
-;        [retval final-trace final-score])
-;
-;      true
-;      [(apply procedure inputs) {} 0])))
-;
-;;; Creating custom inference procedures
-;(def inf
-;  (gen [model implementation]
-;    (assoc
-;      ;; When called from Clojure:
-;      (fn [& inputs]
-;        (nth (implementation inputs {}) 0))
-;
-;      ;; Annotations:
-;      :model model,
-;      :implementation implementation)))
+;; (defn print-source [f] (clojure.pprint/pprint (get (meta f) :generative-source)))

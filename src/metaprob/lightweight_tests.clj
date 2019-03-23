@@ -1,13 +1,12 @@
 (ns metaprob.lightweight-tests
   (:refer-clojure :exclude [apply get contains? dissoc assoc empty? keys get-in map replicate reduce])
   (:require [clojure.pprint :as pprint]
-            [metaprob.builtin :refer :all]
-            [metaprob.compound :refer :all]
+            [metaprob.prelude :refer :all]
             [metaprob.trace :refer :all]
             [metaprob.prelude :refer :all]
             [metaprob.autotrace :refer :all]
             [metaprob.distributions :refer :all]
-            [metaprob.syntax :refer :all]))
+            [metaprob.generative-functions :refer :all]))
 
 ;(def g (gen {:tracing-with t} [] (map (fn [i] (t i flip [0.5])) (range 2))))
 ;
@@ -16,12 +15,13 @@
 ;    (do (flip 0.2) (replicate 2 (gen [] (flip 0.5))))))
 
 (def g
-  (gen {:transform "autotrace"} []
-    (let [p (beta 1 1)
-          f (flip p)]
-      (if f
-        (replicate 2 #(flip p))
-        (replicate 3 #(flip p))))))
+  (autotrace
+    (gen {} []
+      (let [p (beta 1 1)
+            f (flip p)]
+        (if f
+          (replicate 2 #(flip p))
+          (replicate 3 #(flip p)))))))
 
 ;(def g
 ;  (gen {:transform "autotrace"} []
@@ -31,6 +31,7 @@
 
 (defn -main []
   (pprint/pprint (g))
+  (pprint/pprint (macroexpand `(gen {:name ~'foo} [x] x)))
   (pprint/pprint (infer-and-score :procedure g))
   (pprint/pprint (meta g))
   (pprint/pprint (infer-and-score :procedure f :observation-trace {"hello" {:value 1}}))
