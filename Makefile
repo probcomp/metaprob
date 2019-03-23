@@ -127,5 +127,10 @@ docker-notebook:
 		--mount type=bind,source=${CURDIR},destination=/home/metaprob/projects/metaprob-clojure \
 		--publish 8888:8888/tcp \
 		probcomp/metaprob-clojure:latest \
-		bash -c "lein jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --notebook-dir ./tutorial"
+		bash -c "lein jupyter notebook \
+			--ip=0.0.0.0 \
+			--port=8888 \
+			--no-browser \
+			--NotebookApp.token= \
+			--notebook-dir ./tutorial"
 .PHONY: docker-notebook

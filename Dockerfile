@@ -51,9 +51,18 @@ COPY --chown=metaprob:metaprob ./deps.edn $METAPROB_DIR
 COPY --chown=metaprob:metaprob ./project.clj $METAPROB_DIR
 RUN clojure -e "(clojure-version)"
 
-# Install the Clojure jupyter kernel.
+# downgrade tornado.
+# see https://stackoverflow.com/questions/54963043/jupyter-notebook-no-connection-to-server-because-websocket-connection-fails
+
+USER root
+RUN pip3 uninstall -y tornado
+RUN pip3 install tornado==5.1.1
+
+USER metaprob
 
 RUN lein jupyter install-kernel
+
+
 
 # Copy in the rest of our source.
 
