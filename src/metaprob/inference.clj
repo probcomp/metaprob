@@ -387,38 +387,6 @@
     [(* normalization (reduce + trimmed))
      bin-p bin-q]))
 
-;(define check-bins-against-pdf
-;  (gen [bins pdf]
-;    (define nsamples (* (apply + (map count bins)) 1.0))
-;    (define abs (gen [x] (if (< x 0) (- 0 x) x)))
-;    (define bin-p (map (gen [bin]
-;                         ;; Probability that a sample is in this bin, as inferred from sample set
-;                         (/ (count bin) nsamples))
-;                       bins))
-;    (define bin-q (map (gen [bin]
-;                         ;; Estimated probability that a sample would be
-;                         ;; in the bin if the sampler were operating
-;                         ;; correctly.  Could use any pdf in the bin as
-;                         ;; a density estimate; we use the average.
-;                         (define bincount (count bin))
-;                         (* (/ (apply + (map pdf bin)) bincount)
-;                            ;; Estimate of bin width...
-;                            (* (- (nth bin (- bincount 1))
-;                                  (nth bin 0))
-;                               ;; adustment for fencepost...
-;                               (/ (+ bincount 1)
-;                                  (* bincount 1.0)))))
-;                       bins))
-;    (define discrepancies (clojure.core/map (gen [p q] (abs (- p q))) bin-p bin-q))
-;    ;; Trim off first and last bins, since their pdf estimate is
-;    ;; likely to be way off
-;    (define trimmed (rest (clojure.core/reverse (rest discrepancies))))
-;    (define normalization (/ (count discrepancies) (* (count trimmed) 1.0)))
-;    [(* normalization (apply + trimmed))
-;     bin-p
-;     bin-q]))
-;
-
 (defn check-samples-against-pdf
   [samples pdf nbins]
   (let [samples
@@ -437,25 +405,6 @@
                  (subvec samples start end)))
              (range nbins))]
     (check-bins-against-pdf bins pdf)))
-
-
-
-
-
-;(define check-samples-against-pdf
-;  (gen [samples pdf nbins]
-;    (define samples (clojure.core/vec (sort samples)))    ; = clojure (vec ...)
-;    (define nsamples (* (count samples) 1.0))
-;    (define binsize (/ nsamples nbins))      ;float
-;    (define bins (map (gen [i]
-;                        ;; Try to put same number of samples
-;                        ;; in each bin.  This is not necessary.
-;                        (define start (clojure.core/int (* i binsize)))
-;                        (define end (clojure.core/int (* (+ i 1) binsize)))
-;                        (clojure.core/subvec samples start end))
-;                      (range nbins)))
-;    (check-bins-against-pdf bins pdf)))
-;
 
 
 (defn report-on-elapsed-time [tag thunk]
@@ -482,27 +431,6 @@
           (< badness (* threshold 1.5))))))
 
 
-
-;(define assay
-;  (gen [tag sampler nsamples pdf nbins threshold]
-;    (report-on-elapsed-time
-;     tag
-;     (gen []
-;       (define [badness bin-p bin-q]
-;         (check-samples-against-pdf (map sampler (range nsamples))
-;                                    pdf
-;                                    nbins))
-;       ;; Diagnostic output.
-;       (if (or (> badness threshold)
-;               (< badness (/ threshold 2)))
-;         (block (clojure.core/print
-;                 (clojure.core/format "%s. n: %s bins: %s badness: %s threshold: %s\n"
-;                                      tag nsamples nbins badness threshold))
-;                (sillyplot bin-p)
-;                (sillyplot bin-q)))
-;       (< badness (* threshold 1.5))))))
-;
-
 (defn badness
   [sampler nsamples pdf nbins]
   (let [[badness bin-p bin-q]
@@ -510,25 +438,3 @@
                                    pdf nbins)]
     badness))
 
-;(define badness
-;  (gen [sampler nsamples pdf nbins]
-;    (define [badness bin-p bin-q]
-;      (check-samples-against-pdf (map sampler (range nsamples))
-;                                 pdf
-;                                 nbins))
-;    badness))
-;
-
-;(define sillyplot
-;  (gen [l]
-;    (define nbins (count l))
-;    (define trimmed (if (> nbins 50)
-;                      ;; Take middle so that it fits on one line
-;                      (clojure.core/take
-;                       (clojure.core/drop l (/ (- nbins 50) 2))
-;                       50)
-;                      l))
-;    (clojure.core/print
-;     (clojure.core/format "%s\n"
-;                          (clojure.core/vec (map (gen [p] (round (* p 100)))
-;                                         trimmed))))))

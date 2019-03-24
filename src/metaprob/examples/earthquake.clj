@@ -74,33 +74,6 @@
   (gen {:tracing-with t} [& args]
     (first (t '() (make-constrained-generator f intervention) args))))
 
-;(define joint-enumerate
-;  (gen [sites]
-;    (if (not (empty? sites))
-;      (block
-;        (define others (joint-enumerate (rest sites)))
-;        (define site (first sites))
-;        (print ["site:" site])
-;        (if (compound? site)
-;          (block (define oper-name (clojure.core/last site))
-;                 (define oper (top-level-lookup quake-env (clojure.core/symbol oper-name)))
-;                 (if (and (compound? oper)
-;                          (contains? oper :support))
-;                   (block
-;                    (define value-candidates
-;                      (get oper :support))
-;                    (define trace-lists
-;                      (map (gen [value]
-;                             (map (gen [t]
-;                                    (trace-set-value t site value))
-;                                  others))
-;                           value-candidates))
-;                    (concat trace-lists))
-;                   others))
-;          others))
-;      ; No sites to enumerate: only the empty trace is possible
-;      '({}))))
-
 ;; Returns list of [state score] where state is value returned by 
 ;;  earthquake-bayesian-network
 
@@ -183,14 +156,6 @@
         :model earthquake-bayesian-network
         :observation-trace alarm-went-off
         :log-bound 0))))
-
-     ;(gen []
-     ;  (print "rejection sample") ;Progress meter
-     ;  (trace-value ; TODO: Why trace-value?
-     ;   (rejection-sampling earthquake-bayesian-network
-     ;                       []        ; inputs
-     ;                       alarm-went-off ;intervention
-     ;                       0)))))) ; log-bound
 
 (defn eq-importance-assay
   [n-particles number-of-runs]
