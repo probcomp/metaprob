@@ -1,14 +1,12 @@
 (ns metaprob.code-handlers)
 
-(defn name-checker
-  [n]
+(defn name-checker [n]
   (fn [x]
     (and (seq? x)
          (symbol? (first x))
          (= (name (first x)) n))))
 
-(defn symbol-checker
-  [n]
+(defn symbol-checker [n]
   (fn [x]
     (and (seq? x)
          (= (first x) n))))
@@ -67,29 +65,10 @@
 
 (def if-predicate second)
 
-(defn if-then-clause
-  [expr]
-  (nth expr 2))
+(defn if-then-clause [expr] (nth expr 2))
 
-(defn if-else-clause
-  [expr]
-  (if (< (count expr) 4)
-    nil
-    (nth expr 3)))
-
-(def let-expr? (name-checker "let"))
-(def let-body #(rest (rest %)))
-(def let-bindings #(partition 2 (second %)))
-(def let-patterns #(vec (map first (let-bindings %))))
-(def let-values #(vec (map second (let-bindings %))))
-
-;; If f is a function that transforms expressions,
-;; apply it to each Metaprob sub-expression within a let.
-(defn map-let
-  [f let-expr]
-  `(let
-     ~(vec (interleave (let-patterns let-expr) (map f (let-values let-expr))))
-     ~@(doall (map f (let-body let-expr)))))
+(defn if-else-clause [expr]
+  (if (< (count expr) 4) nil (nth expr 3)))
 
 (def variable? symbol?)
 
@@ -98,6 +77,5 @@
 
 (defn literal?
   [expr]
-  (or
-    (and (not (seq? expr)) (not (vector? expr)) (not (map? expr)))
-    (empty? expr)))
+  (or (not (or (seq? expr) (vector? expr) (map? expr)))
+      (empty? expr)))
