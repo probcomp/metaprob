@@ -1,7 +1,6 @@
 (ns metaprob.generative-functions
-  (:require [metaprob.code-handlers :refer :all]
-            [metaprob.trace :refer [merge-subtrace maybe-subtrace
-                                    trace-has-value? trace-value]]))
+  (:require [metaprob.code-handlers :refer [gen-body gen-name gen-tracer-name gen-pattern]]
+            [metaprob.trace :refer [maybe-subtrace merge-subtrace trace-value trace-has-value?]]))
 
 ;; Most general way of creating a generative function: provide implementations of its
 ;; methods. All other ways of creating generative functions boil down, ultimately, to
@@ -15,7 +14,7 @@
 (declare make-implementation-of-make-constrained-generator-from-traced-code)
 
 ;; Create a generative function using executable code that samples from other generative functions.
-(defmacro gen [& gen-expr]
+(defmacro gen [& _]
   {:style/indent 1}
   (let [expr
         &form
@@ -33,7 +32,7 @@
         (gen-pattern expr)
 
         thunk-name
-        (gensym (str (or name "") "thunk"))
+        (if name (gensym (str name "thunk")) nil)
 
         named-fn-body
         (if name
@@ -52,11 +51,15 @@
 
         make-constrained-generator-expression
         `(make-implementation-of-make-constrained-generator-from-traced-code
-           (fn [~(or tracer-name (gensym 'unused-tracer))] ~innermost-fn-expr))]
+           (fn [~(or tracer-name (gensym 'unused-tracer))] ~innermost-fn-expr))
 
-        `(let [~thunk-name (fn ~thunk-name [] (make-generative-function ~run-in-clojure-expr ~make-constrained-generator-expression
-                                                                        {:name '~name, :generative-source '~expr}))]
-           (~thunk-name))))
+        generative-function-expression
+        `(make-generative-function ~run-in-clojure-expr ~make-constrained-generator-expression
+                                   {:name '~name, :generative-source '~expr})]
+
+    (if name
+      `((fn ~thunk-name [] ~generative-function-expression))
+      generative-function-expression)))
 
 ;; make-constrained-generator : generative function, observation trace -> generative function
 (defn make-constrained-generator [procedure observations]
@@ -67,7 +70,8 @@
 
 
 ;; Helper used by macroexpanded (gen ...) code.
-(defn make-implementation-of-make-constrained-generator-from-traced-code [fn-accepting-tracer]
+(defn make-implementation-of-make-constrained-generator-from-traced-code
+  [fn-accepting-tracer]
   (fn [observations]
     (gen {:tracing-with u} [& args]
       (let [score (atom 0)
