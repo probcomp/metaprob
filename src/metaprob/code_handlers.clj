@@ -76,18 +76,6 @@
   (if (< (count expr) 4)
     nil
     (nth expr 3)))
-;
-;(def definition? (name-checker "define"))
-;
-;(def definition-pattern second)
-;
-;(defn definition-rhs
-;  [expr]
-;  (nth expr 2))
-;
-;(def block-expr? (name-checker "block"))
-;
-;(def block-body rest)
 
 (def let-expr? (name-checker "let"))
 (def let-body #(rest (rest %)))
@@ -102,9 +90,6 @@
   `(let
      ~(vec (interleave (let-patterns let-expr) (map f (let-values let-expr))))
      ~@(doall (map f (let-body let-expr)))))
-
-(def do-expr? (symbol-checker 'do))
-(def do-body rest)
 
 (def variable? symbol?)
 
