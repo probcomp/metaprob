@@ -37,69 +37,26 @@ Generative models are represented as ordinary functions that make stochastic cho
 
 ```clojure
 ;; Flip a fair coin n times
-(define fair-coin-model
- (gen [n]
-   (replicate n
-     (gen [] (flip 0.5))))))
+(def fair-coin-model
+ (gen {:tracing-with t} [n]
+   (map (fn [i] (t i flip [0.5])) (range n))))
 ;; Flip a possibly weighted coin n times
-(define biased-coin-model
- (gen [n]
-   (define p (uniform 0 1))
-   (replicate n (gen [] (flip p)))))
-;; The coin “tries” to ensure a balanced sequence
-(define gamblers-fallacy-model
- (gen [n]
-   (define add-flip
-     (gen [so-far]
-       (cons (flip
-         (+ 0.02 (* 0.96 (- 1 (avg so-far))))) so-far)))
-   ((compose-n add-flip (- n 1)) (list (flip 0.5)))))
+(def biased-coin-model
+ (gen {:tracing-with t} [n]
+   (let [p (t "p" uniform [0 1]))]
+     (map (fn [i] (t i flip [p])) (range n)))))
 ```
 
 Execution traces of models, which record the random choices they make, are first-class values that inference algorithms can manipulate.
 
-We obtain scored traces using `infer`, which invokes a “tracing interpreter” that is itself a Metaprob program.
+We obtain scored traces using `infer-and-score`, which invokes a “tracing interpreter” that is itself a Metaprob program.
 
 ```clojure
-(define [val trace score] (infer :procedure fair-coin-model, :inputs [3]))
+(infer-and-score :procedure fair-coin-model, :inputs [3])
 ```
-
-## User-space generic inference algorithms
-
-Generic inference algorithms like rejection sampling, sampling/importance resampling, and single-site Metropolis Hastings can be implemented as short, user-space higher-order functions in Metaprob. (They can even be viewed as—and are indistinguishable from—models, for example in theory-of-mind applications.)
-
-```clojure
-;; Rejection sampling with an arbitrary predicate on the trace.
-(define rejection-sample
- (gen [model predicate]
-   ;; generate an execution trace using infer
-   (define [_ t _] (infer :procedure model))
-   ;; try again if we don't satisfy the predicate
-   (if (predicate t) t (rejection-sample model predicate))))
-
-;; Sampling/importance resampling, with the condition specified as a partial
-;; execution trace
-(define importance-resample
- (gen [model condition n-particles]
-   (define get-weighted-sample
-     (gen []
-     (define [_ t score]
-      (infer :procedure model, :target-trace condition)
-      [t score])))
-(define particles (replicate n-particles get-weighted-sample))
-(nth (map first particles) (log-categorical (map second particles)))))
-```
-
-## Getting started
-
-For those eager to learn and experiment with Metaprob we recommend starting with the tutorial notebook: a Docker container which runs a Jupyter notebook containing the language and learning material. Instructions for its installation and use can be found [here](tutorial/README.md).
-
-To work on Metaprob itself, please refer to the [installation instructions](INSTALL.md).
 
 ## Documentation
 
-  * [Tutorial instructions](tutorial/README.md)
   * [Contributor installation instructions](INSTALL.md)
-  * [Using metaprob-in-clojure](doc/interaction.md)
+  * [Using Metaprob](doc/interaction.md)
   * [Language reference](doc/language.md)
-  * [Probabilistic inference examples](doc/examples.md)
