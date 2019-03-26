@@ -79,3 +79,11 @@
   [expr]
   (or (not (or (seq? expr) (vector? expr) (map? expr)))
       (empty? expr)))
+
+(defn let-bindings
+  [expr]
+  (partition 2 (second expr)))
+
+(defn let-body
+  [expr]
+  (rest (rest expr)))
