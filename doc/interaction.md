@@ -1,10 +1,9 @@
-# Using metaprob-in-clojure
+# Using Metaprob
 
-This page is about the mechanics of using metaprob-in-clojure.  For
-information about the Metaprob 'language' see [language.md](language.md).  For
-information on probabilistic programming examples see [examples.md](examples.md).
+This page is about the mechanics of using Metaprob.  For
+information about the Metaprob 'language' see [language.md](language.md).
 
-There are many ways to work with metaprob-in-clojure.  They are the
+There are many ways to work with Metaprob.  They are the
 same as the ways one works with Clojure.  Generally you alternate
 writing functions with exploration (including testing).
 
@@ -31,7 +30,7 @@ To get an interactive read-eval-print loop at the shell:
 
 This should be done with the working directory set to the directory that
 contains `deps.edn`, which in this setup would normally be the clone of the
-`metaprob-clojure` repository.
+`metaprob` repository.
 
 ### Using Clojure under Emacs
 
@@ -87,14 +86,14 @@ system, requiring only those namespaces you use.)
 
 You can then evaluate metaprob expressions directly, run examples, and so on:
 
-    (define x (trace "foo" 17))
-    (trace-get x "foo")
+    (def x (trace-set-value {} "foo" 17))
+    (trace-value x "foo")
     (pprint x)
 
 ### Creating namespaces for use with metaprob
 
 Metaprob has some name conflicts with Clojure, so some care is
-necessary when preparing files containing Metaprob cod.  The method is
+necessary when preparing files containing Metaprob code.  The method is
 described in [language.md](language.md).
 
 
@@ -107,37 +106,31 @@ For example, the default Clojure namespace, `user`, starts out
 knowing nothing about the metaprob namespaces.  For any kind of access
 from `user`, you need to use `require`.  E.g.
 
-    > (require '[metaprob.builtin])
+    > (require '[metaprob.trace])
 
 after which
 
-    > (metaprob.builtin/trace "foo" 17)
+    > (metaprob.trace/trace-set-value {} "foo" 17)
 
 Namespace names are typically long, so it's useful to define namespace
 prefixes to abbreviate them.  This is what `:as` is for:
 
-    > (require '[metaprob.builtin :as builtin])
+    > (require '[metaprob.trace :as trace])
 
 After which:
 
-    > (builtin/trace-get x "foo")
-    > (builtin/pprint x)
+    > (trace/trace-value x "foo")
+    > (trace/addresses-of x)
 
 and so on.  Alternatively, you can access bindings without using a
 prefix at all by 'requiring' a namespace with `:refer :all`:
 
     > (require '[metaprob.trace :refer :all])
-    > (require '[metaprob.builtin-impl :refer :all])
 
 After which:
 
-    > (trace-get x "foo")
-    > (metaprob-pprint x)
-
-Note that with `:refer :all` it is `metaprob.builtin-impl` being
-accessed, not `metaprob.builtin`.  The latter has name conflicts with
-Clojure and if we tried to use it with `:refer :all` we would get
-collisions.
+    > (trace-value x "foo")
+    > (addresses-of x)
 
 ### Refreshing the state
 
@@ -157,14 +150,9 @@ Need to look into this.)
 
 See [this stack overflow discussion](https://stackoverflow.com/questions/7658981/how-to-reload-a-clojure-file-in-repl).
 
-Often during development, if the namespaces or `deftype` types
-(`basic_trace.clj`) change in some incompatible way, I find it necessary to
-restart clojure (`C-c C-q` followed by killing the Cider process with `M-x
-cider-quit`).
+There are other circumstances that require a complete Clojure restart.
 
-There are many other circumstances that require a complete Clojure restart.
-
-This is a pain in the butt because it can take a minute or so to kill
+This is a pain because it can take a minute or so to kill
 any running clojure under emacs, restart the REPL, connect to the new
 REPL, and reload the project.  Therefore other alternative interaction
 modes (see below) may sometimes be preferable.
@@ -182,12 +170,12 @@ The top of a typical metaprob file, say `myproject/myfile.clj`, would
 look something like:
 
     (ns myproject.myfile
-      (:refer-clojure :only [ns declare])
-      (:require [metaprob.syntax :refer :all]
-                [metaprob.builtin :refer :all]
+      (:refer-clojure :exclude [map replicate apply])
+      (:require [metaprob.generative-functions :refer :all]
                 [metaprob.prelude :refer :all]
                 [metaprob.distributions :refer :all]
-                [metaprob.infer :refer :all]))
+                [metaprob.trace :refer :all]
+                [metaprob.inference :refer :all]))
 
 If one of these imported modules isn't needed it can be left out of
 the list.

@@ -5,7 +5,7 @@
 ;; the REPL.
 
 (ns metaprob.examples.all
-  (:refer-clojure :exclude [map reduce apply])
+  (:refer-clojure :exclude [map replicate apply])
   (:require
     [metaprob.trace :refer :all]
     [metaprob.generative-functions :refer :all]
@@ -13,6 +13,7 @@
     [metaprob.prelude :refer :all]
     [metaprob.distributions :refer :all]
     [metaprob.inference :refer :all]
+    [metaprob.autotrace :refer :all]
     [metaprob.examples.flip-n-coins :refer :all]
     [metaprob.examples.earthquake :refer :all :exclude [flip]]
     [metaprob.examples.inference-on-gaussian :refer :all]))
