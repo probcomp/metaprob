@@ -100,6 +100,6 @@
 (defn -main
   []
   (pprint (example-model))
-  (pprint (infer-and-score :procedure example- model
+  (pprint (infer-and-score :procedure example-model
                            :observation-trace {"a" {:value 0}
                                                "b" {:value 0}})))
