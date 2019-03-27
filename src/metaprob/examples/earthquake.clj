@@ -67,7 +67,8 @@
           addr (first addresses)
           trace-lists
           (map (fn [value] (map (fn [t] (trace-set-value t addr value)) others)) [true false])]
-      (concat trace-lists))))
+
+         (apply concat trace-lists))))
 
 (defn intervene
   [f intervention]
@@ -88,7 +89,7 @@
         candidates
         (joint-enumerate all-addrs)]
 
-        (map (fn [candidate]
+       (map (fn [candidate]
                (let [[state _ score]
                      (infer-and-score :procedure (intervene proc intervention-trace)
                                       :inputs inputs
@@ -173,7 +174,7 @@
 
 (defn demo-earthquake
    []
-  (print "Exact prior probabilities")
+  (clojure.pprint/pprint "Exact prior probabilities")
   (let [exact-probabilities
         (enumerate-executions earthquake-bayesian-network [] {} {})
 
