@@ -17,7 +17,6 @@
   (str "cluster-for-" v))
 
 
-;; TODO: Returned score should be _marginal_ probability.
 (defn make-view
   [[vars-and-dists [cluster-probs cluster-params]]]
   (let [view-name (str "view" (gensym))
