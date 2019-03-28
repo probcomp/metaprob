@@ -26,11 +26,6 @@
     (second expr)
     {}))
 
-(defn gen-transformation
-  [expr]
-  (if (map? (second expr))
-    (get (second expr) :transform) nil))
-
 (defn gen-tracer-name
   [expr]
   (if (map? (second expr))
