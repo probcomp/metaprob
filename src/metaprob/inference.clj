@@ -90,7 +90,9 @@
 
     (nth proposed-traces (log-categorical scores))))
 
-
+;; Custom proposal must not trace at any additional addresses.
+;; Check with Marco about whether this can be relaxed; but I think
+;; we need exact p/q estimates.
 (defn with-custom-proposal-attached
   [orig-generative-function make-custom-proposer condition-for-use]
   (make-generative-function
@@ -134,10 +136,12 @@
 ;;; Metropolis-Hastings
 
 (defn symmetric-proposal-mh-step
-  [model proposal]
+  [& {:keys [model inputs proposal]
+      :or {inputs []}}]
   (fn [current-trace]
     (let [[_ _ current-trace-score]
           (infer-and-score :procedure model
+                           :inputs inputs
                            :observation-trace current-trace)
 
           proposed-trace
@@ -145,6 +149,7 @@
 
           [_ _ proposed-trace-score]
           (infer-and-score :procedure model
+                           :inputs inputs
                            :observation-trace proposed-trace)
 
           log-acceptance-ratio
@@ -164,17 +169,19 @@
       addresses)))
 
 (defn gaussian-drift-mh-step
-  [model address-predicate width]
-  (fn [tr]
-    ((symmetric-proposal-mh-step
-       model
-       (make-gaussian-drift-proposal (filter address-predicate (addresses-of tr)) width))
-      tr)))
+  [& {:keys [model inputs addresses address-predicate width]
+      :or {inputs [], width 0.1}}]
+  (let [proposal (if addresses
+                    (fn [tr] (make-gaussian-drift-proposal addresses width))
+                    (fn [tr] (make-gaussian-drift-proposal (filter address-predicate (addresses-of tr)) width)))]
+    (fn [tr]
+      ((symmetric-proposal-mh-step :model model, :inputs inputs, :proposal (proposal tr)) tr))))
 
-(defn custom-proposal-mh-step [model proposal]
+(defn custom-proposal-mh-step [& {:keys [model inputs proposal], :or {inputs []}}]
   (fn [current-trace]
     (let [[_ _ current-trace-score]               ;; Evaluate log p(t)
           (infer-and-score :procedure model
+                           :inputs inputs
                            :observation-trace current-trace)
 
           [proposed-trace all-proposer-choices _] ;; Sample t' ~ q(• <- t)
@@ -183,6 +190,7 @@
 
           [_ _ new-trace-score]                   ;; Evaluate log p(t')
           (infer-and-score :procedure model
+                           :inputs inputs
                            :observation-trace proposed-trace)
 
           [_ _ forward-proposal-score]            ;; Estimate log q(t' <- t)
@@ -204,11 +212,13 @@
         current-trace))))
 
 (defn make-gibbs-step
-  [model address support]
+  [& {:keys [model address support inputs]
+      :or {inputs []}}]
   (fn [current-trace]
     (let [log-scores
           (map (fn [value]
                  (nth (infer-and-score :procedure model
+                                       :inputs inputs
                                        :observation-trace
                                        (trace-set-value current-trace address value)) 2))
                support)]
