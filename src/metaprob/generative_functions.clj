@@ -116,10 +116,10 @@
     (gen [& args]
       (let [score (atom 0)
             trace (atom {})
-                  (swap! score + s)
             t (fn [addr gf & maybe-args]
                 (let [args (if maybe-args (first maybe-args) [])
                       [v tr s] (trace-at addr (make-constrained-generator gf (maybe-subtrace observations addr)) args)]
+                  (swap! score + s)
                   (swap! trace merge-subtrace addr tr)
                   v))
             result (apply (fn-accepting-tracer t) args)]
