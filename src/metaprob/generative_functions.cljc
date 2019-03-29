@@ -122,25 +122,23 @@
 
 
 ;; Helper used by macroexpanded (gen ...) code.
-#?(:clj (defn make-implementation-of-make-constrained-generator-from-traced-code
-          [fn-accepting-tracer]
-          (fn [observations]
-            (gen [& args]
-              (let [score (atom 0)
-                    trace (atom {})
-                    apply-traced
-                    (fn [addr gf args]
-                      (let [[v tr s] (apply-at addr (make-constrained-generator gf (maybe-subtrace observations addr)) args)]
-                        (swap! score + s)
-                        (swap! trace merge-subtrace addr tr)
-                        v))
-                    at-impl
-                    (fn [addr gf & args]
-                      (apply-traced addr gf args))
-                    result (apply (fn-accepting-tracer at-impl apply-traced) args)]
-                [result (deref trace) (deref score)])))))
-
-
+(defn make-implementation-of-make-constrained-generator-from-traced-code
+  [fn-accepting-tracer]
+  (fn [observations]
+    (gen [& args]
+      (let [score (atom 0)
+            trace (atom {})
+            apply-traced
+            (fn [addr gf args]
+              (let [[v tr s] (apply-at addr (make-constrained-generator gf (maybe-subtrace observations addr)) args)]
+                (swap! score + s)
+                (swap! trace merge-subtrace addr tr)
+                v))
+            at-impl
+            (fn [addr gf & args]
+              (apply-traced addr gf args))
+            result (apply (fn-accepting-tracer at-impl apply-traced) args)]
+        [result (deref trace) (deref score)]))))
 
 ;; Create a "primitive" generative function out of a sampler and scorer
 #?(:clj (defn make-primitive [sampler scorer]
