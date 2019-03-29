@@ -2,7 +2,6 @@
   #?(:cljs (:require-macros [metaprob.generative-functions :refer [gen]]))
   (:require #?(:cljs [cljs.analyzer :as ana])
             [metaprob.code-handlers :as code]
-            [metaprob.generative-functions.impl :as impl]
             [metaprob.trace :refer [maybe-subtrace merge-subtrace trace-value trace-has-value?]]))
 
 (declare make-implementation-of-make-constrained-generator-from-traced-code)
@@ -12,6 +11,15 @@
 
 (defn apply-at [& args]
   (assert false "Cannot invoke apply-at outside of a (gen ...) form."))
+
+;; Most general way of creating a generative function: provide implementations of its
+;; methods. All other ways of creating generative functions boil down, ultimately, to
+;; a call to this function.
+(defn make-generative-function
+  ([run-in-clojure make-constrained-generator]
+   (make-generative-function run-in-clojure make-constrained-generator {}))
+  ([run-in-clojure make-constrained-generator others]
+   (with-meta run-in-clojure (assoc others :make-constrained-generator make-constrained-generator))))
 
 (defmacro let-traced [bindings & body]
   (let [binding-pairs (partition 2 bindings)
@@ -98,7 +106,7 @@
           (fn [~tracer-name ~apply-tracer-name] ~innermost-fn-expr))
 
         generative-function-expression
-        `(impl/make-generative-function ~run-in-clojure-expr ~make-constrained-generator-expression
+        `(make-generative-function ~run-in-clojure-expr ~make-constrained-generator-expression
                                         {:name '~name, :generative-source '~expr})]
 
     (if name
@@ -111,7 +119,6 @@
        (fn [observations]
          (gen [& args]
            [(apply procedure args) {} 0]))) observations))
-
 
 ;; Helper used by macroexpanded (gen ...) code.
 (defn make-implementation-of-make-constrained-generator-from-traced-code
@@ -134,7 +141,7 @@
 
 ;; Create a "primitive" generative function out of a sampler and scorer
 (defn make-primitive [sampler scorer]
-  (impl/make-generative-function
+  (make-generative-function
    sampler
    (fn [observations]
      (if (trace-has-value? observations)
