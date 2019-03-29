@@ -141,18 +141,18 @@
         [result (deref trace) (deref score)]))))
 
 ;; Create a "primitive" generative function out of a sampler and scorer
-#?(:clj (defn make-primitive [sampler scorer]
-          (make-generative-function
-           sampler
-           (fn [observations]
-             (if (trace-has-value? observations)
-               (gen [& args]
-                 [(trace-value observations)
-                  {:value (trace-value observations)}
-                  (scorer (trace-value observations) args)])
-               (gen [& args]
-                 (let [result (apply-at '() (make-primitive sampler scorer) args)]
-                   [result {:value result} 0])))))))
+(defn make-primitive [sampler scorer]
+  (make-generative-function
+   sampler
+   (fn [observations]
+     (if (trace-has-value? observations)
+       (gen [& args]
+         [(trace-value observations)
+          {:value (trace-value observations)}
+          (scorer (trace-value observations) args)])
+       (gen [& args]
+         (let [result (apply-at '() (make-primitive sampler scorer) args)]
+           [result {:value result} 0]))))))
 
 
 #?(:clj (def infer-and-score
