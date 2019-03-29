@@ -1,4 +1,5 @@
 (ns metaprob.generative-functions
+  #?(:cljs (:require-macros [metaprob.generative-functions :refer [gen]]))
   (:require #?(:cljs [cljs.analyzer :as ana])
             [metaprob.code-handlers :as code]
             [metaprob.trace :refer [maybe-subtrace merge-subtrace trace-value trace-has-value?]]))
@@ -113,11 +114,11 @@
       generative-function-expression)))
 
 ;; make-constrained-generator : generative function, observation trace -> generative function
-#?(:clj (defn make-constrained-generator [procedure observations]
-          ((or (get (meta procedure) :make-constrained-generator)
-               (fn [observations]
-                 (gen [& args]
-                   [(apply procedure args) {} 0]))) observations)))
+(defn make-constrained-generator [procedure observations]
+  ((or (get (meta procedure) :make-constrained-generator)
+       (fn [observations]
+         (gen [& args]
+           [(apply procedure args) {} 0]))) observations))
 
 
 ;; Helper used by macroexpanded (gen ...) code.
