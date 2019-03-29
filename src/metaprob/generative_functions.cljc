@@ -63,54 +63,54 @@
     `(let ~new-bindings ~@body)))
 
 ;; Create a generative function using executable code that samples from other generative functions.
-#?(:clj (defmacro gen [& _]
-          {:style/indent 1}
-          (let [expr
-                &form
+(defmacro gen [& _]
+  {:style/indent 1}
+  (let [expr
+        &form
 
-                body
-                (gen-body expr)
+        body
+        (code/gen-body expr)
 
-                name
-                (gen-name expr)
+        name
+        (code/gen-name expr)
 
-                tracer-name
-                'at
+        tracer-name
+        'at
 
-                apply-tracer-name
-                'apply-at
+        apply-tracer-name
+        'apply-at
 
-                params
-                (gen-pattern expr)
+        params
+        (code/gen-pattern expr)
 
-                thunk-name
-                (if name (gensym (str name "thunk")) nil)
+        thunk-name
+        (if name (gensym (str name "thunk")) nil)
 
-                named-fn-body
-                (if name
-                  `((let [~name (~thunk-name)]
-                      ~@body))
-                  body)
+        named-fn-body
+        (if name
+          `((let [~name (~thunk-name)]
+              ~@body))
+          body)
 
-                innermost-fn-expr
-                `(fn ~params ~@named-fn-body)
+        innermost-fn-expr
+        `(fn ~params ~@named-fn-body)
 
-                run-in-clojure-expr
-                `(let [~tracer-name (fn [addr# f# & args#] (apply f# args#))
-                       ~apply-tracer-name (fn [addr# f# args#] (apply f# args#))]
-                   ~innermost-fn-expr)
+        run-in-clojure-expr
+        `(let [~tracer-name (fn [addr# f# & args#] (apply f# args#))
+               ~apply-tracer-name (fn [addr# f# args#] (apply f# args#))]
+           ~innermost-fn-expr)
 
-                make-constrained-generator-expression
-                `(make-implementation-of-make-constrained-generator-from-traced-code
-                  (fn [~tracer-name ~apply-tracer-name] ~innermost-fn-expr))
+        make-constrained-generator-expression
+        `(make-implementation-of-make-constrained-generator-from-traced-code
+          (fn [~tracer-name ~apply-tracer-name] ~innermost-fn-expr))
 
-                generative-function-expression
-                `(make-generative-function ~run-in-clojure-expr ~make-constrained-generator-expression
-                                           {:name '~name, :generative-source '~expr})]
+        generative-function-expression
+        `(make-generative-function ~run-in-clojure-expr ~make-constrained-generator-expression
+                                   {:name '~name, :generative-source '~expr})]
 
-            (if name
-              `((fn ~thunk-name [] ~generative-function-expression))
-              generative-function-expression))))
+    (if name
+      `((fn ~thunk-name [] ~generative-function-expression))
+      generative-function-expression)))
 
 ;; make-constrained-generator : generative function, observation trace -> generative function
 #?(:clj (defn make-constrained-generator [procedure observations]
