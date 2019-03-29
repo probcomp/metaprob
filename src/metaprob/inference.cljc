@@ -1,10 +1,10 @@
 (ns metaprob.inference
   (:refer-clojure :exclude [map replicate apply])
-  (:require [metaprob.generative-functions :refer :all]
-            [metaprob.generative-functions.impl :refer :all]
-            [metaprob.prelude :refer :all]
-            [metaprob.trace :refer :all]
-            [metaprob.distributions :refer :all]))
+  (:require [metaprob.distributions :as dist]
+            [metaprob.generative-functions :as gen :refer [gen infer-and-score make-constrained-generator]]
+            [metaprob.generative-functions.impl :refer [make-generative-function]]
+            [metaprob.prelude :as mp :refer [map replicate]]
+            [metaprob.trace :as trace]))
 
 ;; Probabilistic inference methods
 ;; TODO: Make these all generative functions with sensible tracing
@@ -22,7 +22,7 @@
       predicate (if (predicate candidate-trace)
                   candidate-trace
                   (recur (list :model model :inputs inputs :predicate predicate)))
-      log-bound (if (< (log (uniform 0 1)) (- score log-bound))
+      log-bound (if (< (mp/log (dist/uniform 0 1)) (- score log-bound))
                   candidate-trace
                   (recur (list :model model :inputs inputs :observation-trace observation-trace :log-bound log-bound))))))
 
@@ -37,10 +37,10 @@
                       (let [[v t s] (infer-and-score :procedure model
                                                      :observation-trace observation-trace
                                                      :inputs inputs)]
-                                 [(* (exp s)
+                                 [(* (mp/exp s)
                                      (if f (f t) v)
                                      s)])))
-        normalizer (exp (logsumexp (map second particles)))]
+        normalizer (mp/exp (dist/logsumexp (map second particles)))]
 
     (/ (reduce + (map first particles)) normalizer)))
 
@@ -53,7 +53,7 @@
                                                               :inputs inputs
                                                               :observation-trace observation-trace)]
                                  [t s])))]
-    (first (nth particles (log-categorical (map second particles))))))
+    (first (nth particles (dist/log-categorical (map second particles))))))
 
 
 (defn likelihood-weighting
@@ -65,7 +65,7 @@
                                                             :inputs inputs
                                                             :observation-trace observation-trace)]
                                s)))]
-    (exp (logmeanexp weights))))
+    (mp/exp (dist/logmeanexp weights))))
 
 
 ;; TODO: Document requirements on proposer
@@ -81,7 +81,7 @@
                      (let [[_ t _]
                            (infer-and-score :procedure custom-proposal
                                             :inputs inputs)]
-                       (trace-merge t observation-trace))))
+                       (trace/trace-merge t observation-trace))))
 
         scores
         (map (fn [tr]
@@ -89,7 +89,7 @@
                   (nth (infer-and-score :procedure custom-proposal :inputs inputs :observation-trace tr) 2)))
              proposed-traces)]
 
-    (nth proposed-traces (log-categorical scores))))
+    (nth proposed-traces (dist/log-categorical scores))))
 
 ;; Custom proposal must not trace at any additional addresses.
 ;; Check with Marco about whether this can be relaxed; but I think
@@ -118,7 +118,7 @@
                        :inputs args)
 
                    proposed-trace
-                   (trace-merge observations tr)
+                   (trace/trace-merge observations tr)
 
                    [v tr2 p-score]
                    (infer-and-score :procedure orig-generative-function
@@ -156,7 +156,7 @@
           log-acceptance-ratio
           (min 0 (- proposed-trace-score current-trace-score))]
 
-      (if (flip (exp log-acceptance-ratio))
+      (if (dist/flip (mp/exp log-acceptance-ratio))
         proposed-trace
         current-trace))))
 
@@ -165,7 +165,7 @@
   (fn [current-trace]
     (reduce
       (fn [tr addr]
-        (trace-set-value tr addr (gaussian (trace-value tr addr) width)))
+        (trace/trace-set-value tr addr (dist/gaussian (trace/trace-value tr addr) width)))
       current-trace
       addresses)))
 
@@ -174,7 +174,7 @@
       :or {inputs [], width 0.1}}]
   (let [proposal (if addresses
                     (fn [tr] (make-gaussian-drift-proposal addresses width))
-                    (fn [tr] (make-gaussian-drift-proposal (filter address-predicate (addresses-of tr)) width)))]
+                    (fn [tr] (make-gaussian-drift-proposal (filter address-predicate (trace/addresses-of tr)) width)))]
     (fn [tr]
       ((symmetric-proposal-mh-step :model model, :inputs inputs, :proposal (proposal tr)) tr))))
 
@@ -208,7 +208,7 @@
           (- (+ new-trace-score backward-proposal-score)
              (+ current-trace-score forward-proposal-score))]
 
-      (if (flip (exp log-acceptance-ratio))   ;; Decide whether to accept or reject
+      (if (dist/flip (mp/exp log-acceptance-ratio))   ;; Decide whether to accept or reject
         proposed-trace
         current-trace))))
 
@@ -221,12 +221,12 @@
                  (nth (infer-and-score :procedure model
                                        :inputs inputs
                                        :observation-trace
-                                       (trace-set-value current-trace address value)) 2))
+                                       (trace/trace-set-value current-trace address value)) 2))
                support)]
-      (trace-set-value
+      (trace/trace-set-value
         current-trace
         address
-        (nth support (log-categorical log-scores))))))
+        (nth support (dist/log-categorical log-scores))))))
 
 
 (def make-resimulation-proposal
@@ -234,14 +234,14 @@
           :or {inputs []}}]
     (let [get-addresses
           (if address-predicate
-            (fn [tr] (filter address-predicate (addresses-of tr)))
+            (fn [tr] (filter address-predicate (trace/addresses-of tr)))
             (fn [tr] addresses))]
        (gen [old-trace]
             (let [addresses
                   (get-addresses old-trace)
 
                   [_ fixed-choices]
-                  (partition-trace old-trace addresses)
+                  (trace/partition-trace old-trace addresses)
 
                   constrained-generator
                   (make-constrained-generator model fixed-choices)
@@ -254,7 +254,7 @@
 (defn resimulation-mh-move
   [model inputs tr addresses]
   (let [[current-choices fixed-choices]
-        (partition-trace tr addresses)
+        (trace/partition-trace tr addresses)
 
         ;; Get the log probability of the current trace
         [_ _ old-p]
@@ -270,7 +270,7 @@
 
         ;; Figure out what the reverse problem would look like
         [_ reverse-move-starting-point]
-        (partition-trace proposed addresses)
+        (trace/partition-trace proposed addresses)
 
         ;; Compute a reverse score
         [_ _ reverse-q]
@@ -283,7 +283,7 @@
         log-ratio
         (+ new-p-over-forward-q (- reverse-q old-p))]
 
-    (if (flip (exp log-ratio))
+    (if (dist/flip (mp/exp log-ratio))
       proposed
       tr)))
 
@@ -293,32 +293,32 @@
 ;
 ;    ;; choose an address to modify, uniformly at random
 ;
-;    (define choice-addresses (addresses-of trace))
+;    (define choice-addresses (trace/addresses-of trace))
 ;    (define candidates (set-difference choice-addresses constraint-addresses))
 ;    (define target-address (uniform-sample candidates))
 ;
 ;    ;; generate a proposal trace
 ;
-;    (define initial-value (trace-value trace target-address))
+;    (define initial-value (trace/trace-value trace target-address))
 ;    (define initial-num-choices (count candidates))
 ;    (define new-target (trace-clear-value trace target-address))
 ;
 ;    (define [_ new-trace forward-score]
 ;      (comp/infer-apply model-procedure inputs (make-top-level-tracing-context {} new-target)))
-;    (define new-value (trace-value new-trace target-address))
+;    (define new-value (trace/trace-value new-trace target-address))
 ;
 ;    ;; the proposal is to move from trace to new-trace
 ;    ;; now calculate the Metropolis-Hastings acceptance ratio
 ;
-;    (define new-choice-addresses (addresses-of new-trace))
+;    (define new-choice-addresses (trace/addresses-of new-trace))
 ;    (define new-candidates (set-difference new-choice-addresses constraint-addresses))
 ;    (define new-num-choices (count new-candidates))
 ;
 ;    ;; make a trace that can be used to restore the original trace
 ;    (define restoring-trace
-;      (trace-set-value
+;      (trace/trace-set-value
 ;        (clojure.core/reduce
-;          (gen [so-far next-adr] (trace-set-value so-far next-adr (trace-value trace next-adr)))
+;          (gen [so-far next-adr] (trace/trace-set-value so-far next-adr (trace/trace-value trace next-adr)))
 ;          {}
 ;          (set-difference choice-addresses new-choice-addresses))
 ;        target-address initial-value))
@@ -336,7 +336,7 @@
 ;      (- (+ forward-score (log new-num-choices))
 ;         (+ reverse-score (log initial-num-choices))))
 ;
-;    (if (flip (exp log-acceptance-probability))
+;    (if (dist/flip (mp/exp log-acceptance-probability))
 ;      new-trace
 ;      trace)))
 ;
@@ -348,7 +348,7 @@
 ;      (gen [state _]
 ;        ;; VKM had keywords :procedure :inputs :trace :constraint-addresses
 ;        (single-site-metropolis-hastings-step
-;          model-procedure inputs state (addresses-of target-trace)))
+;          model-procedure inputs state (trace/addresses-of target-trace)))
 ;      (nth (infer :procedure model-procedure :inputs inputs :target-trace target-trace) 1)
 ;      (range N))))
 ;
@@ -366,7 +366,7 @@
         (if (> nbins 50)
           (take (drop l (/ (- nbins 50) 2)) 50)
           l)]
-    (print (format "%s\n" (vec (map (fn [p] p) trimmed))))))
+    (println (str (vec (map (fn [p] p) trimmed))))))
 
 
 ;; A direct port of jar's old code
@@ -420,9 +420,11 @@
 
 
 (defn report-on-elapsed-time [tag thunk]
-  (let [start (. System (nanoTime))
+  (let [nano-time #?(:clj #(System/nanoTime)
+                     :cljs #(js/window.performance.now)) ; browsers only, not portable
+        start (nano-time)
         ret (thunk)
-        t (java.lang.Math/round (/ (double (- (. System (nanoTime)) start)) 1000000000.0))]
+        t (Math/round (/ (double (- (nano-time) start)) 1000000000.0))]
     (if (> t 1)
       (print (str tag ": elapsed time " t " sec\n")))
     ret))
@@ -437,7 +439,11 @@
                                        pdf nbins)]
         (if (or (> badness threshold)
                 (< badness (/ threshold 2)))
-          (do (print (format "%s. n: %s bins: %s badness: %s threshold: %s\n" tag nsamples nbins badness threshold))
+          (do (println (str  tag "."
+                             " n: " nsamples
+                             " bins: " nbins
+                             " badness: " badness
+                             " threshold: " threshold))
               (sillyplot bin-p)
               (sillyplot bin-q)))
           (< badness (* threshold 1.5))))))
