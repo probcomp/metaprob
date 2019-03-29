@@ -24,18 +24,15 @@
 ;                          (if (nth bools i) 1 0)))))))
 
 (def earthquake-bayesian-network
-  (gen {:tracing-with t} []
-    (let [earthquake (t "earthquake" flip [0.1])
-          burglary (t "burglary" flip [0.1])
-          p-alarm (cond (and burglary earthquake) 0.9
-                        burglary 0.85
-                        earthquake 0.2
-                        true 0.05)
-          alarm (t "alarm" flip [p-alarm])
-          p-john-call (if alarm 0.8 0.1)
-          p-mary-call (if alarm 0.9 0.4)
-          john-call (t "john-call" flip [p-john-call])
-          mary-call (t "mary-call" flip [p-mary-call])]
+  (gen []
+    (let-traced [earthquake (flip 0.1)
+                 burglary (flip 0.1)
+                 alarm (cond (and burglary earthquake) (flip 0.9)
+                             burglary (flip 0.85)
+                             earthquake (flip 0.2)
+                             true (flip 0.05))
+                 john-call (flip (if alarm 0.8 0.1))
+                 mary-call (flip (if alarm 0.9 0.4))]
       (bools-to-binary [earthquake burglary alarm john-call mary-call]))))
 
 (defn trace-to-binary [tr]
@@ -72,8 +69,8 @@
 
 (defn intervene
   [f intervention]
-  (gen {:tracing-with t} [& args]
-    (first (t '() (make-constrained-generator f intervention) args))))
+  (gen [& args]
+    (first (trace-at '() (make-constrained-generator f intervention) args))))
 
 ;; Returns list of [state score] where state is value returned by 
 ;;  earthquake-bayesian-network

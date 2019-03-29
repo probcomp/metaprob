@@ -1,5 +1,5 @@
 (ns metaprob.generative-functions
-  (:require [metaprob.code-handlers :refer [gen-body gen-name gen-tracer-name gen-pattern]]
+  (:require [metaprob.code-handlers :refer :all]
             [metaprob.trace :refer [maybe-subtrace merge-subtrace trace-value trace-has-value?]]))
 
 ;; Most general way of creating a generative function: provide implementations of its
@@ -12,6 +12,48 @@
    (with-meta run-in-clojure (assoc others :make-constrained-generator make-constrained-generator))))
 
 (declare make-implementation-of-make-constrained-generator-from-traced-code)
+
+(defn trace-at [& args]
+  (assert false "Cannot invoke trace-at outside of a (gen ...) form."))
+
+
+(defmacro let-traced [bindings & body]
+  (let [binding-pairs (partition 2 bindings)
+
+        trace-with-name
+        (fn trace-with-name [expr name]
+          (cond
+            (if-expr? expr)
+            `(if ~(trace-with-name (if-predicate expr) name)
+               ~(trace-with-name (if-then-clause expr) name)
+               ~(trace-with-name (if-else-clause expr) name))
+
+            (do-expr? expr)
+            (cons 'do (map #(trace-with-name % name) (rest expr)))
+
+            (or (not (seq? expr))
+                (special-symbol? (first expr))
+                (let-expr? expr)
+                (let-traced-expr? expr)
+                (fn-expr? expr)
+                (gen-expr? expr))
+            expr
+
+            ;; If a macro, try expanding
+            (not= (macroexpand-1 expr) expr)
+            (recur (macroexpand-1 expr) name)
+
+            true
+            `(~'trace-at ~name ~(first expr) ~(vec (rest expr)))))
+
+        convert-binding
+        (fn [[lhs rhs]]
+          (if (symbol? lhs)
+            [lhs (trace-with-name rhs (str lhs))]
+            [lhs rhs]))
+
+        new-bindings (vec (apply concat (map convert-binding binding-pairs)))]
+    `(let ~new-bindings ~@body)))
 
 ;; Create a generative function using executable code that samples from other generative functions.
 (defmacro gen [& _]
@@ -26,7 +68,7 @@
         (gen-name expr)
 
         tracer-name
-        (gen-tracer-name expr)
+        'trace-at
 
         params
         (gen-pattern expr)
@@ -44,14 +86,12 @@
         `(fn ~params ~@named-fn-body)
 
         run-in-clojure-expr
-        (if tracer-name
-          `(let [~tracer-name (fn [addr# f# args#] (apply f# args#))]
-             ~innermost-fn-expr)
-          innermost-fn-expr) ;; TODO: should untraced gens be allowed?
+        `(let [~tracer-name (fn [addr# f# & maybe-args#] (let [args# (if maybe-args# (first maybe-args#) [])] (apply f# args#)))]
+           ~innermost-fn-expr)
 
         make-constrained-generator-expression
         `(make-implementation-of-make-constrained-generator-from-traced-code
-           (fn [~(or tracer-name (gensym 'unused-tracer))] ~innermost-fn-expr))
+           (fn [~tracer-name] ~innermost-fn-expr))
 
         generative-function-expression
         `(make-generative-function ~run-in-clojure-expr ~make-constrained-generator-expression
@@ -73,12 +113,13 @@
 (defn make-implementation-of-make-constrained-generator-from-traced-code
   [fn-accepting-tracer]
   (fn [observations]
-    (gen {:tracing-with u} [& args]
+    (gen [& args]
       (let [score (atom 0)
             trace (atom {})
-            t (fn [addr gf args]
-                (let [[v tr s] (u addr (make-constrained-generator gf (maybe-subtrace observations addr)) args)]
                   (swap! score + s)
+            t (fn [addr gf & maybe-args]
+                (let [args (if maybe-args (first maybe-args) [])
+                      [v tr s] (trace-at addr (make-constrained-generator gf (maybe-subtrace observations addr)) args)]
                   (swap! trace merge-subtrace addr tr)
                   v))
             result (apply (fn-accepting-tracer t) args)]
@@ -96,12 +137,12 @@
              [(trace-value observations)
               {:value (trace-value observations)}
               (scorer (trace-value observations) args)])
-        (gen {:tracing-with t} [& args]
-             (let [result (t '() (make-primitive sampler scorer) args)]
-               [result {:value result} 0]))))))
+        (gen [& args]
+          (let [result (trace-at '() (make-primitive sampler scorer) args)]
+            [result {:value result} 0]))))))
 
 
 (def infer-and-score
-  (gen {:tracing-with t} [& {:keys [procedure inputs observation-trace]
-                             :or {inputs [], observation-trace {}}}]
-       (t '() (make-constrained-generator procedure observation-trace) inputs)))
+  (gen [& {:keys [procedure inputs observation-trace]
+           :or {inputs [], observation-trace {}}}]
+    (trace-at '() (make-constrained-generator procedure observation-trace) inputs)))

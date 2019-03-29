@@ -8,11 +8,10 @@
 ;; with a custom address name for each coin flip
 
 (def flip-n-coins
-  (gen {:tracing-with t} [n]
-    (let [tricky (t "tricky" flip [0.1])
-          weight (if tricky (t "p" uniform [0 1]) 0.5)
-          data (map #(t % flip [weight]) (range n))]
-      data)))
+  (gen [n]
+    (let-traced [tricky (flip 0.1)
+                 p (if tricky (uniform 0 1) 0.5)]
+      (map (fn [i] (trace-at i flip [p])) (range n)))))
 
 
 (defn coin-flips-demo-n-flips

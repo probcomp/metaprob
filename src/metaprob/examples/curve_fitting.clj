@@ -2,37 +2,36 @@
   (:refer-clojure :exclude [map replicate apply])
   (:require [metaprob.trace :refer :all]
             [metaprob.generative-functions :refer :all]
-            [metaprob.prelude :refer [map expt]]
+            [metaprob.prelude :refer [map expt replicate]]
             [metaprob.distributions :refer :all]
+            [clojure.pprint :refer [pprint]]
             [metaprob.inference :refer :all]))
-
 
 ;; Generate a random polynomial of degree 0, 1, 2, or 3
 (def random-polynomial
-  (gen {:tracing-with t} []
-    (let [degree (t "degree" uniform-discrete [[0 1 2 3]])
-          coeffs (map (fn [i] (t `("coeffs" ~i) gaussian [0 1])) (range (inc degree)))]
-      (fn [x]
-        (reduce + (map-indexed (fn [n c] (* c (expt x n))) coeffs))))))
+  (gen []
+    (let [coeffs (map (fn [i] (trace-at `("coeffs" ~i) gaussian [0 1]))
+                       (range (+ 1 (trace-at "degree" uniform-discrete [[0 1 2 3]]))))]
+      (fn [x] (reduce + (map-indexed (fn [n c] (* c (expt x n))) coeffs))))))
 
 ;; Create a generative function that is a noisy version of
 ;; a deterministic input function
 (def add-noise
-  (gen {:tracing-with t} [f]
-    (let [noise-level (t "noise" gamma [1 1])
-          prob-outlier (t "prob-outlier" beta [1 10])]
-      (gen {:tracing-with u} [x]
-        (if (u "outlier?" flip [prob-outlier])
-          (u "y" gaussian [0 10])
-          (u "y" gaussian [(f x) noise-level]))))))
+  (gen [f]
+    (let-traced [noise (gamma 1 1)
+                 prob-outlier (beta 1 10)]
+      (gen [x]
+        (if (trace-at "outlier?" flip [prob-outlier])
+          (trace-at "y" gaussian [0 10])
+          (trace-at "y" gaussian [(f x) noise]))))))
 
 ;; Given a list of xs, create a list of ys that are related
 ;; via a noisy polynomial relationship
 (def curve-model
-  (gen {:tracing-with t} [xs]
-    (let [underlying-curve (t "underlying-curve" random-polynomial [])
-          noisy-curve (t "add-noise" add-noise [underlying-curve])]
-      (doall (map-indexed (fn [i x] (t `("data" ~i) noisy-curve [x])) xs)))))
+  (gen [xs]
+    (let-traced [underlying-curve (random-polynomial)
+                 noisy-curve (add-noise underlying-curve)]
+      (doall (map-indexed (fn [i x] (trace-at `("data" ~i) noisy-curve [x])) xs)))))
 
 ;; Useful helpers for curve-fitting
 (defn make-observation-trace
@@ -81,10 +80,10 @@
           :proposal (make-resimulation-proposal
                       :model curve-model
                       :inputs [xs]
-                      :address-predicate #(address-contains? % "add-noise")))
+                      :address-predicate #(address-contains? % "noisy-curve")))
 
         outlier-proposal
-        (fn [i] (gen {:tracing-with t} [trace]
+        (fn [i] (fn [trace]
                   (trace-set-value
                     trace `("data" ~i "outlier?")
                     (not (trace-value trace `("data" ~i "outlier?"))))))
@@ -109,3 +108,8 @@
         (infer-and-score :procedure curve-model :inputs [xs] :observation-trace (make-observation-trace ys))]
     (take n (iterate (inference-step xs) initial-trace))))
 
+
+(defn -main []
+  (pprint (last (run-mh xs ys-linear 200)))
+  (pprint (last (run-mh xs ys-linear-outlier 300)))
+  (pprint (last (run-mh xs ys-quadratic 1000))))

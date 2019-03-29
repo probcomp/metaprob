@@ -106,13 +106,13 @@
     ;; implementation.
     (fn [observations]
       (if (condition-for-use observations)
-        (gen {:tracing-with t} [& args]
+        (gen [& args]
              (let [custom-proposal
                    (make-custom-proposer observations)
 
                    ;; TODO: allow/require custom-proposal to specify which addresses it is proposing vs. sampling otherwise?
                    [_ tr _]
-                   (t '() infer-and-score
+                   (trace-at '() infer-and-score
                       [:procedure custom-proposal,
                        :inputs args])
 
@@ -235,7 +235,7 @@
           (if address-predicate
             (fn [tr] (filter address-predicate (addresses-of tr)))
             (fn [tr] addresses))]
-       (gen {:tracing-with t} [old-trace]
+       (gen [old-trace]
             (let [addresses
                   (get-addresses old-trace)
 
@@ -246,44 +246,45 @@
                   (make-constrained-generator model fixed-choices)
 
                   [_ new-trace _]
-                  (t '() constrained-generator inputs)]
+                  (trace-at '() constrained-generator inputs)]
               new-trace)))))
 
 
-(def resimulation-mh-move
-  (gen [model inputs tr addresses]
-    (let [[current-choices fixed-choices]
-          (partition-trace tr addresses)
+(defn resimulation-mh-move
+  [model inputs tr addresses]
+  (let [[current-choices fixed-choices]
+        (partition-trace tr addresses)
 
-          ;; Get the log probability of the current trace
-          [_ _ old-p]
-          (infer-and-score :procedure model,
-                           :inputs inputs,
-                           :observation-trace tr)
+        ;; Get the log probability of the current trace
+        [_ _ old-p]
+        (infer-and-score :procedure model,
+                         :inputs inputs,
+                         :observation-trace tr)
 
-          ;; Propose a new trace, and get its score
-          [_ proposed new-p-over-forward-q]
-          (infer-and-score :procedure model,
-                           :inputs inputs,
-                           :observation-trace fixed-choices)
+        ;; Propose a new trace, and get its score
+        [_ proposed new-p-over-forward-q]
+        (infer-and-score :procedure model,
+                         :inputs inputs,
+                         :observation-trace fixed-choices)
 
-          ;; Figure out what the reverse problem would look like
-          [_ reverse-move-starting-point]
-          (partition-trace proposed addresses)
+        ;; Figure out what the reverse problem would look like
+        [_ reverse-move-starting-point]
+        (partition-trace proposed addresses)
 
-          ;; Compute a reverse score
-          [_ _ reverse-q]
-          (infer-and-score :procedure infer-and-score,
-                           :inputs [:procedure model,
-                                    :inputs inputs,
-                                    :observation-trace reverse-move-starting-point]
-                           :observation-trace current-choices)
+        ;; Compute a reverse score
+        [_ _ reverse-q]
+        (infer-and-score :procedure infer-and-score,
+                         :inputs [:procedure model,
+                                  :inputs inputs,
+                                  :observation-trace reverse-move-starting-point]
+                         :observation-trace current-choices)
 
-          log-ratio
-          (+ new-p-over-forward-q (- reverse-q old-p))]
-      (if (flip (exp log-ratio))
-        proposed
-        tr))))
+        log-ratio
+        (+ new-p-over-forward-q (- reverse-q old-p))]
+
+    (if (flip (exp log-ratio))
+      proposed
+      tr)))
 
 
 ;(define single-site-metropolis-hastings-step

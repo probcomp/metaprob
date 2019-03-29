@@ -4,7 +4,7 @@
   (:refer-clojure :exclude [map reduce apply replicate])
   (:require [clojure.set :as set]
             [metaprob.trace :refer :all]
-            [metaprob.generative-functions :refer [gen make-generative-function make-constrained-generator]]
+            [metaprob.generative-functions :refer :all]
             [clojure.java.io :as io])
   (:import (java.util Random)))
 
@@ -38,17 +38,17 @@
 
 ;; Eager, generative-function versions of common list functions
 (def map
-  (gen {:tracing-with t}
-       [f l]
-       (doall (map-indexed (gen [i x] (t i f [x])) l))))
+  (gen [f l]
+    (doall (map-indexed (fn [i x] (trace-at i f [x])) l))))
 
 (def replicate
-  (gen {:tracing-with t} [n f]
-       (map (gen [i] (t i f [])) (range n))))
+  (gen [n f]
+    (map (fn [i] (trace-at i f [])) (range n))))
 
-(def doall*
-  (gen [s]
-       (dorun (tree-seq seq? seq s)) s))
+(defn doall*
+  [s]
+  (dorun (tree-seq seq? seq s)) s)
+
 ;; -----------------------------------------------------------------------------
 ;; Graphical output (via gnuplot or whatever)
 

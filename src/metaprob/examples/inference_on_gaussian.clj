@@ -14,12 +14,14 @@
 ;; graphical comparison with sampled approximations.
 
 (def normal-normal
-  (gen {:tracing-with t} []
-    (t "y" gaussian [(t "x" gaussian [0 1]) 1])))
+  (gen []
+    (let-traced [x (gaussian 0 1)
+                 y (gaussian x 1)]
+      y)))
 
 (defn prior-density
    [x]
-    (exp (score-gaussian x [0 1])))
+  (exp (score-gaussian x [0 1])))
 
 (defn target-density
    [x]

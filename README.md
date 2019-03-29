@@ -38,13 +38,13 @@ Generative models are represented as ordinary functions that make stochastic cho
 ```clojure
 ;; Flip a fair coin n times
 (def fair-coin-model
- (gen {:tracing-with t} [n]
-   (map (fn [i] (t i flip [0.5])) (range n))))
+ (gen [n]
+   (map (fn [i] (trace-at i flip [0.5])) (range n))))
 ;; Flip a possibly weighted coin n times
 (def biased-coin-model
- (gen {:tracing-with t} [n]
-   (let [p (t "p" uniform [0 1]))]
-     (map (fn [i] (t i flip [p])) (range n)))))
+ (gen [n]
+   (let [p (trace-at "p" uniform [0 1])]
+     (map (fn [i] (trace-at i flip [p])) (range n)))))
 ```
 
 Execution traces of models, which record the random choices they make, are first-class values that inference algorithms can manipulate.

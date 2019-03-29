@@ -10,10 +10,10 @@
   (map-indexed #(autotrace-expression %2 tracer-name (cons %1 stack)) expressions))
 
 (defmacro autotrace [gen-expr]
-  (let [tracer-name (gensym "trace")
+  (let [tracer-name 'trace-at
         expr (mp-expand gen-expr)
         result
-        `(gen ~(assoc (gen-annotations expr) :tracing-with tracer-name)
+        `(gen ~@(if (gen-has-annotations? expr) [(gen-annotations expr)] [])
            ~(gen-pattern expr)
            ~@(autotrace-expressions (gen-body expr) tracer-name '()))]
     result))
@@ -21,10 +21,10 @@
 (defn autotrace-expression
   [expr tracer-name stack]
   (cond
-    (gen-expr? expr)
-    (if (gen-tracer-name expr)
-      expr
-      `(autotrace ~expr))
+    (or (fn-expr? expr) (gen-expr? expr))
+    `(~(first expr) ~@(if (gen-has-annotations? expr) [(gen-annotations expr)] [])
+       ~(gen-pattern expr)
+       ~@(autotrace-expressions (gen-body expr) tracer-name stack))
 
     (quote-expr? expr)
     expr
@@ -35,8 +35,14 @@
        ~(autotrace-expression (if-else-clause expr) tracer-name (cons "else" stack)))
 
     (seq? expr)
-    `(~tracer-name '~(reverse (cons (str (first expr)) stack))
-       ~@(let [[f & args] (autotrace-expressions expr tracer-name stack)]
-           (list f (vec args))))
+    (let [already-traced? (= (first expr) tracer-name)
+          addr (if already-traced? (second expr) (list 'quote (reverse (cons (str (first expr)) stack))))
+          [f args]
+          (if already-traced?
+            (autotrace-expressions (rest (rest expr)) tracer-name stack)
+            [(autotrace-expression (first expr) tracer-name (cons "head" stack))
+             (vec (autotrace-expressions (rest expr) tracer-name (cons "tail" stack)))])]
+      `(~tracer-name ~addr
+         ~f ~args))
 
     true expr))

@@ -23,22 +23,23 @@
 
 ;; Introduce a single typo to a string
 (def add-error
-  (gen {:tracing-with t} [true-string]
-    (let [error-type (t "error-type" uniform-discrete [[:deletion :insertion :substitution]])
-          highest-possible-index (+ (count true-string) (if (= error-type :insertion) 1 0))
-          error-index (t "error-index" uniform-discrete [(range highest-possible-index)])]
+  (gen [true-string]
+    (let-traced [error-type (uniform-discrete [:deletion :insertion :substitution])
+                 highest-possible-index (+ (count true-string) (if (= error-type :insertion) 1 0))
+                 error-index (uniform-discrete (range highest-possible-index))
+                 new-letter (when (not= error-type :deletion) (uniform-discrete alphabet))]
       (cond
         (= error-type :deletion) (delete-at-index true-string error-index)
-        (= error-type :insertion) (insert-at-index true-string error-index (t "new-letter" uniform-discrete [alphabet]))
-        (= error-type :substitution) (replace-at-index true-string error-index (t "new-letter" uniform-discrete [alphabet]))))))
+        (= error-type :insertion) (insert-at-index true-string error-index new-letter)
+        (= error-type :substitution) (replace-at-index true-string error-index new-letter)))))
 
 ;; Introduce zero or more typos to a string
 (def add-errors-model
-  (gen {:tracing-with t} [true-string]
+  (gen [true-string]
     (let [helper (fn [current-string error-number]
-                   (if (t `(~error-number "done-adding-errors?") flip [0.9])
-                     (t "final-string" exactly [current-string])
-                     (recur (t error-number add-error [current-string]) (+ error-number 1))))]
+                   (if (trace-at `(~error-number "done-adding-errors?") flip [0.9])
+                     (trace-at "final-string" exactly [current-string])
+                     (recur (trace-at error-number add-error [current-string]) (+ error-number 1))))]
       (helper true-string 0))))
 
 ;; Heuristics
@@ -83,39 +84,37 @@
 
 (defn make-smart-add-error
   [observed-string]
-  (gen {:tracing-with t}
-    [current-string]
-    (let [;; Error type
-          error-types
-          [:insertion :deletion :substitution]
+  (gen [current-string]
+    (let-traced [;; Error types:
+                 error-types
+                 [:insertion :deletion :substitution]
 
-          error-type-probabilities
-          (zipmap
-            error-types
-            (map #(score-error-type % current-string observed-string) error-types))
+                 error-type-probabilities
+                 (zipmap
+                   error-types
+                   (map #(score-error-type % current-string observed-string) error-types))
 
-          error-type
-          (t "error-type" categorical [error-type-probabilities])
+                 error-type
+                 (categorical error-type-probabilities)
 
+                 ;; Error index
+                 error-index-upper-bound
+                 (+ (count current-string) (if (= error-type :insertion) 1 0))
 
-          ;; Error index
-          error-index-upper-bound
-          (+ (count current-string) (if (= error-type :insertion) 1 0))
+                 index-probs
+                 (map
+                   (fn [i] (if (good-index-for-error? i current-string observed-string) 1 0.02))
+                   (range error-index-upper-bound))
 
-          index-probs
-          (map
-            (fn [i] (if (good-index-for-error? i current-string observed-string) 1 0.02))
-            (range error-index-upper-bound))
+                 error-index
+                 (categorical index-probs)
 
-          error-index
-          (t "error-index" categorical [index-probs])
+                 ;; Letter to introduce
+                 letter-probs
+                 (letter-probabilities observed-string error-index)
 
-          ;; Letter to introduce
-          letter-probs
-          (letter-probabilities observed-string error-index)
-
-          new-letter
-          (if (= error-type :deletion) "" (t "new-letter" categorical [letter-probs]))]
+                 new-letter
+                 (if (= error-type :deletion) "" (categorical letter-probs))]
 
       ;; Apply the typo
       (cond
@@ -129,20 +128,19 @@
         smart-add-error (make-smart-add-error observed-string)]
 
     ;; This is the "smart add-errors"
-    (gen {:tracing-with t}
-      [true-string]
+    (gen [true-string]
       (let [helper
             (fn [current-string i]
-              (if (t `(~i "done-adding-errors?")
+              (if (trace-at `(~i "done-adding-errors?")
                      flip
                      [(if (should-probably-add-typo? current-string observed-string)
                         0.000
                         0.999)])
                 ;; If we are done adding errors, just return the current string
-                (t "final-string" exactly [current-string])
+                (trace-at "final-string" exactly [current-string])
 
                 ;; Otherwise, add another typo and loop
-                (recur (t i smart-add-error [current-string])
+                (recur (trace-at i smart-add-error [current-string])
                        (+ i 1))))]
 
         ;; Start the process going
@@ -162,22 +160,23 @@
     :model add-errors-model
     :proposer make-add-errors-proposer
     :inputs ["computer"]
-    :observation-trace {"final-string" {:value "cmptr"}}
+    :observation-trace {"final-string" {:value "camptr"}}
     :n-particles 30))
   (println "Importance resampling with internal proposal")
   (pprint (importance-resampling
             :model add-errors
             :inputs ["computer"]
-            :observation-trace {"final-string" {:value "cmptr"}}
+            :observation-trace {"final-string" {:value "camptr"}}
             :n-particles 30)))
 
 
 
 ;; Choose a city and maybe add typos to it
 (def spelling-model
-  (gen {:tracing-with t} []
-    (let [city (t "true-city" categorical [washington-cities])]
-      (t "add-errors" add-errors [city]))))
+  (gen []
+    (let-traced [true-city (categorical washington-cities)
+                 with-typos (add-errors true-city)]
+      with-typos)))
 
 (defn spelling-model-demo []
   ;; Inferring that "seattle" was the true string
@@ -185,7 +184,7 @@
   (pprint
     (importance-resampling
       :model spelling-model
-      :observation-trace {"add-errors" {"final-string" {:value "satl"}}}
+      :observation-trace {"with-typos" {"final-string" {:value "satl"}}}
       :n-particles 100))
   (println "Observing 'spatkne'")
   (pprint
@@ -194,7 +193,7 @@
                      (fn [] (trace-value
                               (importance-resampling
                                 :model spelling-model
-                                :observation-trace {"add-errors" {"final-string" {:value "spatkne"}}}
+                                :observation-trace {"with-typos" {"final-string" {:value "spatkne"}}}
                                 :n-particles 30)
                               "true-city")))]
       (str "Seattle: " (count (filter (fn [city] (= city "seattle")) results)) ", "

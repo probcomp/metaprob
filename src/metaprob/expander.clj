@@ -26,7 +26,7 @@
      count-vars (fn [pat] (count (take-while (partial not= '&) pat))),
      variadic? (fn [pat] (contains? pat '&)),
 
-     ;; Come up with a name for the single variadic argument of the gen
+     ;; Come up with a name for the single variadic argument of the new fn
      argname (gensym),
 
      ;; arities: a map from number-of-arguments to signature-to-execute
@@ -59,13 +59,13 @@
                 (sort (keys arities)))
               (list (if variadic-n `(true ~(mp-expand (get arities variadic-n))) `(true (~'assert false "Wrong arity")))))),
 
-     gen-expr (if (= (count sigs) 1)
-                (cons 'gen (cons (first (first sigs)) (map mp-expand (rest (first sigs)))))
-                `(~'gen [& ~argname] (cond ~@clauses)))]
+     fn-expr (if (= (count sigs) 1)
+                (cons 'fn (cons (first (first sigs)) (map mp-expand (rest (first sigs)))))
+                `(~'fn [& ~argname] (cond ~@clauses)))]
 
     (if name
-      `(let [~name ~gen-expr] ~name)
-      gen-expr)))
+      (cons (first fn-expr) (cons name (rest fn-expr)))
+      fn-expr)))
 
 (defn map-from-pairs
   [& pairs]
@@ -77,10 +77,10 @@
 
 (defn expand-let-expr [form]
   (if (empty? (let-bindings form))
-    (mp-expand `((~'gen [] ~@(let-body form))))
+    (mp-expand `((~'fn [] ~@(let-body form))))
     (let [[first-name first-value] (first (let-bindings form))
           other-bindings (apply concat (rest (let-bindings form)))]
-      (mp-expand `((~'gen [~first-name]
+      (mp-expand `((~'fn [~first-name]
                      (let [~@other-bindings]
                        ~@(let-body form))) ~first-value)))))
 
@@ -110,12 +110,11 @@
       (map-gen mp-expand form)
 
       "do"
-      (recur `((~'gen [] ~@(rest form))))
+      (recur `((fn* [] ~@(rest form))))
       ; (cons 'do (doall (map mp-expand (rest form))))
 
       "let"
       (expand-let-expr form)
-      ; (doall (map-let mp-expand form))
 
       "letfn"
       form
@@ -135,7 +134,7 @@
       ;; We need to handle cases where the `fn` has a name (and
       ;; therefore may be recursive) and also cases where it may have
       ;; more than one arity defined.
-      ;; no recursive call, b/c all code wrapped in `gen`.
+      ;; no recursive call, because convert-fn*-exp handles all expansion
       (convert-fn*-exp form)
 
       "loop"

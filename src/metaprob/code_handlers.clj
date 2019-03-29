@@ -11,6 +11,10 @@
     (and (seq? x)
          (= (first x) n))))
 
+(def fn-expr? (name-checker "fn"))
+(def let-expr? (name-checker "let"))
+(def do-expr? (name-checker "do"))
+(def let-traced-expr? (name-checker "let-traced"))
 (def gen-expr? (name-checker "gen"))
 
 (defn gen-name
@@ -25,11 +29,6 @@
   (if (map? (second expr))
     (second expr)
     {}))
-
-(defn gen-tracer-name
-  [expr]
-  (if (map? (second expr))
-    (get (second expr) :tracing-with) nil))
 
 (defn gen-has-annotations?
   [expr]
