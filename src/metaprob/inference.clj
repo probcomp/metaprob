@@ -1,6 +1,7 @@
 (ns metaprob.inference
   (:refer-clojure :exclude [map replicate apply])
   (:require [metaprob.generative-functions :refer :all]
+            [metaprob.generative-functions.impl :refer :all]
             [metaprob.prelude :refer :all]
             [metaprob.trace :refer :all]
             [metaprob.distributions :refer :all]))
@@ -448,4 +449,3 @@
         (check-samples-against-pdf (map sampler (range nsamples))
                                    pdf nbins)]
     badness))
-
