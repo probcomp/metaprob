@@ -112,9 +112,9 @@
 
                    ;; TODO: allow/require custom-proposal to specify which addresses it is proposing vs. sampling otherwise?
                    [_ tr _]
-                   (trace-at '() infer-and-score
-                      [:procedure custom-proposal,
-                       :inputs args])
+                   (at '() infer-and-score
+                       :procedure custom-proposal
+                       :inputs args)
 
                    proposed-trace
                    (trace-merge observations tr)
@@ -246,7 +246,7 @@
                   (make-constrained-generator model fixed-choices)
 
                   [_ new-trace _]
-                  (trace-at '() constrained-generator inputs)]
+                  (apply-at '() constrained-generator inputs)]
               new-trace)))))
 
 

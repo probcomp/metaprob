@@ -39,11 +39,11 @@
 ;; Eager, generative-function versions of common list functions
 (def map
   (gen [f l]
-    (doall (map-indexed (fn [i x] (trace-at i f [x])) l))))
+    (doall (map-indexed (fn [i x] (at i f x)) l))))
 
 (def replicate
   (gen [n f]
-    (map (fn [i] (trace-at i f [])) (range n))))
+    (map (fn [i] (at i f)) (range n))))
 
 (defn doall*
   [s]

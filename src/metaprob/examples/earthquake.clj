@@ -70,7 +70,7 @@
 (defn intervene
   [f intervention]
   (gen [& args]
-    (first (trace-at '() (make-constrained-generator f intervention) args))))
+    (first (apply-at '() (make-constrained-generator f intervention) args))))
 
 ;; Returns list of [state score] where state is value returned by 
 ;;  earthquake-bayesian-network

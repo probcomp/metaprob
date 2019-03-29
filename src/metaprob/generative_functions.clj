@@ -13,9 +13,11 @@
 
 (declare make-implementation-of-make-constrained-generator-from-traced-code)
 
-(defn trace-at [& args]
-  (assert false "Cannot invoke trace-at outside of a (gen ...) form."))
+(defn at [& args]
+  (assert false "Cannot invoke at outside of a (gen ...) form."))
 
+(defn apply-at [& args]
+  (assert false "Cannot invoke apply-at outside of a (gen ...) form."))
 
 (defmacro let-traced [bindings & body]
   (let [binding-pairs (partition 2 bindings)
@@ -44,7 +46,7 @@
             (recur (macroexpand-1 expr) name)
 
             true
-            `(~'trace-at ~name ~(first expr) ~(vec (rest expr)))))
+            `(~'at ~name ~@expr)))
 
         convert-binding
         (fn [[lhs rhs]]
@@ -68,7 +70,10 @@
         (gen-name expr)
 
         tracer-name
-        'trace-at
+        'at
+
+        apply-tracer-name
+        'apply-at
 
         params
         (gen-pattern expr)
@@ -86,12 +91,13 @@
         `(fn ~params ~@named-fn-body)
 
         run-in-clojure-expr
-        `(let [~tracer-name (fn [addr# f# & maybe-args#] (let [args# (if maybe-args# (first maybe-args#) [])] (apply f# args#)))]
+        `(let [~tracer-name (fn [addr# f# & args#] (apply f# args#))
+               ~apply-tracer-name (fn [addr# f# args#] (apply f# args#))]
            ~innermost-fn-expr)
 
         make-constrained-generator-expression
         `(make-implementation-of-make-constrained-generator-from-traced-code
-           (fn [~tracer-name] ~innermost-fn-expr))
+           (fn [~tracer-name ~apply-tracer-name] ~innermost-fn-expr))
 
         generative-function-expression
         `(make-generative-function ~run-in-clojure-expr ~make-constrained-generator-expression
@@ -116,13 +122,16 @@
     (gen [& args]
       (let [score (atom 0)
             trace (atom {})
-            t (fn [addr gf & maybe-args]
-                (let [args (if maybe-args (first maybe-args) [])
-                      [v tr s] (trace-at addr (make-constrained-generator gf (maybe-subtrace observations addr)) args)]
+            apply-traced
+            (fn [addr gf args]
+                (let [[v tr s] (apply-at addr (make-constrained-generator gf (maybe-subtrace observations addr)) args)]
                   (swap! score + s)
                   (swap! trace merge-subtrace addr tr)
                   v))
-            result (apply (fn-accepting-tracer t) args)]
+            at-impl
+            (fn [addr gf & args]
+              (apply-traced addr gf args))
+            result (apply (fn-accepting-tracer at-impl apply-traced) args)]
           [result (deref trace) (deref score)]))))
 
 
@@ -138,11 +147,11 @@
               {:value (trace-value observations)}
               (scorer (trace-value observations) args)])
         (gen [& args]
-          (let [result (trace-at '() (make-primitive sampler scorer) args)]
+          (let [result (apply-at '() (make-primitive sampler scorer) args)]
             [result {:value result} 0]))))))
 
 
 (def infer-and-score
   (gen [& {:keys [procedure inputs observation-trace]
            :or {inputs [], observation-trace {}}}]
-    (trace-at '() (make-constrained-generator procedure observation-trace) inputs)))
+    (apply-at '() (make-constrained-generator procedure observation-trace) inputs)))

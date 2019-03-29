@@ -37,9 +37,9 @@
 (def add-errors-model
   (gen [true-string]
     (let [helper (fn [current-string error-number]
-                   (if (trace-at `(~error-number "done-adding-errors?") flip [0.9])
-                     (trace-at "final-string" exactly [current-string])
-                     (recur (trace-at error-number add-error [current-string]) (+ error-number 1))))]
+                   (if (at `(~error-number "done-adding-errors?") flip 0.9)
+                     (at "final-string" exactly current-string)
+                     (recur (at error-number add-error current-string) (+ error-number 1))))]
       (helper true-string 0))))
 
 ;; Heuristics
@@ -131,17 +131,13 @@
     (gen [true-string]
       (let [helper
             (fn [current-string i]
-              (if (trace-at `(~i "done-adding-errors?")
-                     flip
-                     [(if (should-probably-add-typo? current-string observed-string)
-                        0.000
-                        0.999)])
-                ;; If we are done adding errors, just return the current string
-                (trace-at "final-string" exactly [current-string])
-
-                ;; Otherwise, add another typo and loop
-                (recur (trace-at i smart-add-error [current-string])
-                       (+ i 1))))]
+              (let [stop-prob (if (should-probably-add-typo? current-string observed-string) 0.000 0.999)]
+                (if (at `(~i "done-adding-errors?") flip stop-prob)
+                  ;; If we are done adding errors, just return the current string
+                  (at "final-string" exactly current-string)
+                  ;; Otherwise, add another typo and loop
+                  (recur (at i smart-add-error current-string)
+                         (+ i 1)))))]
 
         ;; Start the process going
         (helper true-string 0)))))

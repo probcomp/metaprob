@@ -26,9 +26,9 @@
         ;; Generative model
         sampler
         (gen []
-          (let [cluster-idx (trace-at cluster-addr categorical [cluster-probs])
+          (let [cluster-idx (at cluster-addr categorical cluster-probs)
                 params  (nth cluster-params cluster-idx)]
-            (map (fn [v] (trace-at v (get vars-and-dists v) (get params v))) var-names)))]
+            (map (fn [v] (apply-at v (get vars-and-dists v) (get params v))) var-names)))]
      (with-custom-proposal-attached
        sampler
        (fn [observations]
@@ -49,13 +49,13 @@
                  (map score-cluster (range (count cluster-probs)))
 
                  chosen-cluster
-                 (trace-at cluster-addr log-categorical [cluster-scores])]
+                 (at cluster-addr log-categorical cluster-scores)]
 
              ;; Fill in the rest of the choices
-             (trace-at '() infer-and-score
-                       [:procedure sampler
-                        :observation-trace
-                        (trace-set-value observations cluster-addr chosen-cluster)]))))
+             (at '() infer-and-score
+                 :procedure sampler
+                 :observation-trace
+                 (trace-set-value observations cluster-addr chosen-cluster)))))
 
        ;; Only use the custom proposal when we don't already know the cluster ID
        (fn [tr] (not (trace-has-value? tr cluster-addr))))))
@@ -63,7 +63,7 @@
 (defn make-multi-mixture
   [views]
   (gen []
-    (apply concat (map (fn [view] (trace-at '() view)) views))))
+    (apply concat (map (fn [view] (at '() view)) views))))
 
 ; ------------------------
 ; DOMAIN SPECIFIC LANGUAGE

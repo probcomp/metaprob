@@ -10,8 +10,8 @@
 ;; Generate a random polynomial of degree 0, 1, 2, or 3
 (def random-polynomial
   (gen []
-    (let [coeffs (map (fn [i] (trace-at `("coeffs" ~i) gaussian [0 1]))
-                       (range (+ 1 (trace-at "degree" uniform-discrete [[0 1 2 3]]))))]
+    (let [coeffs (map (fn [i] (at `("coeffs" ~i) gaussian 0 1))
+                       (range (+ 1 (at "degree" uniform-discrete [0 1 2 3]))))]
       (fn [x] (reduce + (map-indexed (fn [n c] (* c (expt x n))) coeffs))))))
 
 ;; Create a generative function that is a noisy version of
@@ -21,9 +21,9 @@
     (let-traced [noise (gamma 1 1)
                  prob-outlier (beta 1 10)]
       (gen [x]
-        (if (trace-at "outlier?" flip [prob-outlier])
-          (trace-at "y" gaussian [0 10])
-          (trace-at "y" gaussian [(f x) noise]))))))
+        (if (at "outlier?" flip prob-outlier)
+          (at "y" gaussian 0 10)
+          (at "y" gaussian (f x) noise))))))
 
 ;; Given a list of xs, create a list of ys that are related
 ;; via a noisy polynomial relationship
@@ -31,7 +31,7 @@
   (gen [xs]
     (let-traced [underlying-curve (random-polynomial)
                  noisy-curve (add-noise underlying-curve)]
-      (doall (map-indexed (fn [i x] (trace-at `("data" ~i) noisy-curve [x])) xs)))))
+      (doall (map-indexed (fn [i x] (at `("data" ~i) noisy-curve x)) xs)))))
 
 ;; Useful helpers for curve-fitting
 (defn make-observation-trace
@@ -112,4 +112,4 @@
 (defn -main []
   (pprint (last (run-mh xs ys-linear 200)))
   (pprint (last (run-mh xs ys-linear-outlier 300)))
-  (pprint (last (run-mh xs ys-quadratic 1000))))
+  (pprint (last (run-mh xs ys-quadratic 10000))))

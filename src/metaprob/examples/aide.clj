@@ -16,13 +16,13 @@
     (let [scores
           (map (fn [i]
                  (let [[_ _ s]
-                       (trace-at i infer-and-score [:procedure model :inputs inputs :observation-trace observations])]
+                       (at i infer-and-score :procedure model :inputs inputs :observation-trace observations)]
                    s))
                (range n-particles))]
       (logmeanexp scores))))
 
 (defn intervene [f t]
-  (gen [& args] (first (trace-at '() (make-constrained-generator f t) args))))
+  (gen [& args] (first (apply-at '() (make-constrained-generator f t) args))))
 
 ;; Calculate the mean of some numbers
 (defn avg [xs] (/ (reduce + xs) (count xs)))
@@ -63,17 +63,16 @@
           ;; tracing the ith particle at '("particles" i)
           particles
           (map (fn [i]
-                 (trace-at
-                   `("particles" ~i)
-                    infer-and-score
-                    [:procedure model,
+                 (at `("particles" ~i)
+                     infer-and-score
+                     :procedure model,
                      :inputs inputs,
-                     :observation-trace observations]))
+                     :observation-trace observations))
                (range N))
 
           ;; Choose one of the particles, according to their weights
           chosen-index
-          (trace-at "chosen-index" log-categorical [(map #(nth % 2) particles)])
+          (at "chosen-index" log-categorical (map #(nth % 2) particles))
 
           ;; Pull out the trace of the chosen particle
           chosen-particle-trace
@@ -87,9 +86,8 @@
       ;; We do this below by looping through every variable in our inferred trace,
       ;; and "sampling" it again, using the deterministic `exactly` distribution:
       (map (fn [model-addr]
-             (trace-at `("inferred-trace" ~@model-addr)
-                exactly
-                [(trace-value chosen-particle-trace model-addr)]))
+             (at `("inferred-trace" ~@model-addr)
+                exactly (trace-value chosen-particle-trace model-addr)))
            (addresses-of chosen-particle-trace))
 
       ;; Return the chosen particle
@@ -101,21 +99,20 @@
   (let [inferred-trace (trace-subtrace meta-observation-trace "inferred-trace")]
     (gen [model inputs observations N]
       (let [chosen-index
-            (trace-at "chosen-index" uniform-discrete [(range N)])
+            (at "chosen-index" uniform-discrete (range N))
 
             other-indices
             (filter (fn [i] (not= i chosen-index)) (range N))]
 
         ;; Randomly sample particles at the other indices
         (map (fn [i]
-               (trace-at `("particles" ~i)
-                  infer-and-score
-                  [:procedure model :inputs inputs :observation-trace observations]))
+               (at `("particles" ~i)
+                  infer-and-score :procedure model :inputs inputs :observation-trace observations))
              other-indices)
 
         ;; Force exact samples of the inferred trace's choices at the chosen index
         (map (fn [addr]
-               (trace-at `("particles" ~chosen-index ~@addr) exactly [(trace-value inferred-trace addr)]))
+               (at `("particles" ~chosen-index ~@addr) exactly (trace-value inferred-trace addr)))
              (addresses-of inferred-trace))))))
 
 
@@ -130,22 +127,22 @@
 (def coin-model
   (gen [n]
     (let-traced [p (beta 1 1)]
-      (map (fn [i] (trace-at i flip [p])) (range n)))))
+      (map (fn [i] (at i flip p)) (range n)))))
 
 (defn make-approx-inference-algorithm
   [n observations n-particles]
   (gen []
-    (trace-at '() importance-resampling-gf [coin-model [n] observations n-particles])))
+    (at '() importance-resampling-gf coin-model [n] observations n-particles)))
 
 (defn exact-inference [n observations]
     (let [all-flips (filter boolean? (map (fn [addr] (trace-value observations addr)) (addresses-of observations)))
           heads (count (filter true? all-flips))
           tails (count (filter false? all-flips))]
       (gen []
-        (let [p (trace-at '("inferred-trace" "p") beta [(inc heads) (inc tails)])]
+        (let [p (at '("inferred-trace" "p") beta (inc heads) (inc tails))]
           (doseq [i (range n)]
             (when (not (trace-has-value? observations i))
-              (trace-at `("inferred-trace" ~i) flip [p])))))))
+              (at `("inferred-trace" ~i) flip p)))))))
 
 (defn aide-demo [n observations]
   (doseq [i [1 2 3 5 10 15 20]]

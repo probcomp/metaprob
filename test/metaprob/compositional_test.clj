@@ -51,7 +51,7 @@
 
 (deftest traced-and-scored-execution
   (testing "traced and scored execution"
-    (let [f (gen [p] (trace-at "x" flip [p]))
+    (let [f (gen [p] (at "x" flip p))
           p 0.4
           [v1 t1 s1] (infer-and-score :procedure f :inputs [p])
           [v2 t2 s2] (infer-and-score :procedure f :inputs [p] :observation-trace t1)]
@@ -69,15 +69,15 @@
 
 (deftest control-flow
   (testing "infer-and-score with weird control flow"
-    (let [bar (gen [mu] (trace-at "a" gaussian [mu 1]))
-          baz (gen [mu] (trace-at "b" gaussian [mu 1]))
+    (let [bar (gen [mu] (at "a" gaussian mu 1))
+          baz (gen [mu] (at "b" gaussian mu 1))
           foo
           (gen [mu]
-            (if (trace-at "branch" flip [0.4])
-              (do (trace-at "x" gaussian [mu 1])
-                  (trace-at "u" bar [mu]))
-              (do (trace-at "y" gaussian [mu 1])
-                  (trace-at "v" baz [mu]))))
+            (if (at "branch" flip 0.4)
+              (do (at "x" gaussian mu 1)
+                  (at "u" bar mu))
+              (do (at "y" gaussian mu 1)
+                  (at "v" baz mu))))
 
           mu
           0.123
@@ -108,7 +108,7 @@
 
 (deftest self-execution
   (testing "running infer-and-score on infer-and-score"
-    (let [f (gen [] (and (trace-at 1 flip [0.1]) (trace-at 2 flip [0.4])))
+    (let [f (gen [] (and (at 1 flip 0.1) (at 2 flip 0.4)))
           [[inner-v inner-t inner-s] t s]
           (infer-and-score
             :procedure infer-and-score
