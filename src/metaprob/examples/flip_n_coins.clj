@@ -11,7 +11,7 @@
   (gen [n]
     (let-traced [tricky (flip 0.1)
                  p (if tricky (uniform 0 1) 0.5)]
-      (map (fn [i] (trace-at i flip [p])) (range n)))))
+      (map (fn [i] (at i flip p)) (range n)))))
 
 
 (defn coin-flips-demo-n-flips
