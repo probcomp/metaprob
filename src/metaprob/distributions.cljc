@@ -1,7 +1,7 @@
 (ns metaprob.distributions
   (:refer-clojure :exclude [apply map replicate reduce])
   (:require [metaprob.prelude :as mp :refer [map]]
-            [metaprob.generative-functions :refer [make-primitive]]
+            [metaprob.generative-functions.impl :refer [make-primitive]]
             #?(:clj [incanter.distributions :as distributions])))
 
 (def exactly
