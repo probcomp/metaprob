@@ -155,7 +155,7 @@
            [result {:value result} 0]))))))
 
 
-#?(:clj (def infer-and-score
-          (gen [& {:keys [procedure inputs observation-trace]
-                   :or {inputs [], observation-trace {}}}]
-            (apply-at '() (make-constrained-generator procedure observation-trace) inputs))))
+(def infer-and-score
+  (gen [& {:keys [procedure inputs observation-trace]
+           :or {inputs [], observation-trace {}}}]
+    (apply-at '() (make-constrained-generator procedure observation-trace) inputs)))
