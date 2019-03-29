@@ -71,18 +71,6 @@
       (is (= (trace/trace-value (trace/trace-subtrace tr '("c" "x"))) 13))
       (is (= (trace/trace-value tr '("c" "x")) 13)))))
 
-(deftest compare-keys-1
-  (testing "compare-keys smoke tests"
-    (is (= (trace/compare-keys 7 7) 0))
-    (is (< (trace/compare-keys 7 "foo") 0))
-    (is (> (trace/compare-keys "foo" 7) 0))
-    (is (< (trace/compare-keys 7 {"foo" 7}) 0))
-    (is (< (trace/compare-keys {"abc" {:value 7}} {"foo" {:value 9}}) 0))
-    (is (= (trace/compare-keys {"abc" {:value 9}} {"abc" {:value 9}}) 0))
-    (is (< (trace/compare-keys {"abc" {:value 9}} {"abc" {:value 9} :value 5}) 0))
-    (is (> (trace/compare-keys {"abc" {:value 9}} {"abc" {:value 7}}) 0))
-    (is (> (trace/compare-keys {"abc" {:value 9} "foo" {:value 17}} {"abc" {:value 9}}) 0))))
-
 (deftest merge-1
   (testing "trace-merge"
     (let [tr {}
@@ -95,3 +83,26 @@
           (is (= (trace/trace-value tr) 8))
           (let [tr (trace/trace-merge tr {9 {3 {:value 33}}})]
             (is (= (trace/trace-value tr '(9 3)) 33))))))))
+
+
+(deftest addresses-of-1
+  (testing "Smoke test addresses-of"
+    (let [tree {"x" {"a" {:value 1}
+                     "b" {:value 2}
+                     "c" {}}
+                "y" {:value "d"}}
+          sites (trace/addresses-of tree)]
+      (is (= (count sites) 3)))))
+
+(deftest addresses-of-2
+  (testing "addresses-of (addresses-of)"
+    (let [tr    {"a" {:value 17}
+                 "b" {:value 31}
+                 "c" {:value {"d" {:value 71}}}}
+          ;; sites (sequence/sequence-to-seq (addresses-of tr))
+          sites (trace/addresses-of tr)
+          vals  (map (fn [site] (trace/trace-value tr site)) sites)
+          has? (fn [val] (some (fn [x] (= x val)) vals))]
+      (has? 17)
+      (has? 31)
+      (has? {"d" {:value 71}}))))
