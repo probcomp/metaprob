@@ -11,6 +11,7 @@ RUN apt-get update -qq \
       && apt-get upgrade -qq \
       && apt-get install -qq -y \
         curl \
+        nodejs \
         time \
         rlwrap \
         python3-pip
