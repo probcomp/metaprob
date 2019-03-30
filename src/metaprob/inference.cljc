@@ -411,11 +411,14 @@
     (check-bins-against-pdf bins pdf)))
 
 (defn report-on-elapsed-time [tag thunk]
-  (let [nano-time #?(:clj #(System/nanoTime)
-                     :cljs #(js/window.performance.now)) ; browsers only, not portable
-        start (nano-time)
+  (let [time #?(:clj #(System/nanoTime)
+                :cljs #(.getTime (js/Date.)))
+        start (time)
         ret (thunk)
-        t (Math/round (/ (double (- (nano-time) start)) 1000000000.0))]
+        t (Math/round (/ (double (- (time)
+                                    start))
+                         #?(:clj 1000000000.0 ; nanoseconds
+                            :cljs 1000000.0)))] ; milliseconds
     (if (> t 1)
       (print (str tag ": elapsed time " t " sec\n")))
     ret))
