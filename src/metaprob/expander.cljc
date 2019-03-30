@@ -85,12 +85,14 @@
 (defn expand-let-expr
   #?(:clj [form] :cljs [env form])
   (if (empty? (code/let-bindings form))
-    (mp-expand #?(:cljs env) `((~'fn [] ~@(code/let-body form))))
+    (mp-expand #?(:cljs env)
+               `((~'fn [] ~@(code/let-body form))))
     (let [[first-name first-value] (first (code/let-bindings form))
           other-bindings (apply concat (rest (code/let-bindings form)))]
-      (mp-expand env `((~'fn [~first-name]
-                        (let [~@other-bindings]
-                          ~@(code/let-body form))) ~first-value)))))
+      (mp-expand #?(:cljs env)
+                 `((~'fn [~first-name]
+                    (let [~@other-bindings]
+                      ~@(code/let-body form))) ~first-value)))))
 
 
 (defn mp-expand
