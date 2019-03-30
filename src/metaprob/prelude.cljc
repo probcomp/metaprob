@@ -4,7 +4,7 @@
   (:require #?(:clj [clojure.java.io :as io])
             [clojure.set :as set]
             [metaprob.trace :as trace]
-            [metaprob.generative-functions :refer [gen]])
+            [metaprob.generative-functions :refer [gen make-generative-function make-constrained-generator]])
   #?(:clj (:import [java.util Random])))
 
 
@@ -82,3 +82,23 @@
               (.close writor)))))
 
 ;; (defn print-source [f] (clojure.pprint/pprint (get (meta f) :generative-source)))
+
+;; Create a "primitive" generative function out of a sampler and scorer
+(defn make-primitive [sampler scorer]
+  (make-generative-function
+    sampler
+    (fn [observations]
+      (if (trace/trace-has-value? observations)
+        (gen [& args]
+          [(trace/trace-value observations)
+           {:value (trace/trace-value observations)}
+           (scorer (trace/trace-value observations) args)])
+        (gen [& args]
+          (let [result (apply-at '() (make-primitive sampler scorer) args)]
+            [result {:value result} 0]))))))
+
+
+(def infer-and-score
+  (gen [& {:keys [procedure inputs observation-trace]
+           :or {inputs [], observation-trace {}}}]
+    (apply-at '() (make-constrained-generator procedure observation-trace) inputs)))

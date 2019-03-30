@@ -9,7 +9,7 @@
 (defn ez-call [prob-prog & inputs]
   (let [inputs (if (= inputs nil) '() inputs)
         [value _ _]
-        (gen/infer-and-score :procedure prob-prog :inputs inputs)]
+        (pre/infer-and-score :procedure prob-prog :inputs inputs)]
     value))
 
 (deftest apply-2
@@ -53,8 +53,8 @@
   (testing "traced and scored execution"
     (let [f (gen [p] (at "x" dist/flip p))
           p 0.4
-          [v1 t1 s1] (gen/infer-and-score :procedure f :inputs [p])
-          [v2 t2 s2] (gen/infer-and-score :procedure f :inputs [p] :observation-trace t1)]
+          [v1 t1 s1] (pre/infer-and-score :procedure f :inputs [p])
+          [v2 t2 s2] (pre/infer-and-score :procedure f :inputs [p] :observation-trace t1)]
 
       (is (boolean? (f 0.5)))
       (is (true? (f 1)))
@@ -83,7 +83,7 @@
           0.123
 
           [_ first-branch-trace _]
-          (gen/infer-and-score :procedure foo :inputs [mu] :observation-trace {"branch" {:value true}})
+          (pre/infer-and-score :procedure foo :inputs [mu] :observation-trace {"branch" {:value true}})
 
           x
           (trace/trace-value first-branch-trace "x")
@@ -96,7 +96,7 @@
 
       (loop [i 0]
         (when (< i 10)
-          (let [[v t s] (gen/infer-and-score :procedure foo :inputs [mu] :observation-trace fixed-choices)]
+          (let [[v t s] (pre/infer-and-score :procedure foo :inputs [mu] :observation-trace fixed-choices)]
             (if (trace/trace-value t "branch")
               (do (is (= t first-branch-trace))
                   (is (not= s 0)))
@@ -110,8 +110,8 @@
   (testing "running infer-and-score on infer-and-score"
     (let [f (gen [] (and (at 1 dist/flip 0.1) (at 2 dist/flip 0.4)))
           [[inner-v inner-t inner-s] t s]
-          (gen/infer-and-score
-           :procedure gen/infer-and-score
+          (pre/infer-and-score
+           :procedure pre/infer-and-score
            :inputs [:procedure f, :observation-trace {2 {:value true}}]
            :observation-trace {1 {:value true}})]
       (is (= (count (trace/addresses-of inner-t)) 2))

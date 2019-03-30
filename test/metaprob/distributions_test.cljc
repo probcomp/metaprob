@@ -9,9 +9,9 @@
 (defn get-score
   [proc & inputs]
   (let [[_ tr _]
-        (gen/infer-and-score :procedure proc :inputs inputs)
+        (prelude/infer-and-score :procedure proc :inputs inputs)
         [_ _ score]
-        (gen/infer-and-score :procedure proc :inputs inputs :observation-trace tr)]
+        (prelude/infer-and-score :procedure proc :inputs inputs :observation-trace tr)]
     score))
 
 (deftest flip-1

@@ -14,7 +14,7 @@
   [& {:keys [model inputs observation-trace predicate log-bound]
       :or {inputs [] observation-trace {}}}]
   (let [[_ candidate-trace score]
-        (gen/infer-and-score :procedure model
+        (mp/infer-and-score :procedure model
                              :inputs inputs
                              :observation-trace observation-trace)]
     (cond
@@ -33,7 +33,7 @@
   (let [particles (replicate
                    n-particles
                    (fn []
-                     (let [[v t s] (gen/infer-and-score :procedure model
+                     (let [[v t s] (mp/infer-and-score :procedure model
                                                         :observation-trace observation-trace
                                                         :inputs inputs)]
                        [(* (mp/exp s)
@@ -48,7 +48,7 @@
       :or {inputs [], observation-trace {}, n-particles 1}}]
   (let [particles (replicate n-particles
                              (fn []
-                               (let [[_ t s] (gen/infer-and-score :procedure model
+                               (let [[_ t s] (mp/infer-and-score :procedure model
                                                                   :inputs inputs
                                                                   :observation-trace observation-trace)]
                                  [t s])))]
@@ -60,7 +60,7 @@
       :or {inputs [] observation-trace {} n-particles 1}}]
   (let [weights (replicate n-particles
                            (fn []
-                             (let [[_ _ s] (gen/infer-and-score :procedure model
+                             (let [[_ _ s] (mp/infer-and-score :procedure model
                                                                 :inputs inputs
                                                                 :observation-trace observation-trace)]
                                s)))]
@@ -77,14 +77,14 @@
         (replicate n-particles
                    (fn []
                      (let [[_ t _]
-                           (gen/infer-and-score :procedure custom-proposal
+                           (mp/infer-and-score :procedure custom-proposal
                                                 :inputs inputs)]
                        (trace/trace-merge t observation-trace))))
 
         scores
         (map (fn [tr]
-               (- (nth (gen/infer-and-score :procedure model :inputs inputs :observation-trace tr) 2)
-                  (nth (gen/infer-and-score :procedure custom-proposal :inputs inputs :observation-trace tr) 2)))
+               (- (nth (mp/infer-and-score :procedure model :inputs inputs :observation-trace tr) 2)
+                  (nth (mp/infer-and-score :procedure custom-proposal :inputs inputs :observation-trace tr) 2)))
              proposed-traces)]
 
     (nth proposed-traces (dist/log-categorical scores))))
@@ -111,7 +111,7 @@
 
                ;; TODO: allow/require custom-proposal to specify which addresses it is proposing vs. sampling otherwise?
                [_ tr _]
-               (at '() gen/infer-and-score
+               (at '() mp/infer-and-score
                    :procedure custom-proposal
                    :inputs args)
 
@@ -119,12 +119,12 @@
                (trace/trace-merge observations tr)
 
                [v tr2 p-score]
-               (gen/infer-and-score :procedure orig-generative-function
+               (mp/infer-and-score :procedure orig-generative-function
                                     :inputs args
                                     :observation-trace proposed-trace)
 
                [_ _ q-score]
-               (gen/infer-and-score :procedure custom-proposal
+               (mp/infer-and-score :procedure custom-proposal
                                     :inputs args
                                     :observation-trace proposed-trace)]
            [v proposed-trace (- p-score q-score)]))
@@ -138,7 +138,7 @@
       :or {inputs []}}]
   (fn [current-trace]
     (let [[_ _ current-trace-score]
-          (gen/infer-and-score :procedure model
+          (mp/infer-and-score :procedure model
                                :inputs inputs
                                :observation-trace current-trace)
 
@@ -146,7 +146,7 @@
           (proposal current-trace)
 
           [_ _ proposed-trace-score]
-          (gen/infer-and-score :procedure model
+          (mp/infer-and-score :procedure model
                                :inputs inputs
                                :observation-trace proposed-trace)
 
@@ -178,26 +178,26 @@
 (defn custom-proposal-mh-step [& {:keys [model inputs proposal], :or {inputs []}}]
   (fn [current-trace]
     (let [[_ _ current-trace-score]               ;; Evaluate log p(t)
-          (gen/infer-and-score :procedure model
+          (mp/infer-and-score :procedure model
                                :inputs inputs
                                :observation-trace current-trace)
 
           [proposed-trace all-proposer-choices _] ;; Sample t' ~ q(• <- t)
-          (gen/infer-and-score :procedure proposal
+          (mp/infer-and-score :procedure proposal
                                :inputs [current-trace])
 
           [_ _ new-trace-score]                   ;; Evaluate log p(t')
-          (gen/infer-and-score :procedure model
+          (mp/infer-and-score :procedure model
                                :inputs inputs
                                :observation-trace proposed-trace)
 
           [_ _ forward-proposal-score]            ;; Estimate log q(t' <- t)
-          (gen/infer-and-score :procedure proposal
+          (mp/infer-and-score :procedure proposal
                                :inputs [current-trace]
                                :observation-trace all-proposer-choices)
 
           [_ _ backward-proposal-score]          ;; Estimate log q(t <- t')
-          (gen/infer-and-score :procedure proposal
+          (mp/infer-and-score :procedure proposal
                                :inputs [proposed-trace]
                                :observation-trace proposed-trace)
 
@@ -215,7 +215,7 @@
   (fn [current-trace]
     (let [log-scores
           (map (fn [value]
-                 (nth (gen/infer-and-score :procedure model
+                 (nth (mp/infer-and-score :procedure model
                                            :inputs inputs
                                            :observation-trace
                                            (trace/trace-set-value current-trace address value)) 2))
@@ -253,13 +253,13 @@
 
         ;; Get the log probability of the current trace
         [_ _ old-p]
-        (gen/infer-and-score :procedure model,
+        (mp/infer-and-score :procedure model,
                              :inputs inputs,
                              :observation-trace tr)
 
         ;; Propose a new trace, and get its score
         [_ proposed new-p-over-forward-q]
-        (gen/infer-and-score :procedure model,
+        (mp/infer-and-score :procedure model,
                              :inputs inputs,
                              :observation-trace fixed-choices)
 
@@ -269,7 +269,7 @@
 
         ;; Compute a reverse score
         [_ _ reverse-q]
-        (gen/infer-and-score :procedure gen/infer-and-score,
+        (mp/infer-and-score :procedure mp/infer-and-score,
                              :inputs [:procedure model,
                                       :inputs inputs,
                                       :observation-trace reverse-move-starting-point]
