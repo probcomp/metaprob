@@ -11,7 +11,7 @@
   (map-indexed #(autotrace-expression %2 (cons %1 stack)) expressions))
 
 (defmacro autotrace [gen-expr]
-  (let [expr (expander/mp-expand &env gen-expr)
+  (let [expr (expander/mp-expand #?(:cljs &env) gen-expr)
         result `(gen ~@(if (code/gen-has-annotations? expr)
                          [(code/gen-annotations expr)]
                          [])
