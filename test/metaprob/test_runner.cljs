@@ -11,8 +11,6 @@
             [metaprob.syntax-test]
             [metaprob.trace-test]))
 
-(enable-console-print!)
-
 (defn -main
   [& args]
   (test/run-tests 'metaprob.compositional-test
