@@ -16,6 +16,8 @@ RUN apt-get update -qq \
         rlwrap \
         python3-pip
 
+RUN ln -s /usr/bin/nodejs /usr/bin/node
+
 # Install the Clojure command line tools. These instructions are taken directly
 # from the Clojure "Getting Started" guide:
 # https://clojure.org/guides/getting_started
