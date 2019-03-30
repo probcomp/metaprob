@@ -1,5 +1,5 @@
 (ns metaprob.autotrace
-  (:require-macros [metaprob.autotrace])
+  #?(:cljs (:require-macros [metaprob.autotrace]))
   (:require [metaprob.code-handlers :as code]
             [metaprob.expander :as expander]
             [metaprob.generative-functions :refer [gen]]))
