@@ -1,5 +1,5 @@
 (ns metaprob.expander
-  (:require [cljs.analyzer :as ana]
+  (:require #?(:cljs [cljs.analyzer :as ana])
             [metaprob.code-handlers :as code]))
 
 (declare mp-expand)
@@ -8,8 +8,9 @@
 ;; anonymous function that dispatches to different function bodies
 ;; based on number of arguments. Our Metaprob implementation creates
 ;; a variadic (gen [& args] ...) that dispatches on (count args).
-(defn convert-fn*-exp #?(:clj [exp], :cljs [env exp])
-  (let [mp-expand #(mp-expand env %)
+(defn convert-fn*-exp
+  #?(:clj [exp] :cljs [env exp])
+  (let [mp-expand #?(:clj mp-expand :cljs #(mp-expand env %))
         name (if (symbol? (second exp)) (second exp) nil),
 
         ;; Rest of the fn* expression, without the word fn* or
@@ -58,10 +59,15 @@
                  (fn [a]
                    `((= (count ~argname) ~a) ~(mp-expand (get arities a))))
                  (sort (keys arities)))
-                (list (if variadic-n `(true ~(mp-expand (get arities variadic-n))) `(true (~'assert false "Wrong arity")))))),
+                (list (if variadic-n
+                        `(true ~(mp-expand (get arities variadic-n)))
+                        `(true (~'assert false "Wrong arity")))))),
 
         fn-expr (if (= (count sigs) 1)
-                  (cons 'fn (cons (first (first sigs)) (map mp-expand (rest (first sigs)))))
+                  (cons 'fn
+                        (cons (first (first sigs))
+                              (map mp-expand
+                                   (rest (first sigs)))))
                   `(~'fn [& ~argname] (cond ~@clauses)))]
 
     (if name
@@ -76,9 +82,10 @@
   [& elems]
   (vec elems))
 
-(defn expand-let-expr #?(:clj [form] :cljs [env form])
+(defn expand-let-expr
+  #?(:clj [form] :cljs [env form])
   (if (empty? (code/let-bindings form))
-    (mp-expand env `((~'fn [] ~@(code/let-body form))))
+    (mp-expand #?(:cljs env) `((~'fn [] ~@(code/let-body form))))
     (let [[first-name first-value] (first (code/let-bindings form))
           other-bindings (apply concat (rest (code/let-bindings form)))]
       (mp-expand env `((~'fn [~first-name]
@@ -86,7 +93,8 @@
                           ~@(code/let-body form))) ~first-value)))))
 
 
-(defn mp-expand #?(:clj [form] :cljs [env form])
+(defn mp-expand
+  #?(:clj [form] :cljs [env form])
   ;; (pprint/pprint ["Expanding" form])
   (let [mp-expand #?(:clj mp-expand :cljs #(mp-expand env %))]
     (cond
