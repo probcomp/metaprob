@@ -14,6 +14,7 @@
 
 (defn -main
   [& args]
-  (test/run-tests 'metaprob.prelude-test
+  (test/run-tests 'metaprob.distributions-test
+                  'metaprob.prelude-test
                   'metaprob.trace-test
                   'metaprob.syntax-test))
