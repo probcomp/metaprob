@@ -288,76 +288,75 @@
       tr)))
 
 
-;(define single-site-metropolis-hastings-step
-;  (gen [model-procedure inputs trace constraint-addresses]
-;
-;    ;; choose an address to modify, uniformly at random
-;
-;    (define choice-addresses (trace/addresses-of trace))
-;    (define candidates (set-difference choice-addresses constraint-addresses))
-;    (define target-address (uniform-sample candidates))
-;
-;    ;; generate a proposal trace
-;
-;    (define initial-value (trace/trace-value trace target-address))
-;    (define initial-num-choices (count candidates))
-;    (define new-target (trace-clear-value trace target-address))
-;
-;    (define [_ new-trace forward-score]
-;      (comp/infer-apply model-procedure inputs (make-top-level-tracing-context {} new-target)))
-;    (define new-value (trace/trace-value new-trace target-address))
-;
-;    ;; the proposal is to move from trace to new-trace
-;    ;; now calculate the Metropolis-Hastings acceptance ratio
-;
-;    (define new-choice-addresses (trace/addresses-of new-trace))
-;    (define new-candidates (set-difference new-choice-addresses constraint-addresses))
-;    (define new-num-choices (count new-candidates))
-;
-;    ;; make a trace that can be used to restore the original trace
-;    (define restoring-trace
-;      (trace/trace-set-value
-;        (clojure.core/reduce
-;          (gen [so-far next-adr] (trace/trace-set-value so-far next-adr (trace/trace-value trace next-adr)))
-;          {}
-;          (set-difference choice-addresses new-choice-addresses))
-;        target-address initial-value))
-;
-;    ;; remove the new value
-;    (define new-target-rev (trace-clear-value new-trace target-address))
-;
-;    (define [_ _ reverse-score]
-;      (infer :procedure model-procedure
-;             :inputs   inputs
-;             :intervention-trace restoring-trace
-;             :target-trace new-target-rev))
-;
-;    (define log-acceptance-probability
-;      (- (+ forward-score (log new-num-choices))
-;         (+ reverse-score (log initial-num-choices))))
-;
-;    (if (dist/flip (mp/exp log-acceptance-probability))
-;      new-trace
-;      trace)))
-;
-;;; Should return [output-trace value] ...
-;
-;(define lightweight-single-site-MH-sampling
-;  (gen [model-procedure inputs target-trace N]
-;    (clojure.core/reduce
-;      (gen [state _]
-;        ;; VKM had keywords :procedure :inputs :trace :constraint-addresses
-;        (single-site-metropolis-hastings-step
-;          model-procedure inputs state (trace/addresses-of target-trace)))
-;      (nth (infer :procedure model-procedure :inputs inputs :target-trace target-trace) 1)
-;      (range N))))
-;
-;;; -----------------------------------------------------------------------------
-;;; Utilities for checking that inference is giving acceptable sample sets.
-;;; These are used in the test suites.
-;
-;(declare sillyplot)
+#_(define single-site-metropolis-hastings-step
+  (gen [model-procedure inputs trace constraint-addresses]
 
+    ;; choose an address to modify, uniformly at random
+
+    (define choice-addresses (trace/addresses-of trace))
+    (define candidates (set-difference choice-addresses constraint-addresses))
+    (define target-address (uniform-sample candidates))
+
+    ;; generate a proposal trace
+
+    (define initial-value (trace/trace-value trace target-address))
+    (define initial-num-choices (count candidates))
+    (define new-target (trace-clear-value trace target-address))
+
+    (define [_ new-trace forward-score]
+      (comp/infer-apply model-procedure inputs (make-top-level-tracing-context {} new-target)))
+    (define new-value (trace/trace-value new-trace target-address))
+
+    ;; the proposal is to move from trace to new-trace
+    ;; now calculate the Metropolis-Hastings acceptance ratio
+
+    (define new-choice-addresses (trace/addresses-of new-trace))
+    (define new-candidates (set-difference new-choice-addresses constraint-addresses))
+    (define new-num-choices (count new-candidates))
+
+    ;; make a trace that can be used to restore the original trace
+    (define restoring-trace
+      (trace/trace-set-value
+        (clojure.core/reduce
+          (gen [so-far next-adr] (trace/trace-set-value so-far next-adr (trace/trace-value trace next-adr)))
+          {}
+          (set-difference choice-addresses new-choice-addresses))
+        target-address initial-value))
+
+    ;; remove the new value
+    (define new-target-rev (trace-clear-value new-trace target-address))
+
+    (define [_ _ reverse-score]
+      (infer :procedure model-procedure
+             :inputs   inputs
+             :intervention-trace restoring-trace
+             :target-trace new-target-rev))
+
+    (define log-acceptance-probability
+      (- (+ forward-score (log new-num-choices))
+         (+ reverse-score (log initial-num-choices))))
+
+    (if (dist/flip (mp/exp log-acceptance-probability))
+      new-trace
+      trace)))
+
+;; Should return [output-trace value] ...
+
+#_(define lightweight-single-site-MH-sampling
+  (gen [model-procedure inputs target-trace N]
+    (clojure.core/reduce
+      (gen [state _]
+        ;; VKM had keywords :procedure :inputs :trace :constraint-addresses
+        (single-site-metropolis-hastings-step
+          model-procedure inputs state (trace/addresses-of target-trace)))
+      (nth (infer :procedure model-procedure :inputs inputs :target-trace target-trace) 1)
+      (range N))))
+
+;; -----------------------------------------------------------------------------
+;; Utilities for checking that inference is giving acceptable sample sets.
+;; These are used in the test suites.
+
+#_(declare sillyplot)
 
 (defn sillyplot
   [l]

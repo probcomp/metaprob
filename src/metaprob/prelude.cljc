@@ -1,12 +1,11 @@
 (ns metaprob.prelude
   "This module is intended for import by Metaprob code."
   (:refer-clojure :exclude [map reduce apply replicate])
-  #?(:cljs (:require-macros [metaprob.generative-functions :refer [gen]]))
   (:require #?(:clj [clojure.java.io :as io])
             [clojure.set :as set]
             [metaprob.trace :as trace]
-            #?(:clj [metaprob.generative-functions :refer [gen]]))
-  #?(:clj (:import (java.util Random))))
+            [metaprob.generative-functions :refer [gen]])
+  #?(:clj (:import [java.util Random])))
 
 
 ;; Useful math
