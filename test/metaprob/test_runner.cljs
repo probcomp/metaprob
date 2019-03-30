@@ -7,6 +7,7 @@
             [metaprob.generative-functions]
             [metaprob.inference]
             [metaprob.prelude-test]
+            [metaprob.syntax-test]
             [metaprob.trace-test]))
 
 (enable-console-print!)
@@ -14,4 +15,5 @@
 (defn -main
   [& args]
   (test/run-tests 'metaprob.prelude-test
-                  'metaprob.trace-test))
+                  'metaprob.trace-test
+                  'metaprob.syntax-test))
