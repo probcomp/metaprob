@@ -2,7 +2,7 @@
   #?(:cljs (:require-macros [metaprob.generative-functions :refer [gen]]))
   (:require #?(:cljs [cljs.analyzer :as ana])
             [metaprob.code-handlers :as code]
-            [metaprob.trace :refer [maybe-subtrace merge-subtrace trace-value trace-has-value?]]))
+            [metaprob.trace :as trace]))
 
 (declare make-implementation-of-make-constrained-generator-from-traced-code)
 
@@ -129,9 +129,9 @@
             trace (atom {})
             apply-traced
             (fn [addr gf args]
-              (let [[v tr s] (apply-at addr (make-constrained-generator gf (maybe-subtrace observations addr)) args)]
+              (let [[v tr s] (apply-at addr (make-constrained-generator gf (trace/maybe-subtrace observations addr)) args)]
                 (swap! score + s)
-                (swap! trace merge-subtrace addr tr)
+                (swap! trace trace/merge-subtrace addr tr)
                 v))
             at-impl
             (fn [addr gf & args]
@@ -144,11 +144,11 @@
   (make-generative-function
    sampler
    (fn [observations]
-     (if (trace-has-value? observations)
+     (if (trace/trace-has-value? observations)
        (gen [& args]
-         [(trace-value observations)
-          {:value (trace-value observations)}
-          (scorer (trace-value observations) args)])
+         [(trace/trace-value observations)
+          {:value (trace/trace-value observations)}
+          (scorer (trace/trace-value observations) args)])
        (gen [& args]
          (let [result (apply-at '() (make-primitive sampler scorer) args)]
            [result {:value result} 0]))))))
