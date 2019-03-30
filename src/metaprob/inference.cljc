@@ -94,7 +94,7 @@
 ;; we need exact p/q estimates.
 (defn with-custom-proposal-attached
   [orig-generative-function make-custom-proposer condition-for-use]
-  (make-generative-function
+  (gen/make-generative-function
    ;; To run in Clojure, use the same method as before:
    orig-generative-function
 
@@ -111,7 +111,7 @@
 
                ;; TODO: allow/require custom-proposal to specify which addresses it is proposing vs. sampling otherwise?
                [_ tr _]
-               (at '() infer-and-score
+               (at '() gen/infer-and-score
                    :procedure custom-proposal
                    :inputs args)
 
@@ -269,7 +269,7 @@
 
         ;; Compute a reverse score
         [_ _ reverse-q]
-        (gen/infer-and-score :procedure infer-and-score,
+        (gen/infer-and-score :procedure gen/infer-and-score,
                              :inputs [:procedure model,
                                       :inputs inputs,
                                       :observation-trace reverse-move-starting-point]
