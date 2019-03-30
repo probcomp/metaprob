@@ -163,7 +163,7 @@
       (importance-resampling
         :model earthquake-bayesian-network
         :obesrvation-trace alarm-went-off
-        n-particles))))
+        :n-particles n-particles))))
 
 
 ;; TBD: importance sampling
@@ -200,3 +200,6 @@
 
     (earthquake-histogram "bayesnet samples from importance sampling with 20 particles"
                           (map trace-to-binary (eq-importance-assay 20 n-samples)))))
+
+(defn -main []
+  (demo-earthquake))

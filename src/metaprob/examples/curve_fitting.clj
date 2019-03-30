@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [map replicate apply])
   (:require [metaprob.trace :refer :all]
             [metaprob.generative-functions :refer :all]
-            [metaprob.prelude :refer [map expt replicate]]
+            [metaprob.prelude :refer [map expt replicate infer-and-score]]
             [metaprob.distributions :refer :all]
             [clojure.pprint :refer [pprint]]
             [metaprob.inference :refer :all]))
@@ -112,4 +112,4 @@
 (defn -main []
   (pprint (last (run-mh xs ys-linear 200)))
   (pprint (last (run-mh xs ys-linear-outlier 300)))
-  (pprint (last (run-mh xs ys-quadratic 10000))))
+  (pprint (last (run-mh xs ys-quadratic 6000))))

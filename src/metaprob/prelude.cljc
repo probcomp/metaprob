@@ -3,19 +3,20 @@
   (:refer-clojure :exclude [map reduce apply replicate])
   (:require #?(:clj [clojure.java.io :as io])
             [clojure.set :as set]
+            [metaprob.autodiff :as ad]
             [metaprob.trace :as trace]
             [metaprob.generative-functions :refer [gen make-generative-function make-constrained-generator]])
   #?(:clj (:import [java.util Random])))
 
 
 ;; Useful math
-(defn exp [x] (Math/exp x))
-(defn expt [x y] (Math/pow x y))
-(defn sqrt [x] (Math/sqrt x))
-(defn log [x] (Math/log x))
-(defn cos [x] (Math/cos x))
-(defn sin [x] (Math/sin x))
-(defn log1p [x] (Math/log1p x))
+(def exp ad/exp)
+(def expt ad/**)
+(def sqrt ad/sqrt)
+(def log ad/log)
+(def cos ad/cos)
+(def sin ad/sin)
+(def log1p ad/log1p)
 (defn floor [x] (Math/floor x))
 (defn round [x] (Math/round x))
 (def negative-infinity #?(:clj Double/NEGATIVE_INFINITY
