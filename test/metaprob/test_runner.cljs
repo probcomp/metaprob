@@ -6,9 +6,12 @@
             [metaprob.expander]
             [metaprob.generative-functions]
             [metaprob.inference]
-            [metaprob.prelude]))
+            [metaprob.prelude-test]
+            [metaprob.trace-test]))
+
+(enable-console-print!)
 
 (defn -main
   [& args]
-  ;; no tests for now!
-  )
+  (test/run-tests 'metaprob.prelude-test
+                  'metaprob.trace-test))
