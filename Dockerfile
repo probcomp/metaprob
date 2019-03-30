@@ -5,17 +5,20 @@ FROM clojure:lein-2.8.1
 
 # Install curl so we can use it to download the Clojure command line tools,
 # install time so we can measure how long it takes to run the examples, install
-# rlwrap for use with clj, and install pip so we can install jupyter.
-RUN add-apt-repository ppa:mfikes/planck
+# rlwrap for use with clj, and install pip so we can install jupyter, and
+# install cmake and xxd so we can build Planck.
 RUN apt-get update -qq \
       && apt-get upgrade -qq \
       && apt-get install -qq -y \
+        cmake \
         curl \
         nodejs \
-        planck \
         time \
         rlwrap \
-        python3-pip
+        python3-pip \
+        xxd
+
+# Install Node so we can run our tests in JVM-hosted Clojurescript mode.
 
 RUN ln -s /usr/bin/nodejs /usr/bin/node
 
@@ -27,6 +30,22 @@ ENV CLOJURE_VERSION 1.9.0.394
 RUN curl -O https://download.clojure.org/install/linux-install-${CLOJURE_VERSION}.sh \
       && chmod +x linux-install-${CLOJURE_VERSION}.sh \
       && ./linux-install-${CLOJURE_VERSION}.sh
+
+# Install Planck so we can run our tests in self-hosted mode.
+
+RUN apt-get update && apt-get install -y --no-install-recommends apt-utils
+RUN apt-get install -qq -y \
+      libjavascriptcoregtk-4.0 \
+      libglib2.0-dev \
+      libzip-dev \
+      libcurl4-gnutls-dev \
+      libicu-dev
+
+RUN git clone https://github.com/planck-repl/planck.git
+RUN cd planck && script/build --fast \
+      && script/install \
+      && planck -h \
+      && cd ..
 
 # Install jupyter.
 
