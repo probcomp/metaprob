@@ -6,12 +6,13 @@ FROM clojure:lein-2.8.1
 # Install curl so we can use it to download the Clojure command line tools,
 # install time so we can measure how long it takes to run the examples, install
 # rlwrap for use with clj, and install pip so we can install jupyter.
-
+RUN add-apt-repository ppa:mfikes/planck
 RUN apt-get update -qq \
       && apt-get upgrade -qq \
       && apt-get install -qq -y \
         curl \
         nodejs \
+        planck \
         time \
         rlwrap \
         python3-pip
@@ -64,8 +65,6 @@ RUN pip3 install tornado==5.1.1
 USER metaprob
 
 RUN lein jupyter install-kernel
-
-
 
 # Copy in the rest of our source.
 
