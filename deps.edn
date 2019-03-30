@@ -17,5 +17,5 @@
            :cljs {:extra-deps {org.clojure/clojurescript {:mvn/version "1.10.339"}}}
            :cljstest {:extra-paths ["test"]
                       :main-opts ["-m"  "cljs.main"
-                                  "-re" "nashorn"
+                                  "-re" "node"
                                   "-m"  "metaprob.test-runner"]}}}
