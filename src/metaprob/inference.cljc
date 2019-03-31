@@ -3,6 +3,7 @@
   (:require [metaprob.distributions :as dist]
             [metaprob.generative-functions :as gen :refer [gen]]
             [metaprob.prelude :as mp :refer [map replicate]]
+            [metaprob.autodiff :as ad]
             [metaprob.trace :as trace]))
 
 ;; Probabilistic inference methods
@@ -345,6 +346,195 @@
           model-procedure inputs state (trace/addresses-of target-trace)))
        (nth (gen/infer :procedure model-procedure :inputs inputs :target-trace target-trace) 1)
        (range N))))
+
+;; -----------------------------------------------------------------------------
+;; Gradient-based
+;; Create a trace -> trace function that performs a
+;; gradient ascent step on the value at a certain trace address,
+;; optimizing the log joint probability of the trace.
+(defn map-optimize-step
+  [& {:keys [model inputs step-size min-step-size max-step-size addresses]
+      :or {step-size 0.01 inputs []}}]
+  (fn [current-trace]
+    (let [score-choices
+          (fn [xs]
+            (let [modified-trace
+                  (reduce-kv trace/trace-set-value current-trace (zipmap addresses xs))
+
+                  [_ _ s]
+                  (mp/infer-and-score
+                    :procedure model
+                    :inputs inputs
+                    :observation-trace modified-trace)]
+              s))
+
+          current-values
+          (mapv #(trace/trace-value current-trace %) addresses)
+
+          dscore-dx
+          (ad/gradient score-choices)
+
+          gradient
+          (dscore-dx current-values)
+
+          new-values
+          (mapv + current-values (map #(* step-size %) gradient))
+
+          improved?
+          (> (score-choices new-values) (score-choices current-values))]
+
+      (if improved?
+        (reduce-kv trace/trace-set-value current-trace (zipmap addresses new-values))
+        current-trace))))
+
+
+;; Training on simulated data.
+
+;; Inference program takes in _parameters_, and returns a function that
+;; takes in _observations_.
+(defn train-amortized-inference-program
+  [& {:keys [;; Model (no arguments)
+             model
+             ;; Inference program: A Clojure function accepting a vector of parameters,
+             ;; and returning a generative function Q for doing inference in the model.
+             ;; Q accepts as an argument an _observation trace_, and it traces its predictions
+             ;; about the model's latent variables at the same addresses the model uses.
+             inference-program
+             ;; Current parameters of the inference program, a vector of reals
+             current-params
+             ;; Addresses of the model that should be considered "observations," fed
+             ;; as input to the inference program.
+             observation-addresses
+             ;; Addresses of the model _and_ inference program that are the prediction targets.
+             prediction-addresses
+             ;; Step size alpha is the multiplier of the gradient estimate used in stochastic
+             ;; gradient descent
+             step-size
+             ;; How many samples to take in forming a gradient estimate
+             batch-size]
+      :or {observation-addresses []
+           step-size 0.001
+           batch-size 1}}]
+
+  (let [model-traces
+        (take batch-size (repeatedly #(nth (mp/infer-and-score :procedure model) 1)))
+
+        observeds
+        (map #(first (trace/partition-trace % observation-addresses)) model-traces)
+
+        to-predicts
+        (map #(first (trace/partition-trace % prediction-addresses)) model-traces)
+
+        avg
+        (fn [l] (ad// (reduce ad/+ l) (count l)))
+
+        score-params
+        (fn [params]
+          (avg
+            (map #(nth (mp/infer-and-score :procedure (inference-program params)
+                                           :inputs [%1]
+                                           :observation-trace %2) 2)
+                  observeds
+                  to-predicts)))
+
+        param-gradient
+        ((ad/gradient score-params) current-params)
+
+        new-params
+        (mapv + current-params (mapv #(* step-size %) param-gradient))
+
+        improved?
+        (> (score-params new-params) (score-params current-params))]
+
+    (if improved? new-params current-params)))
+
+;; Train a guide program `guide` to minimize KL(guide(x; obs) || model(x | obs)),
+;; using the reparameterization trick. The guide is a Clojure function that accepts
+;; real number parameters, and returns a generative function Q. Q's argument is an
+;; observation trace from model, and Q then traces the unobserved addresses in model.
+;;
+;; This procedure assumes that ALL samples in the guide that depend
+;; on the guide's parameters have "reparameterizable" samplers. Currently,
+;; this is only the case for Gaussian random variables.
+(defn reparam-variational-inference
+  [& {:keys [model guide observation-addresses step-size current-params]}]
+  (let [model-trace
+        (nth (mp/infer-and-score :procedure model) 1)
+
+        [observed _]
+        (trace/partition-trace model-trace observation-addresses)
+
+        score-params
+        (fn [params]
+
+          (let [[_ proposed-trace _]
+                (mp/infer-and-score :procedure (guide params)
+                                    :inputs [observed])
+
+                ;; TODO: double check that this is right, and doesn't need to be (map ad/value proposed-trace)
+                [_ _ guide-score]
+                (mp/infer-and-score :procedure (guide params)
+                                    :inputs [observed]
+                                    :observation-trace proposed-trace)
+
+                [_ _ model-score]
+                (mp/infer-and-score :procedure model
+                                    :observation-trace (trace/trace-merge observed proposed-trace))]
+
+            (ad/- model-score guide-score)))
+
+        param-gradient
+        ((ad/gradient score-params) current-params)
+
+        new-params
+        (mapv + current-params (mapv #(* step-size %) param-gradient))
+
+        improved?
+        (> (score-params new-params) (score-params current-params))]
+
+    (if improved? new-params current-params)))
+
+;; Train a guide program `guide` to minimize KL(guide(x; obs) || model(x | obs)),
+;; using the score function estimator trick. The guide is a Clojure function that accepts
+;; real number parameters, and returns a generative function Q. Q's argument is an
+;; observation trace from model, and Q then traces the unobserved addresses in model.
+(defn score-func-variational-inference
+  [& {:keys [model guide observation-addresses step-size current-params]}]
+  (let [model-trace
+        (nth (mp/infer-and-score :procedure model) 1)
+
+        [observed _]
+        (trace/partition-trace model-trace observation-addresses)
+
+        score-params
+        (fn [params]
+          (let [[_ proposed-trace _]
+                (mp/infer-and-score :procedure (guide (map ad/value params))
+                                    :inputs [observed])
+
+                [_ _ guide-score]
+                (mp/infer-and-score :procedure (guide params)
+                                    :inputs [observed]
+                                    :observation-trace proposed-trace)
+
+                [_ _ model-score]
+                (mp/infer-and-score :procedure model
+                                    :observation-trace (trace/trace-merge observed proposed-trace))]
+
+            ;; Is this right? Seems like there's no reason to use score
+            ;; for the `q` here: we know its derivative exactly!
+            (ad/* (- (ad/value model-score) (ad/value guide-score)) guide-score)))
+
+        param-gradient
+        ((ad/gradient score-params) current-params)
+
+        new-params
+        (mapv + current-params (mapv #(* step-size %) param-gradient))
+
+        improved?
+        (> (score-params new-params) (score-params current-params))]
+
+    (if improved? new-params current-params)))
 
 ;; -----------------------------------------------------------------------------
 ;; Utilities for checking that inference is giving acceptable sample sets.

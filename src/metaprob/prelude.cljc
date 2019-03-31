@@ -43,8 +43,8 @@
 
 ;; Eager, generative-function versions of common list functions
 (def map
-  (gen [f l]
-    (doall (map-indexed (fn [i x] (at i f x)) l))))
+  (gen [f coll1 & colls]
+    (doall (apply clojure.core/map (fn [i & xs] (apply-at i f xs)) (range (count coll1)) coll1 colls))))
 
 (def replicate
   (gen [n f]
