@@ -13,6 +13,10 @@ cljstest:
 cljsclean:
 	rm -Rf out
 
+cljsselftest:
+	plk -c`clojure -Acljs:test -Spath` -m metaprob.test-runner
+.PHONY: cljsselftest
+
 # This target is referenced in README.md
 bin/lein:
 	wget "https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein"
@@ -29,7 +33,7 @@ bin/lein:
 	bin/lein classpath > $@
 
 # Incudes long-running tests
-test: cljtest cljtestlong cljstest
+test: cljtest cljtestlong cljstest cljsselftest
 .PHONY: test
 
 cljtest:
@@ -127,5 +131,10 @@ docker-notebook:
 		--mount type=bind,source=${CURDIR},destination=/home/metaprob/projects/metaprob-clojure \
 		--publish 8888:8888/tcp \
 		probcomp/metaprob-clojure:latest \
-		bash -c "lein jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --NotebookApp.token= --notebook-dir ./tutorial"
+		bash -c "lein jupyter lab \
+			--ip=0.0.0.0 \
+			--port=8888 \
+			--no-browser \
+			--NotebookApp.token= \
+			--notebook-dir ./tutorial"
 .PHONY: docker-notebook

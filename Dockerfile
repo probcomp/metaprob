@@ -9,16 +9,20 @@ FROM clojure:lein-2.8.1
 
 RUN curl -sL https://deb.nodesource.com/setup_11.x | bash -
 
+# rlwrap for use with clj, and install pip so we can install jupyter, and
+# install cmake and xxd so we can build Planck.
 RUN apt-get update -qq \
       && apt-get upgrade -qq \
       && apt-get install -qq -y \
+        cmake \
         curl \
+        nodejs \
         time \
         rlwrap \
         python3-pip \
         software-properties-common \
-        nodejs
-
+        nodejs \
+        xxd
 
 # Install the Clojure command line tools. These instructions are taken directly
 # from the Clojure "Getting Started" guide:
@@ -28,6 +32,22 @@ ENV CLOJURE_VERSION 1.9.0.394
 RUN curl -O https://download.clojure.org/install/linux-install-${CLOJURE_VERSION}.sh \
       && chmod +x linux-install-${CLOJURE_VERSION}.sh \
       && ./linux-install-${CLOJURE_VERSION}.sh
+
+# Install Planck so we can run our tests in self-hosted mode.
+
+RUN apt-get update && apt-get install -y --no-install-recommends apt-utils
+RUN apt-get install -qq -y \
+      libjavascriptcoregtk-4.0 \
+      libglib2.0-dev \
+      libzip-dev \
+      libcurl4-gnutls-dev \
+      libicu-dev
+
+RUN git clone https://github.com/planck-repl/planck.git
+RUN cd planck && script/build --fast \
+      && script/install \
+      && planck -h \
+      && cd ..
 
 # Install jupyter.
 
@@ -55,9 +75,17 @@ COPY --chown=metaprob:metaprob ./deps.edn $METAPROB_DIR
 COPY --chown=metaprob:metaprob ./project.clj $METAPROB_DIR
 RUN clojure -e "(clojure-version)"
 
-# Install the Clojure jupyter kernel.
-RUN lein jupyter install-kernel
+# downgrade tornado.
+# see https://stackoverflow.com/questions/54963043/jupyter-notebook-no-connection-to-server-because-websocket-connection-fails
 
+USER root
+RUN pip3 uninstall -y tornado
+RUN pip3 install tornado==5.1.1
+
+# Install the Clojure jupyter kernel.
+
+USER metaprob
+RUN lein jupyter install-kernel
 RUN jupyter labextension install @jupyterlab/javascript-extension
 
 # Copy in the rest of our source.

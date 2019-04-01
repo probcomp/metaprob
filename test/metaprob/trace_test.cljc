@@ -71,18 +71,6 @@
       (is (= (trace/trace-value (trace/trace-subtrace tr '("c" "x"))) 13))
       (is (= (trace/trace-value tr '("c" "x")) 13)))))
 
-(deftest compare-keys-1
-  (testing "compare-keys smoke tests"
-    (is (= (trace/compare-keys 7 7) 0))
-    (is (< (trace/compare-keys 7 "foo") 0))
-    (is (> (trace/compare-keys "foo" 7) 0))
-    (is (< (trace/compare-keys 7 {"foo" 7}) 0))
-    (is (< (trace/compare-keys {"abc" {:value 7}} {"foo" {:value 9}}) 0))
-    (is (= (trace/compare-keys {"abc" {:value 9}} {"abc" {:value 9}}) 0))
-    (is (< (trace/compare-keys {"abc" {:value 9}} {"abc" {:value 9} :value 5}) 0))
-    (is (> (trace/compare-keys {"abc" {:value 9}} {"abc" {:value 7}}) 0))
-    (is (> (trace/compare-keys {"abc" {:value 9} "foo" {:value 17}} {"abc" {:value 9}}) 0))))
-
 (deftest merge-1
   (testing "trace-merge"
     (let [tr {}
