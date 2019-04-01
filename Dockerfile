@@ -7,13 +7,22 @@ FROM clojure:lein-2.8.1
 # install time so we can measure how long it takes to run the examples, install
 # rlwrap for use with clj, and install pip so we can install jupyter.
 
+RUN curl -sL https://deb.nodesource.com/setup_11.x | bash -
+
+# rlwrap for use with clj, and install pip so we can install jupyter, and
+# install cmake and xxd so we can build Planck.
 RUN apt-get update -qq \
       && apt-get upgrade -qq \
       && apt-get install -qq -y \
+        cmake \
         curl \
+        nodejs \
         time \
         rlwrap \
-        python3-pip
+        python3-pip \
+        software-properties-common \
+        nodejs \
+        xxd
 
 # Install the Clojure command line tools. These instructions are taken directly
 # from the Clojure "Getting Started" guide:
@@ -24,9 +33,27 @@ RUN curl -O https://download.clojure.org/install/linux-install-${CLOJURE_VERSION
       && chmod +x linux-install-${CLOJURE_VERSION}.sh \
       && ./linux-install-${CLOJURE_VERSION}.sh
 
+# Install Planck so we can run our tests in self-hosted mode.
+
+RUN apt-get update \
+        && apt-get install -y --no-install-recommends apt-utils \
+        && apt-get install -qq -y \
+          libjavascriptcoregtk-4.0 \
+          libglib2.0-dev \
+          libzip-dev \
+          libcurl4-gnutls-dev \
+          libicu-dev
+
+RUN git clone https://github.com/planck-repl/planck.git \
+        && cd planck \
+        && script/build --fast \
+        && script/install \
+        && planck -h \
+        && cd ..
+
 # Install jupyter.
 
-RUN pip3 install jupyter
+RUN pip3 install jupyterlab
 
 # Create a new user to run commands as per the best practice.
 # https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#user
@@ -37,7 +64,6 @@ RUN groupadd metaprob && \
 
 # Switch users early so files created by subsequent operations will be owned by the
 # runtime user. This also makes it so that commands will not be run as root.
-
 USER metaprob
 
 ENV METAPROB_DIR /home/metaprob/projects/metaprob-clojure
@@ -58,11 +84,11 @@ USER root
 RUN pip3 uninstall -y tornado
 RUN pip3 install tornado==5.1.1
 
+# Install the Clojure jupyter kernel.
+
 USER metaprob
-
 RUN lein jupyter install-kernel
-
-
+RUN jupyter labextension install @jupyterlab/javascript-extension
 
 # Copy in the rest of our source.
 
