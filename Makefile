@@ -101,7 +101,7 @@ docker-build:
 .PHONY: docker-build
 
 docker-test:
-	docker run -t probcomp/metaprob-clojure:latest bash -c "make test"
+	docker run --rm -t probcomp/metaprob-clojure:latest bash -c "make test"
 .PHONY: docker-test
 
 docker-bash:
