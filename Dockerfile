@@ -33,19 +33,21 @@ RUN curl -O https://download.clojure.org/install/linux-install-${CLOJURE_VERSION
 
 # Install Planck so we can run our tests in self-hosted mode.
 
-RUN apt-get update && apt-get install -y --no-install-recommends apt-utils
-RUN apt-get install -qq -y \
-      libjavascriptcoregtk-4.0 \
-      libglib2.0-dev \
-      libzip-dev \
-      libcurl4-gnutls-dev \
-      libicu-dev
+RUN apt-get update \
+        && apt-get install -y --no-install-recommends apt-utils \
+        && apt-get install -qq -y \
+          libjavascriptcoregtk-4.0 \
+          libglib2.0-dev \
+          libzip-dev \
+          libcurl4-gnutls-dev \
+          libicu-dev
 
-RUN git clone https://github.com/planck-repl/planck.git
-RUN cd planck && script/build --fast \
-      && script/install \
-      && planck -h \
-      && cd ..
+RUN git clone https://github.com/planck-repl/planck.git \
+        && cd planck \
+        && script/build --fast \
+        && script/install \
+        && planck -h \
+        && cd ..
 
 # Install jupyter.
 
