@@ -353,7 +353,7 @@
 ;; gradient ascent step on the value at a certain trace address,
 ;; optimizing the log joint probability of the trace.
 (defn map-optimize-step
-  [& {:keys [model inputs step-size min-step-size max-step-size addresses]
+  [& {:keys [model inputs step-size addresses]
       :or {step-size 0.01 inputs []}}]
   (fn [current-trace]
     (let [score-choices
