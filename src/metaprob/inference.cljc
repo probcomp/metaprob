@@ -38,8 +38,8 @@
                                                         :observation-trace observation-trace
                                                         :inputs inputs)]
                        [(* (mp/exp s)
-                           (if f (f t) v)
-                           s)])))
+                           (if f (f t) v))
+                        s])))
         normalizer (mp/exp (dist/logsumexp (map second particles)))]
 
     (/ (reduce + (map first particles)) normalizer)))
@@ -199,8 +199,8 @@
 
           [_ _ backward-proposal-score]          ;; Estimate log q(t <- t')
           (mp/infer-and-score :procedure proposal
-                               :inputs [proposed-trace]
-                               :observation-trace proposed-trace)
+                              :inputs [proposed-trace]
+                              :observation-trace current-trace)
 
           log-acceptance-ratio                  ;; Compute estimate of log [p(t')q(t <- t') / p(t)q(t' <- t)]
           (- (+ new-trace-score backward-proposal-score)
