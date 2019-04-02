@@ -197,8 +197,8 @@
 
           [_ _ forward-proposal-score]            ;; Estimate log q(t' <- t)
           (mp/infer-and-score :procedure proposal
-                               :inputs [current-trace]
-                               :observation-trace all-proposer-choices)
+                              :inputs [current-trace]
+                              :observation-trace all-proposer-choices)
 
           [_ _ backward-proposal-score]          ;; Estimate log q(t <- t')
           (mp/infer-and-score :procedure proposal
