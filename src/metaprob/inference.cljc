@@ -409,9 +409,6 @@
              ;; as input to the inference program.
              observation-addresses
              ;; Addresses of the model _and_ inference program that are the prediction targets.
-             prediction-addresses
-             ;; Step size alpha is the multiplier of the gradient estimate used in stochastic
-             ;; gradient descent
              step-size
              ;; How many samples to take in forming a gradient estimate
              batch-size]
@@ -422,11 +419,9 @@
   (let [model-traces
         (take batch-size (repeatedly #(nth (mp/infer-and-score :procedure model) 1)))
 
-        observeds
-        (map #(first (trace/partition-trace % observation-addresses)) model-traces)
-
-        to-predicts
-        (map #(first (trace/partition-trace % prediction-addresses)) model-traces)
+        [observeds to-predicts]
+        ((juxt (partial map first) (partial map second))
+          (map #(trace/partition-trace % observation-addresses) model-traces))
 
         avg
         (fn [l] (ad// (reduce ad/+ l) (count l)))

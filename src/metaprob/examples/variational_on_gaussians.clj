@@ -68,7 +68,6 @@
                         :model normal-normal
                         :inference-program normal-normal-predicter
                         :observation-addresses ["y"]
-                        :prediction-addresses ["x"]
                         :step-size 0.01
                         :batch-size 10
                         :current-params params))
@@ -143,12 +142,12 @@
                         :model mixture-model
                         :inference-program mixture-predicter
                         :observation-addresses []
-                        :prediction-addresses ['()]
                         :step-size 0.01
                         :batch-size 10
                         :current-params params))
                     [2 1]))))]
     (println final-params)
+
     (mixture-predicter final-params)))
 
 ;; Variational inference: minimize KL(guide || model)
