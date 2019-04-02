@@ -13,6 +13,10 @@ cljstest:
 cljsclean:
 	rm -Rf out
 
+cljsselftest:
+	plk -c`clojure -Acljs:test -Spath` -m metaprob.test-runner
+.PHONY: cljsselftest
+
 # This target is referenced in README.md
 bin/lein:
 	wget "https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein"
@@ -29,7 +33,7 @@ bin/lein:
 	bin/lein classpath > $@
 
 # Incudes long-running tests
-test: cljtest cljtestlong cljstest
+test: cljtest cljtestlong cljstest cljsselftest
 .PHONY: test
 
 cljtest:
@@ -97,7 +101,7 @@ docker-build:
 .PHONY: docker-build
 
 docker-test:
-	docker run -t probcomp/metaprob-clojure:latest bash -c "make test"
+	docker run --rm -t probcomp/metaprob-clojure:latest bash -c "make test"
 .PHONY: docker-test
 
 docker-bash:
