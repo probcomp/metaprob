@@ -180,17 +180,20 @@
   (fn [current-trace]
     (let [[_ _ current-trace-score]               ;; Evaluate log p(t)
           (mp/infer-and-score :procedure model
-                               :inputs inputs
-                               :observation-trace current-trace)
+                              :inputs inputs
+                              :observation-trace current-trace)
 
-          [proposed-trace all-proposer-choices _] ;; Sample t' ~ q(• <- t)
+          [_ all-proposer-choices _] ;; Sample t' ~ q(• <- t)
           (mp/infer-and-score :procedure proposal
-                               :inputs [current-trace])
+                              :inputs [current-trace])
 
-          [_ _ new-trace-score]                   ;; Evaluate log p(t')
+          [_ proposed-trace new-trace-score]                   ;; Evaluate log p(t')
           (mp/infer-and-score :procedure model
-                               :inputs inputs
-                               :observation-trace proposed-trace)
+                              :inputs inputs
+                              :observation-trace
+                              (trace/copy-addresses
+                                all-proposer-choices current-trace
+                                (trace/addresses-of all-proposer-choices)))
 
           [_ _ forward-proposal-score]            ;; Estimate log q(t' <- t)
           (mp/infer-and-score :procedure proposal
