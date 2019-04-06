@@ -99,7 +99,7 @@ described in [language.md](language.md).
 
 ### Interaction in other namespaces
 
-It is possible to user metaprob functions and macros from any Clojure
+It is possible to use metaprob functions and macros from any Clojure
 namespace, if Metaprob namespaces are made accessible using `require`.
 
 For example, the default Clojure namespace, `user`, starts out
