@@ -66,7 +66,7 @@
                     (fn [params]
                       (infer/train-amortized-inference-program
                         :model normal-normal
-                        :inference-program normal-normal-predicter
+                        :guide normal-normal-predicter
                         :observation-addresses ["y"]
                         :step-size 0.01
                         :batch-size 10
@@ -140,7 +140,7 @@
                     (fn [params]
                       (infer/train-amortized-inference-program
                         :model mixture-model
-                        :inference-program mixture-predicter
+                        :guide mixture-predicter
                         :observation-addresses []
                         :step-size 0.01
                         :batch-size 10
