@@ -44,6 +44,8 @@ RUN apt-get update \
 
 RUN git clone https://github.com/planck-repl/planck.git \
         && cd planck \
+        && git fetch --all --tags \
+        && git checkout tags/2.21.0 \
         && script/build --fast \
         && script/install \
         && planck -h \
