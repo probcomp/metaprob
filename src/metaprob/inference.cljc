@@ -398,17 +398,17 @@
 (defn train-amortized-inference-program
   [& {:keys [;; Model (no arguments)
              model
-             ;; Inference program: A Clojure function accepting a vector of parameters,
+             ;; Guide: A Clojure function accepting a vector of parameters,
              ;; and returning a generative function Q for doing inference in the model.
              ;; Q accepts as an argument an _observation trace_, and it traces its predictions
              ;; about the model's latent variables at the same addresses the model uses.
-             inference-program
-             ;; Current parameters of the inference program, a vector of reals
+             guide
+             ;; Current parameters of the guide, a vector of reals
              current-params
              ;; Addresses of the model that should be considered "observations," fed
-             ;; as input to the inference program.
+             ;; as input to the guide.
              observation-addresses
-             ;; Addresses of the model _and_ inference program that are the prediction targets.
+             ;; Addresses of the model _and_ guide that are the prediction targets.
              step-size
              ;; How many samples to take in forming a gradient estimate
              batch-size]
@@ -428,12 +428,11 @@
 
         score-params
         (fn [params]
-          (avg
-            (map #(nth (mp/infer-and-score :procedure (inference-program params)
-                                           :inputs [%1]
-                                           :observation-trace %2) 2)
-                  observeds
-                  to-predicts)))
+          (avg (map
+          #(let [[_ _ s] (mp/infer-and-score :procedure (guide params)
+                                            :inputs [%1]
+                                            :observation-trace %2)]
+            s) observeds to-predicts)))
 
         param-gradient
         ((ad/gradient score-params) current-params)
