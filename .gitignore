@@ -32,3 +32,6 @@ parsings
 .lein_classpath
 bin/lein
 /src/metaprob/tutorial/.ipynb_checkpoints/
+
+# Ignore vim swap files
+*.swp
