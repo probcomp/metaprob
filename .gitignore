@@ -19,6 +19,7 @@ parsings
 # Clojure
 *.jar
 *.class
+.cpcache/
 
 # ClojureScript
 /out/
