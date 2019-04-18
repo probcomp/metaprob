@@ -145,7 +145,8 @@
   [cgpm target-addrs constraint-addrs-vals input-addrs-vals num-samples]
     ; Error checking on the arguments.
     (validate-cgpm-simulate
-      cgpm target-addrs constraint-addrs-vals input-addrs-vals)
+     cgpm target-addrs constraint-addrs-vals input-addrs-vals)
+
     ; Convert target, constraint, and input addresses from CGPM to inf.
     (let [target-addrs' (rekey-addrs
                           (get cgpm :output-address-map) target-addrs)
@@ -201,34 +202,39 @@
 (defn cgpm-mutual-information
   [cgpm target-addrs-0 target-addrs-1 controlling-addrs constraint-addrs-vals
    input-addrs-vals num-samples-inner num-samples-outer]
-    ; Make sure that fixed and controlling constraints do not overlap.
-    (assert-no-overlap (set controlling-addrs)
-                       (set (keys constraint-addrs-vals))
-                       :constraint-addrs
-                       :constraint-addrs-vals)
-    ; Determine whether to average over the controlling variables.
+
+  ;; Make sure that fixed and controlling constraints do not overlap.
+  (assert-no-overlap (set controlling-addrs)
+                     (set (keys constraint-addrs-vals))
+                     :constraint-addrs
+                     :constraint-addrs-vals)
+
+    ;; Determine whether to average over the controlling variables.
     (if (= (count controlling-addrs) 0)
-      ; No controlling variables: compute and return the MI directly.
+      ;; No controlling variables: compute and return the MI directly.
       (compute-mi cgpm target-addrs-0 target-addrs-1 constraint-addrs-vals
                   input-addrs-vals num-samples-inner)
-      ; Controlling variables: compute MI by averaging over them.
-      (let [
-        ; Obtain samples for simple Monte Carlo integration.
-        samples (cgpm-simulate cgpm controlling-addrs
-                                       constraint-addrs-vals
-                                       input-addrs-vals num-samples-outer)
-        ; Pool the sampled constraints with user-provided constraints.
-        constraints-merged
-          (map (fn [sample] (merge sample constraint-addrs-vals))
-               samples)
-        ; Compute the MI for each sample.
-        mutinf-values
-          (map (fn [constraints] (compute-mi cgpm target-addrs-0
+
+      ;; Controlling variables: compute MI by averaging over them.
+      (let [;; Obtain samples for simple Monte Carlo integration.
+            samples (cgpm-simulate cgpm controlling-addrs
+                                   constraint-addrs-vals
+                                   input-addrs-vals num-samples-outer)
+
+            ;; Pool the sampled constraints with user-provided constraints.
+            constraints-merged (map
+                                (fn [sample] (merge sample constraint-addrs-vals))
+                                samples)
+
+            ;; Compute the MI for each sample.
+            mutinf-values (map (fn [constraints]
+                                 (compute-mi cgpm target-addrs-0
                                              target-addrs-1
                                              constraints input-addrs-vals
                                              num-samples-inner))
-               constraints-merged)]
-        ; Return the average MI value.
+                               constraints-merged)]
+
+        ;; Return the average MI value.
         (compute-avg mutinf-values))))
 
 ;; KL DIVERGENCE.

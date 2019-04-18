@@ -38,11 +38,11 @@
 
 (def generate-dummy-row
   (gen [y]
-      (let [x0 (at "x0" uniform-discrete [[1 2 3 4]])
-            x1 (at "x1" uniform [9 199])
-            x2 (at "x2" gaussian [0 10])
-            x3 (at "x3" uniform-discrete [["foo" "bar" "baz"]])]
-      [x0 x1 x2 x3])))
+       (let [x0 (at "x0" uniform-discrete [1 2 3 4])
+             x1 (at "x1" uniform 9 199)
+             x2 (at "x2" gaussian 0 10)
+             x3 (at "x3" uniform-discrete ["foo" "bar" "baz"])]
+         [x0 x1 x2 x3])))
 
 (def dummy-cgpm
     (let [
@@ -91,7 +91,7 @@
                    [:x0 :x1 :x2 :x3]
                    {:x3 "foo"}
                    {:y 100} 20)]
-      (is (= (count sample-1)) 10)
+      (is (= (count sample-1) 10))
       (is (= (count sample-2) 20))
       (is (= (get (nth sample-2 0) :x3) "foo")))))
 
@@ -264,12 +264,12 @@
                crosscat-cgpm
                [:sepal_length]
                [:sepal_width]
-               {} {} {} 50 1)]
-    (is (> mi 1E-1)))))
+               {} {} {} 100 1)]
+    (is (> mi 0.05)))))
 
 ; TODO: Only run test under --slow option.
-(deftest crosscat-row-mi-conditional-indep-marginalize-z
-  (testing "crosscat-row-mi-conditional-indep-marginalize-z"
+(deftest crosscat-row-mi-conditional-indep-fixed-z
+  (testing "crosscat-row-mi-conditional-indep-fixed-z"
     (let [mi (cgpm-mutual-information
                crosscat-cgpm
                [:sepal_length]
@@ -280,8 +280,8 @@
     (is mi (< 1E-5)))))
 
 ; TODO: Only run test under --slow option.
-(deftest crosscat-row-mi-conditional-indep-fixed-z
-  (testing "crosscat-row-mi-conditional-indep-fixed-z"
+(deftest crosscat-row-mi-conditional-indep-marginalize-z
+  (testing "crosscat-row-mi-conditional-indep-marginalize-z"
     (let [mi (cgpm-mutual-information
                crosscat-cgpm
                [:sepal_length]
@@ -289,4 +289,16 @@
                [:cluster-for-sepal_length]
                {}
                {} 50 1)]
-    (is mi (< 1E-5)))))
+      (is mi (< 1E-5)))))
+
+(deftest crosscat-cgpm-simulate
+  (testing "crosscat-cgpm-simulate"
+    (let [num-samples 10
+          samples     (cgpm-simulate
+                       crosscat-cgpm
+                       [:cluster-for-sepal_length]
+                       {}
+                       {}
+                       num-samples)]
+      (is (= (count samples)
+             num-samples)))))

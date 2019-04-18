@@ -27,8 +27,13 @@
         sampler
         (gen []
           (let [cluster-idx (at cluster-addr categorical cluster-probs)
-                params  (nth cluster-params cluster-idx)]
-            (map (fn [v] (apply-at v (get vars-and-dists v) (get params v))) var-names)))]
+                params  (nth cluster-params cluster-idx)
+                _       (map
+                         (fn [v] (at (str "cluster-for-" v)
+                                     exactly cluster-idx))
+                         var-names)]
+            (map (fn [v] (apply-at v (get vars-and-dists v) (get params v)))
+                 var-names)))]
      (with-custom-proposal-attached
        sampler
        (fn [observations]
