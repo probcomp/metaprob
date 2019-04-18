@@ -69,11 +69,11 @@
        (assert-has-keys input-address-map input-addrs)
        (assert-valid-output-address-map output-address-map)
        (assert-valid-input-address-map input-address-map)
-       (assoc proc
-          :output-addrs-types output-addrs-types
-          :input-addrs-types input-addrs-types
-          :output-address-map output-address-map
-          :input-address-map input-address-map)))
+       {:proc proc
+        :output-addrs-types output-addrs-types
+        :input-addrs-types input-addrs-types
+        :output-address-map output-address-map
+        :input-address-map input-address-map}))
 
 ;; LOGPDF
 
@@ -110,7 +110,7 @@
                                          input-addrs-vals)
           ; Run infer to obtain probabilities.
           [retval trace log-weight-numer] (infer-and-score
-                                            :procedure cgpm
+                                            :procedure (:proc cgpm)
                                             :inputs input-args
                                             :observation-trace
                                               target-constraint-addrs-vals)
@@ -119,10 +119,10 @@
               ; There are no constraints: log weight is zero.
               0
               ; There are constraints: find marginal probability of constraints.
-              (let [[retval trace weight] (infer-and-score :procedure cgpm
-                                                 :inputs input-args
-                                                 :observation-trace
-                                                   constraint-addrs-vals')]
+              (let [[retval trace weight] (infer-and-score
+                                             :procedure (:proc cgpm)
+                                             :inputs input-args
+                                             :observation-trace constraint-addrs-vals')]
                 weight))]
       (- log-weight-numer log-weight-denom)))
 
@@ -157,9 +157,10 @@
     ; Run infer to obtain the samples.
       (repeatedly num-samples
         (fn []
-          (let [[retval trace log-weight-numer] (infer-and-score :procedure cgpm
-                                                       :inputs input-args
-                                                       :observation-trace constraint-addrs-vals')]
+          (let [[retval trace log-weight-numer] (infer-and-score
+                                                  :procedure (:proc cgpm)
+                                                  :inputs input-args
+                                                  :observation-trace constraint-addrs-vals')]
             ; Extract and return the requested samples.
             (extract-samples-from-trace
             trace target-addrs (get cgpm :output-address-map)))))))
