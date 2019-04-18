@@ -305,30 +305,37 @@
 
 
 ;; crosscat latent variables
-(def latent-variables [:cluster-for-sepal_length
-                       :cluster-for-sepal_width
-                       :cluster-for-petal_length
-                       :cluster-for-petal_width
-                       :cluster-for-name])
-(def row-1 {"sepal_width"  1
-            "petal_width"  1
-            "name"         1
-            "sepal_length" 1
-            "petal_length" 1})
-(def row-2 {"sepal_width"  2
-            "petal_width"  2
-            "name"         2
-            "sepal_length" 2
-            "petal_length" 2})
+(def latent-variables  #{:cluster-for-sepal_length})
+(def row-1 {:sepal_width  34.179974
+            :petal_width  2.440002
+            :name         0
+            :sepal_length 50.060013
+            :petal_length 14.640005})
+(def row-2 {:sepal_width  200
+            :petal_width  200
+            :name         2
+            :sepal_length 200
+            :petal_length  200})
 
+
+;; row wise-similarity. For seach-by-example, make row-1 a hypothetical row and
+;; then loop over each row the data table (and make each row-2).
 (deftest row-wise-similarity
   (testing "row-wise-similarity"
-  (is (> (cgpm-kl-divergence
-           crosscat-cgpm
-           latent-variables
-           latent-variables
-           row-1
-           row-2
-           {}
-           10)
-        0))))
+  (let [symmetrized-kl (+ (cgpm-kl-divergence
+                            crosscat-cgpm
+                            latent-variables
+                            latent-variables
+                            row-1
+                            row-2
+                            {}
+                            10)
+                          (cgpm-kl-divergence
+                            crosscat-cgpm
+                            latent-variables
+                            latent-variables
+                            row-2
+                            row-1
+                            {}
+                            10))]
+  (is (> symmetrized-kl 0)))))
