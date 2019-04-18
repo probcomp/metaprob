@@ -274,6 +274,7 @@
           logp-q (map (fn [sample]
                         (cgpm-logpdf cgpm sample constraint-addrs-vals-1
                           input-addrs-vals))
-                      samples-q)]
-    ; KL is average log ratio.
+                      samples-q)
+          ]
+      ; KL is average log ratio.
       (- (compute-avg logp-p) (compute-avg logp-q))))
