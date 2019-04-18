@@ -302,3 +302,33 @@
                        num-samples)]
       (is (= (count samples)
              num-samples)))))
+
+
+;; crosscat latent variables
+(def latent-variables [:cluster-for-sepal_length
+                       :cluster-for-sepal_width
+                       :cluster-for-petal_length
+                       :cluster-for-petal_width
+                       :cluster-for-name])
+(def row-1 {"sepal_width"  1
+            "petal_width"  1
+            "name"         1
+            "sepal_length" 1
+            "petal_length" 1})
+(def row-2 {"sepal_width"  2
+            "petal_width"  2
+            "name"         2
+            "sepal_length" 2
+            "petal_length" 2})
+
+(deftest row-wise-similarity
+  (testing "row-wise-similarity"
+  (is (> (cgpm-kl-divergence
+           crosscat-cgpm
+           latent-variables
+           latent-variables
+           row-1
+           row-2
+           {}
+           10)
+        0))))
