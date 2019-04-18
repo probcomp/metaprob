@@ -171,8 +171,8 @@
   [cgpm target-addrs-0 target-addrs-1 constraint-addrs-vals input-addrs-vals num-samples]
     ; Obtain samples for simple Monte Carlo integration.
     (let [samples (cgpm-simulate cgpm
-                    (into [] (concat target-addrs-0 target-addrs-1)
-                    constraint-addrs-vals input-addrs-vals num-samples))
+                    (into [] (concat target-addrs-0 target-addrs-1))
+                    constraint-addrs-vals input-addrs-vals num-samples)
           ; Compute joint log probabilities.
           logp-joint      (map
                             (fn [sample] (cgpm-logpdf
