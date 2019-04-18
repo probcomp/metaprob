@@ -79,8 +79,8 @@
 
 (deftest dummy-row-logpdf
   (is (< (cgpm-logpdf dummy-cgpm {:x0 2} {} {:y 100}) 0))
-  (is (< (cgpm-logpdf dummy-cgpm {:x1 120} {:x0 2} {:y 100})))
-  (is (< (cgpm-logpdf dummy-cgpm {:x0 2 :x1 120} {} {:y 100}))))
+  (is (< (cgpm-logpdf dummy-cgpm {:x1 120} {:x0 2} {:y 100}))) ;; XXX -- what's that
+  (is (< (cgpm-logpdf dummy-cgpm {:x0 2 :x1 120} {} {:y 100})))) ;; XXX -- what's that
 
 (deftest dummy-row-simulate
   (testing "dummy-row-simulate"
