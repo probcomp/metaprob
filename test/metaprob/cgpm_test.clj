@@ -98,8 +98,8 @@
 (deftest dummy-row-mutual-information-zero
   (testing "dummy-row-mutual-information-zero"
     (is (< (cgpm-mutual-information dummy-cgpm [:x0] [:x1] [] {:x3 "foo"}
-                                               {:y 100} 10 1))
-            1E-10)))
+                                               {:y 100} 10 1)
+            1E-10))))
 
 (deftest dummy-row-kl-divergence-zero
   (testing "dummy-row-kl-divergence-zero"
