@@ -11,8 +11,8 @@
             [metaprob.prelude :refer :all]
             [metaprob.inference :refer :all]
             [metaprob.distributions :refer :all]
-    [metaprob.examples.cgpm :refer :all]
-    [metaprob.examples.multimixture-dsl :refer :all]))
+            [metaprob.examples.cgpm :refer :all]
+            [metaprob.examples.multimixture-dsl :refer :all]))
 
 
 ; ---------
