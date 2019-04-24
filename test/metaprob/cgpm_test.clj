@@ -88,12 +88,11 @@
       [sample-1 (cgpm-simulate dummy-cgpm [:x0 :x1 :x2] {} {:y 100} 10)
        sample-2 (cgpm-simulate
                    dummy-cgpm
-                   [:x0 :x1 :x2 :x3]
+                   [:x0 :x1 :x2]
                    {:x3 "foo"}
                    {:y 100} 20)]
       (is (= (count sample-1) 10))
-      (is (= (count sample-2) 20))
-      (is (= (get (nth sample-2 0) :x3) "foo")))))
+      (is (= (count sample-2) 20)))))
 
 (deftest dummy-row-mutual-information-zero
   (testing "dummy-row-mutual-information-zero"

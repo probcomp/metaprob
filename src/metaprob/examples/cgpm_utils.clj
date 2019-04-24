@@ -55,8 +55,9 @@
 
 ; Assert that set-a and set-b have no overlapping items.
 (defn assert-no-overlap
-  [set-a set-b name-a name-b]
-    (let [overlap (clojure.set/intersection set-a set-b)]
+  [vector-a set-b name-a name-b]
+    (let [set-a (set vector-a)
+          overlap (clojure.set/intersection set-a set-b)]
     (assert (= (count overlap) 0)
             (format "%s %s and %s %s must be disjoint"
                     name-a set-a name-b set-b))))
