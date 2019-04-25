@@ -1,4 +1,5 @@
 (ns metaprob.examples.cgpm
+  (:refer-clojure :exclude [map reduce apply replicate])
   (:require
     [metaprob.prelude :refer :all]
     [metaprob.distributions :refer :all]

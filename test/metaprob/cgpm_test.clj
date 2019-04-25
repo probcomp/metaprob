@@ -1,4 +1,5 @@
 (ns metaprob.cgpm-test
+  (:refer-clojure :exclude [map reduce apply replicate])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.repl :refer [doc source]]
             [clojure.test :refer :all]
