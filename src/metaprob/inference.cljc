@@ -106,27 +106,25 @@
    (fn [observations]
      (if (condition-for-use observations)
        (gen [& args]
-         (let [custom-proposal
-               (make-custom-proposer observations)
+         (let [custom-proposal (make-custom-proposer observations)
 
-               ;; TODO: allow/require custom-proposal to specify which addresses it is proposing vs. sampling otherwise?
-               [_ tr _]
-               (at '() mp/infer-and-score
-                   :procedure custom-proposal
-                   :inputs args)
+               ;; TODO: allow/require custom-proposal to specify which
+               ;; addresses it is proposing vs. sampling otherwise?
+               [_ tr _]        (at '() mp/infer-and-score
+                                   :procedure custom-proposal
+                                   :inputs args)
 
-               proposed-trace
-               (trace/trace-merge observations tr)
+               proposed-trace  (trace/trace-merge observations tr)
 
-               [v tr2 p-score]
-               (mp/infer-and-score :procedure orig-generative-function
-                                    :inputs args
-                                    :observation-trace proposed-trace)
+               [v tr2 p-score] (mp/infer-and-score
+                                :procedure orig-generative-function
+                                :inputs args
+                                :observation-trace proposed-trace)
 
-               [_ _ q-score]
-               (mp/infer-and-score :procedure custom-proposal
-                                    :inputs args
-                                    :observation-trace proposed-trace)]
+               [_ _ q-score]   (mp/infer-and-score
+                                :procedure custom-proposal
+                                :inputs args
+                                :observation-trace proposed-trace)]
            [v proposed-trace (- p-score q-score)]))
        (gen/make-constrained-generator orig-generative-function observations)))))
 
