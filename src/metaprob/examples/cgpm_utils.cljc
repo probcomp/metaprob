@@ -1,8 +1,8 @@
-(ns metaprob.examples.cgpm_utils
-  (:refer-clojure :exclude [map apply replicate])
+(ns metaprob.examples.cgpm-utils
+  (:refer-clojure :exclude [map apply])
   (:require
-    [metaprob.prelude :refer :all]
-    [metaprob.inference :refer :all]))
+    [metaprob.prelude :refer [map]]
+    [metaprob.inference]))
 
 ; ------------------------
 ; CGPM INTERFACE UTILITIES
@@ -19,15 +19,15 @@
   [collection item]
     (if (contains? collection item)
       (get collection item)
-      (assert false (format "no such key %s in key set %s"
-                            item (keys collection)))))
+      (assert false (str "no such key " item
+                         "in set " (keys collection)))))
 
 ; Assert that value is valid for given statistical type.
 (defn validate-cell
   [stattype value]
     (assert ((get stattype :valid?) value)
-            (format "invalid value \"%s\" for stattype %s"
-                    value (get stattype :name))))
+            (str "invalid value " value
+                 "for stattype " (get stattype :name))))
 
 ; Assert that row of values are valid for given statistical types.
 ; addrs-types is a dictionary from keys to statistical types.
@@ -39,29 +39,33 @@
                         (fn [[k v]] (validate-cell (safe-get addrs-types k) v))
                         addrs-vals)]
     (assert (= (count violations) 0)
-               (format "invalid values %s for types %s"
-                        violations addrs-types))
+               (str "invalid values " violations
+                    " for types " addrs-types))
     (if check-all-exist?
         (assert (= (set (keys addrs-types)) (set (keys addrs-vals)))
-                (format "row %s must have values for %s"
-                        addrs-vals addrs-types))
+                (str "row " addrs-vals
+                        "must have values for " addrs-types))
         nil)))
 
 ; Assert that set-a and set-b have the same number of items.
 (defn assert-same-length
   [set-a set-b name-a name-b]
     (assert (= (count set-a) (count set-b))
-            (format "%s %s and %s %s must have same length"
-                    name-a set-a name-b set-b)))
+            (str name-a " " set-a
+                 " and "
+                 name-b " " set-b
+                 " must have same length")))
 
 ; Assert that set-a and set-b have no overlapping items.
 (defn assert-no-overlap
   [vector-a set-b name-a name-b]
     (let [set-a (set vector-a)
           overlap (clojure.set/intersection set-a set-b)]
-    (assert (= (count overlap) 0)
-            (format "%s %s and %s %s must be disjoint"
-                    name-a set-a name-b set-b))))
+      (assert (= (count overlap) 0)
+              (str name-a " " set-a
+                   " and "
+                   name-b " " set-b
+                   " must be disjoint"))))
 
 ; Assert that items is a subset of the keys of the given collection.
 (defn assert-has-keys
@@ -69,8 +73,10 @@
     (let [collection-keys (set (keys collection))
           invalid-items (clojure.set/difference items collection-keys)]
     (assert (= (count invalid-items) 0)
-            (format "key set %s does not have some of the keys in %s"
-                     collection-keys items))))
+            (str "key set "
+                 collection-keys
+                 " does not have some of the keys in "
+                 items))))
 
 ; Assert that the input-address-map for a CGPM is valid.
 ; The values of input-address-map must be contiguous integers starting at 0.
@@ -81,12 +87,13 @@
                                    input-address-map)
           ; Make sure that the values are all integers.
           _ (assert (= (count invalid-address-values) 0)
-                       (format "input addresses must map to integers %s" input-address-map))
+                    (str "input addresses must map to integers "
+                         input-address-map))
           ; Make sure that the integers are consecutive 0...n-1
           sorted-address-values (sort (vals input-address-map))
           num-inputs (count sorted-address-values)]
     (assert (= (range 0 num-inputs) sorted-address-values)
-            (format "input addresses must map to consecutive integers %s"
+            (str "input addresses must map to consecutive integers "
                     input-address-map))))
 
 ; Assert that the output-address-map for a GPM is valid.
@@ -96,8 +103,8 @@
     ; The values of the address map should be distinct.
     (let [values (vals output-address-map)]
       (assert (= (count (set values)) (count values))
-        (format "addresses should have distinct values %s"
-          output-address-map))))
+        (str "addresses should have distinct values "
+             output-address-map))))
 
 ; Convert a CGPM row into a Metaprob target-trace.
 (defn rekey-addrs-vals
