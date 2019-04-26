@@ -1,4 +1,5 @@
 (ns metaprob.cgpm-test
+  (:refer-clojure :exclude [map apply replicate])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.repl :refer [doc source]]
             [clojure.test :refer :all]
@@ -88,12 +89,11 @@
       [sample-1 (cgpm-simulate dummy-cgpm [:x0 :x1 :x2] {} {:y 100} 10)
        sample-2 (cgpm-simulate
                    dummy-cgpm
-                   [:x0 :x1 :x2 :x3]
+                   [:x0 :x1 :x2]
                    {:x3 "foo"}
                    {:y 100} 20)]
       (is (= (count sample-1) 10))
-      (is (= (count sample-2) 20))
-      (is (= (get (nth sample-2 0) :x3) "foo")))))
+      (is (= (count sample-2) 20)))))
 
 (deftest dummy-row-mutual-information-zero
   (testing "dummy-row-mutual-information-zero"
@@ -264,8 +264,9 @@
                crosscat-cgpm
                [:sepal_length]
                [:sepal_width]
-               {} {} {} 100 1)]
+               {} {} {} 50 1)]
     (is (> mi 0.05)))))
+
 
 ; TODO: Only run test under --slow option.
 (deftest crosscat-row-mi-conditional-indep-fixed-z
@@ -290,6 +291,21 @@
                {}
                {} 50 1)]
       (is mi (< 1E-5)))))
+
+
+(deftest crosscat-conditional-simulate-smoke
+  (testing "gaussian-mixture-2d-cgpm-simulate"
+    (let [num-samples 10
+          samples
+          (cgpm-simulate
+                       crosscat-cgpm
+                       [:petal_width]
+                       {:petal_length 1.}
+                       {}
+                       num-samples)
+          ]
+      (is (= (count samples)
+             10)))))
 
 (deftest crosscat-cgpm-simulate
   (testing "crosscat-cgpm-simulate"
@@ -339,3 +355,154 @@
                             {}
                             10))]
   (is (> symmetrized-kl 0)))))
+
+
+;; Create a 2 d gaussian mixture with two components
+(def gaussian-mixture-2d
+  (multi-mixture
+    (view
+      {"x" gaussian, "y" gaussian}
+      (clusters
+        0.1 {"x" [-5 1], "y" [-10 1]}
+        0.9 {"x" [5 1],  "y" [10 1]}))))
+
+(def gmm-cgpm
+  (let [outputs-addrs-types {; Variables in the table.
+                             :x real-type
+                             :y real-type
+                             ; Exposed latent variables.
+                             :cluster-for-x integer-type
+                             :cluster-for-y integer-type}
+        output-addr-map (make-identity-output-addr-map outputs-addrs-types)
+        inputs-addrs-types {}
+        input-addr-map {}]
+  (make-cgpm gaussian-mixture-2d
+             outputs-addrs-types
+             inputs-addrs-types
+             output-addr-map
+             input-addr-map)))
+
+
+
+(deftest gaussian-mixture-2d-cgpm-simulate-smoke
+  (testing "gaussian-mixture-2d-cgpm-simulate"
+    (let [num-samples 10
+          samples     (cgpm-simulate
+                       gmm-cgpm
+                       [:x]
+                       {:y 1.}
+                       {}
+                       num-samples)]
+      (is (= (count samples)
+             10)))))
+
+(deftest gaussian-mixture-2d-cgpm-simulate-conditional-on-cluster-smoke
+  (testing "gaussian-mixture-2d-cgpm-simulate"
+    (let [num-samples 10
+          samples     (cgpm-simulate
+                       gmm-cgpm
+                       [:x]
+                       {:cluster-for-y 0}
+                       {}
+                       num-samples)]
+      (is (= (count samples)
+             10)))))
+
+(deftest gaussian-mixture-2d-cgpm-simulate-conditional-on-cluster-smoke
+  (testing "gaussian-mixture-2d-cgpm-simulate (smoke)"
+    (let [num-samples 10
+          samples     (cgpm-simulate
+                       gmm-cgpm
+                       [:x]
+                       {:cluster-for-y 0}
+                       {}
+                       num-samples)]
+      (is (= (count samples)
+             10)))))
+
+
+; Compute simple average of items. XXX -- import from cgpm utils
+(defn compute-avg2
+  [items]
+    (/ (reduce + 0 items) (count items)))
+
+
+(defn get-col
+  [col-key table]
+  (map (fn [row] (get row col-key)) table))
+
+
+(deftest gaussian-mixture-2d-cgpm-simulate-conditional-on-cluster
+  (testing "gaussian-mixture-2d-cgpm-simulate"
+    (let [num-samples 100
+          samples     (cgpm-simulate
+                       gmm-cgpm
+                       [:x]
+                       {:cluster-for-y 0}
+                       {}
+                       num-samples)]
+      (is (< (relerr (compute-avg2 (get-col  :x samples)) -5)
+             0.1)))))
+
+
+(deftest gaussian-mixture-2d-cgpm-logpdf-conditional-on-cluster-smoke
+  (testing "gaussian-mixture-2d-cgpm-simulate (smoke)"
+    (let [logp     (cgpm-logpdf
+                       gmm-cgpm
+                       {:x 0}
+                       {:cluster-for-y 0}
+                       {})]
+      (is (< logp 0)))))
+
+(deftest gaussian-mixture-2d-cgpm-logpdf-conditional-on-cluster
+  (testing "gaussian-mixture-2d-cgpm-simulate"
+    (let [logp     (cgpm-logpdf
+                       gmm-cgpm
+                       {:x -3}
+                       {:cluster-for-y 0}
+                       {})
+          expected-logp -2.9189385332046727] ;; Computed with scipy.stats
+      (is (< (relerr logp expected-logp)
+             0.0000001)))))
+
+;; Create a bivariate Gaussian distribution (linearly related mean).
+(def generate-biv-gaussian-row
+  (gen []
+       (let [x  (at "x" gaussian 0 10)
+             y  (at "y" gaussian (* 2 x) 1)]
+         [x y])))
+(def biv-gaussian-cgpm
+    (let [inputs-addrs-types  {}
+          outputs-addrs-types {:x real-type :y real-type}
+          output-addr-map     (make-identity-output-addr-map outputs-addrs-types)
+          input-addr-map      {}]
+      (make-cgpm generate-biv-gaussian-row
+                 outputs-addrs-types
+                 inputs-addrs-types
+                 output-addr-map
+                 input-addr-map)))
+(defn square [x] (* x x))
+(def rho 0.9987)
+(def expected-mi (* -0.5 (log (- 1 (square rho)))))
+(deftest biv-gaussian-cgpm-simulate-smoke
+  (testing "bivariate gaussian simulate"
+    (let [num-samples 10
+          samples     (cgpm-simulate
+                       biv-gaussian-cgpm
+                       [:y]
+                       {:x 1.}
+                       {}
+                       num-samples)]
+      (is (= (count samples)
+             10)))))
+
+(deftest biv-gaussian-logpdf
+  (testing "biv-gaussian-cgpm-logpdf"
+    (let [logp (cgpm-logpdf
+                        biv-gaussian-cgpm
+                       {:y 1}
+                       {:x 1}
+                       {})
+          expected-logp -1.4189385332046727] ;; Computed with scipy.stats
+      (is (< (relerr logp expected-logp)
+             0.0000001)))))
