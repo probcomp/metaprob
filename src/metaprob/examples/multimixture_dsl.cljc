@@ -1,11 +1,12 @@
 (ns metaprob.examples.multimixture-dsl
   (:refer-clojure :exclude [map replicate apply])
-  (:require [metaprob.trace :refer :all]
-            [metaprob.generative-functions :refer :all]
-            [metaprob.prelude :refer :all]
-            [metaprob.distributions :refer :all]
-            [clojure.pprint :refer [pprint]]
-            [metaprob.inference :refer :all]))
+  #?(:cljs (:require-macros [metaprob.generative-functions :refer [gen]]))
+  (:require [metaprob.trace :refer [trace-set-value trace-has-value?]]
+            #?(:clj [metaprob.generative-functions :refer [gen]])
+            [metaprob.prelude :refer [map apply infer-and-score]]
+            [metaprob.distributions :refer [categorical log-categorical exactly]]
+            [metaprob.inference :refer [with-custom-proposal-attached]]
+            ))
 
 
 ; -------------------
@@ -86,26 +87,3 @@
   [& args]
   [(take-nth 2 args)
    (take-nth 2 (rest args))])
-
-
-;; Create an example model using the DSL
-(def example-model
-  (multi-mixture
-    (view
-      {"x" gaussian, "y" gaussian}
-      (clusters
-        0.3 {"x" [0 1], "y" [1 5]}
-        0.2 {"x" [0 10], "y" [10 15]}
-        0.5 {"x" [4 2], "y" [1 6]}))
-    (view
-      {"a" categorical "b" categorical}
-      (clusters
-        0.8 {"a" [[0.1 0.4 0.5]] "b" [[0.1 0.9]]}
-        0.2 {"a" [[0.9 0.1 0.0]] "b" [[0.5 0.5]]}))))
-
-(defn -main
-  []
-  (pprint (example-model))
-  (pprint (infer-and-score :procedure example-model
-                           :observation-trace {"a" {:value 0}
-                                               "b" {:value 0}})))
