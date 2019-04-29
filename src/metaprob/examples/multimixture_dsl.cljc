@@ -5,9 +5,7 @@
             #?(:clj [metaprob.generative-functions :refer [gen]])
             [metaprob.prelude :refer [map apply infer-and-score]]
             [metaprob.distributions :refer [categorical log-categorical exactly]]
-            [metaprob.inference :refer [with-custom-proposal-attached]]
-            ))
-
+            [metaprob.inference :refer [with-custom-proposal-attached]]))
 
 ; -------------------
 ; MULTI-MIXTURE MODEL
