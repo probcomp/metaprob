@@ -93,39 +93,41 @@
       (utils/validate-row (get cgpm :output-addrs-types) constraint-addrs-vals false)
       (utils/validate-row (get cgpm :input-addrs-types) input-addrs-vals true)))
 
+(def r-a-v-memo (memoize utils/rekey-addrs-vals))
+(def i-a-s-memo (memoize prelude/infer-and-score))
 (defn cgpm-logpdf
   [cgpm target-addrs-vals constraint-addrs-vals input-addrs-vals]
-    ; Error checking on the arguments.
-    (validate-cgpm-logpdf
-      cgpm target-addrs-vals constraint-addrs-vals input-addrs-vals)
-    ; Convert target, constraint, and input addresses from CGPM to inf.
-    (let [target-addrs-vals' (utils/rekey-addrs-vals
+  ;; Error checking on the arguments.
+  ;; (validate-cgpm-logpdf
+  ;;   cgpm target-addrs-vals constraint-addrs-vals input-addrs-vals)
+  ;; Convert target, constraint, and input addresses from CGPM to inf.
+  (let [target-addrs-vals' (r-a-v-memo
                                (get cgpm :output-address-map)
                                target-addrs-vals)
-          constraint-addrs-vals' (utils/rekey-addrs-vals
-                                   (get cgpm :output-address-map)
-                                   constraint-addrs-vals)
-          target-constraint-addrs-vals (merge target-addrs-vals'
-                                              constraint-addrs-vals')
-          input-args (utils/extract-input-list (get cgpm :input-address-map)
-                                         input-addrs-vals)
-          ; Run infer to obtain probabilities.
-          [retval trace log-weight-numer] (prelude/infer-and-score
-                                            :procedure (:proc cgpm)
-                                            :inputs input-args
-                                            :observation-trace
-                                              target-constraint-addrs-vals)
-          log-weight-denom
-            (if (empty? constraint-addrs-vals')
-              ; There are no constraints: log weight is zero.
-              0
-              ; There are constraints: find marginal probability of constraints.
-              (let [[retval trace weight] (prelude/infer-and-score
-                                             :procedure (:proc cgpm)
-                                             :inputs input-args
-                                             :observation-trace constraint-addrs-vals')]
-                weight))]
-      (- log-weight-numer log-weight-denom)))
+        constraint-addrs-vals' (r-a-v-memo
+                                (get cgpm :output-address-map)
+                                constraint-addrs-vals)
+        target-constraint-addrs-vals (merge target-addrs-vals'
+                                            constraint-addrs-vals')
+        input-args (utils/extract-input-list (get cgpm :input-address-map)
+                                             input-addrs-vals)
+        ;; Run infer to obtain probabilities.
+        [retval trace log-weight-numer] (i-a-s-memo
+                                         :procedure (:proc cgpm)
+                                         :inputs input-args
+                                         :observation-trace
+                                         target-constraint-addrs-vals)
+        log-weight-denom
+        (if (empty? constraint-addrs-vals')
+          ;; There are no constraints: log weight is zero.
+          0
+          ;; There are constraints: find marginal probability of constraints.
+          (let [[retval trace weight] (i-a-s-memo
+                                       :procedure (:proc cgpm)
+                                       :inputs input-args
+                                       :observation-trace constraint-addrs-vals')]
+            weight))]
+    (- log-weight-numer log-weight-denom)))
 
 ;; SIMULATE
 
@@ -269,7 +271,9 @@
           ; Obtain the q samples.
           keymap (zipmap target-addrs-0 target-addrs-1)
           samples-q (map (fn [sample] (utils/rekey-dict keymap sample)) samples-p)
-          ; Compute the probabilities under p.
+          ;; Compute the probabilities under p.
+          _ (println "c-a-v-0" constraint-addrs-vals-0)
+          _ (println "samples" samples-p)
           logp-p (map (fn [sample]
                         (cgpm-logpdf cgpm sample constraint-addrs-vals-0
                           input-addrs-vals))
