@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [map replicate apply])
   (:require [metaprob.trace :refer :all]
             [metaprob.generative-functions :refer :all]
-            [metaprob.prelude :refer [map replicate expt]]
+            [metaprob.prelude :refer [map replicate expt infer-and-score]]
             [metaprob.distributions :refer :all]
             [clojure.pprint :refer [pprint]]
             [metaprob.inference :refer :all]))
