@@ -2,7 +2,7 @@
 
 A language for probabilistic programming and metaprogramming, embedded in [Clojure](https://clojure.org/).
 
-**Note: Metaprob is currently highly unstable research software, and everything about it is subject to change.**
+**Note: Metaprob is currently an unstable research prototype, with little documentation and low test coverage. Also, future versions may not be backwards compatible with this version. We do not recommend using it for any purpose other than basic research, and are not yet able to support users outside of the MIT Probabilistic Computing Project.**
 
 ## Key features
 
