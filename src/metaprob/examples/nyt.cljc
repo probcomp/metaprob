@@ -1,24 +1,22 @@
 (ns metaprob.examples.nyt
-  (:require ;; [metaprob.examples.search-by-example :refer [search rowwise-similarity]]
-            [metaprob.examples.multimixture-dsl :refer [multi-mixture view clusters]]
+  (:require [metaprob.examples.multimixture-dsl :as mmix :refer [multi-mixture view]]
             [metaprob.examples.cgpm :refer [real-type integer-type make-cgpm]]
             [metaprob.distributions :refer [gaussian]]
-            [taoensso.tufte :as tufte :refer (defnp p profiled profile)]
-            ))
+            [taoensso.tufte :as tufte :refer (defnp p profiled profile)]))
 
-(def cluster-data
+(def clusters ; clusters for the only view in this model
   [0.130076 {"percent_married_children" [0.210838 0.038829],
-            "percent_black" [0.095388 0.057366],
-            "percent_college" [0.363796 0.031326],
-            "percap" [34288.191406 2182.854156]}
-  0.113952 {"percent_married_children" [0.189332 0.027144],
-            "percent_black" [0.030474 0.016331],
-            "percent_college" [0.227291 0.024654],
-            "percap" [25880.59375 1761.597474]}
-  0.081704 {"percent_married_children" [0.186395 0.028675],
-            "percent_black" [0.146349 0.079025],
-            "percent_college" [0.292949 0.018401],
-            "percap" [28796.824219 1501.203346]}
+             "percent_black" [0.095388 0.057366],
+             "percent_college" [0.363796 0.031326],
+             "percap" [34288.191406 2182.854156]}
+   0.113952 {"percent_married_children" [0.189332 0.027144],
+             "percent_black" [0.030474 0.016331],
+             "percent_college" [0.227291 0.024654],
+             "percap" [25880.59375 1761.597474]}
+   0.081704 {"percent_married_children" [0.186395 0.028675],
+             "percent_black" [0.146349 0.079025],
+             "percent_college" [0.292949 0.018401],
+             "percap" [28796.824219 1501.203346]}
    0.070186 {"percent_married_children" [0.211468 0.03236],
              "percent_black" [0.028909 0.016286],
              "percent_college" [0.272871 0.023519],
@@ -72,7 +70,9 @@
              "percent_college" [0.308327 0.105832],
              "percap" [30963.679441 8647.967362]}])
 
-(def cluster-count (/ (count cluster-data) 2))
+(defn cluster-count
+  [clusters]
+  (/ (count clusters) 2))
 
 (def generate-census-row
   (multi-mixture
@@ -82,7 +82,7 @@
      "percent_college"          gaussian
      "percap"                   gaussian}
 
-    (apply clusters cluster-data))))
+    (apply mmix/clusters clusters))))
 
 (defn make-identity-output-addr-map
   [output-addrs-types]
@@ -111,34 +111,3 @@
                inputs-addrs-types
                output-addr-map
                input-addr-map)))
-
-
-;; (defn -main []
-
-;;   (defn make-ex-row []
-;;     (zipmap [:percent_married_children
-;;              :percent_black
-;;              :percent_college
-;;              :percap]
-;;             (generate-census-row)))
-
-;;   ;; compare two example rows
-;;   (rowwise-similarity census-cgpm
-;;                       #{:cluster-for-percap}
-;;                       (make-ex-row)
-;;                       (make-ex-row)
-;;                       10)
-
-
-
-;;   ;; make an example table and a single row
-;;   (def example-table
-;;     (repeatedly 10 make-ex-row))
-;;   (def ex (make-ex-row))
-
-
-;;   ;; search the table by similarity
-;;   (println (search census-cgpm
-;;                   example-table
-;;                   (make-ex-row)
-;;                   #{:cluster-for-percap} 10)))
