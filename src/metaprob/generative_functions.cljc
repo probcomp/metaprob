@@ -3,8 +3,7 @@
   (:require #?(:cljs [cljs.analyzer :as ana])
             [metaprob.code-handlers :as code]
             [metaprob.trace :as trace]
-            [taoensso.tufte :as tufte :refer (defnp p profiled profile)]
-            ))
+            [taoensso.tufte :as tufte :refer [defnp p profiled profile]]))
 
 (defn at [& args] (assert false "Cannot invoke at outside of a (gen ...) form."))
 
@@ -50,8 +49,8 @@
                                     (make-constrained-generator
                                      gf
                                      (trace/maybe-subtrace observations addr)) args)]
-                      (vswap! score unchecked-add s)
-                      (vswap! trace trace/merge-subtrace addr tr)
+                      (p :vswap (vswap! score unchecked-add s))
+                      (p :vswap (vswap! trace trace/merge-subtrace addr tr))
                       v))
                   at-impl
                   (fn [addr gf & args] (apply-at-impl addr gf args))

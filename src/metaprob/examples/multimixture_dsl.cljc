@@ -6,7 +6,7 @@
             [metaprob.prelude :refer [map apply infer-and-score map-xform]]
             [metaprob.distributions :refer [categorical log-categorical exactly]]
             [metaprob.inference :refer [with-custom-proposal-attached]]
-            [taoensso.tufte :as tufte :refer (defnp p profiled profile)]))
+            [taoensso.tufte :as tufte :refer [defnp p profiled profile]]))
 
 ;; -------------------
 ;; MULTI-MIXTURE MODEL
@@ -88,10 +88,11 @@
 (defn make-multi-mixture
   [views]
   (gen []
-    (into []
-          (comp (map-xform (fn [view] (p :view-call (at '() view))))
-                cat)
-          views)))
+    (p :multi-mixture
+       (into []
+             (comp (map-xform (fn [view] (p :view (at '() view))))
+                   cat)
+             views))))
 
 ;; ------------------------
 ;; DOMAIN SPECIFIC LANGUAGE

@@ -49,23 +49,6 @@
     (mapv #(/ % sum)
           ns)))
 
-#_
-(-> {}
-    (constrain-by-row {"percap" 30000})
-    (constrain-by-cluster 5 #{"percent_black"})
-    (constrain-by-view 5 "viewG__26935"))
-
-#_
-(second (prelude/infer-and-score
-         :procedure (:proc nyt/census-cgpm)))
-
-#_
-(let [model (:proc nyt/census-cgpm)
-      row   {"percent_black" 0.9
-             "percap"        70000}
-      view "viewG__26935"]
-  (probability-distribution-on-cluster model row view))
-
 (defnp probability-distribution-on-cluster
   [model row view]
   (let [columns (-> nyt/clusters second keys)
@@ -81,21 +64,22 @@
                   (prelude/exp score))))
          (normalize))))
 
-(defnp rowwise-similarity [cgpm example-pfca row emphasis]
-  (let [view (mmix/view-for-column emphasis)]
-    (kl example-pfca
-        (probability-distribution-on-cluster (:proc cgpm) row view))))
+(def memoized-probability-distribution-on-cluster
+  (memoize probability-distribution-on-cluster))
+
+(defnp rowwise-similarity [cgpm view example-pfca row emphasis]
+  (kl example-pfca (memoized-probability-distribution-on-cluster cgpm row view)))
 
 (defnp search
   [cgpm rows example emphasis]
-  (let [example-pfca (probability-for-cluster-assignments cgpm example emphasis)]
+  (let [view (mmix/view-for-column emphasis)
+        example-pfca (probability-distribution-on-cluster (:proc cgpm) example emphasis)]
     (->> rows
          (map-indexed (fn [index row]
-                        [index (rowwise-similarity cgpm example-pfca row emphasis)]))
+                        [index (rowwise-similarity (:proc cgpm) view example-pfca row emphasis)]))
          (sort-by second))))
 
 (comment
-  (tufte/add-basic-println-handler! {})
 
   (defn make-ex-row []
     (zipmap [:percent_married_children
@@ -104,16 +88,16 @@
              :percap]
             (generate-census-row)))
 
-  (defn fix-table [t]
-    (map
-     #(dissoc % :geo_fips :district_name)
-     (clojure.walk/keywordize-keys t)))
-
-  (tufte/profile
-   {}
-   (search nyt/census-cgpm
-           (fix-table nyt-data)
-           {:percent_black 0.10}
-           :cluster-for-percap))
+  (let [fix-table (fn fix-table [t]
+                    (map
+                     #(dissoc % :geo_fips :district_name)
+                     (clojure.walk/keywordize-keys t)))]
+    (tufte/add-basic-println-handler! {})
+    (tufte/profile
+     {}
+     (search nyt/census-cgpm
+             (fix-table nyt-data)
+             {:percent_black 0.90}
+             :cluster-for-percap)))
 
   )
