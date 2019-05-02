@@ -51,10 +51,20 @@
                 :procedure (:proc  census-cgpm))]
   (trace/addresses-of tr))
 
+(second (prelude/infer-and-score
+         :procedure (:proc  census-cgpm)))
+
+
 (defn probability-distribution-on-cluster
   [model row view]
-  (let [;; First, constrain the row with the information we have:
-        constrained-trace    (construct-target  subset-row {})
+  (let [;; IRL we'd find only the data in row which intersect with
+        ;; columns in view. In this case, we have only one view so
+        ;; we'll skip.
+
+        ;; First, constrain the row with the information we have.  The
+        ;; thing is... I think we can just use `row` here, since the
+        ;; trace is the same shape?
+        constrained-trace    view ;; (construct-target  subset-row {})
 
         ;; Get the possible cluster assignments given the view.
         cluster-assignements (view-cluster-indices-mapping view)
