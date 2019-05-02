@@ -5,6 +5,7 @@
             [metaprob.prelude :as prelude]
             [metaprob.trace :as trace]
             [metaprob.examples.data :as data]
+            [metaprob.examples.pfcas :as pfcas]
             [taoensso.tufte :as tufte :refer [defnp p profiled profile]]))
 
 (defn- kli [p-in q-in]
@@ -80,24 +81,24 @@
   [cgpm example emphasis]
   (let [view (mmix/view-for-column emphasis)
         example-pfca (probability-distribution-on-cluster (:proc cgpm) example emphasis)]
-    (->> data/pfcas
+    (->> pfcas/pfcas
          (map-indexed (fn [index pfca]
                         [index (kl example-pfca pfca)]))
          (sort-by second))))
 
-(defn save-pfcas
-  [filename model rows emphasis]
-  (let [fix-table (fn fix-table [t]
-                    (map
-                     #(dissoc % :geo_fips :district_name)
-                     (clojure.walk/keywordize-keys t)))
-        data (mapv #(probability-distribution-on-cluster model % emphasis)
-                   rows)
+#?(:clj (defn save-pfcas
+          [filename model rows emphasis]
+          (let [fix-table (fn fix-table [t]
+                            (map
+                             #(dissoc % :geo_fips :district_name)
+                             (clojure.walk/keywordize-keys t)))
+                data (mapv #(probability-distribution-on-cluster model % emphasis)
+                           rows)
 
-        sexp (with-out-str
-               (pr '(ns metaprob.examples.pfcas))
-               (pr `(~'def ~'pfcas ~data)))]
-    (spit filename sexp)))
+                sexp (with-out-str
+                       (pr '(ns metaprob.examples.pfcas))
+                       (pr `(~'def ~'pfcas ~data)))]
+            (spit filename sexp))))
 
 (comment
 
