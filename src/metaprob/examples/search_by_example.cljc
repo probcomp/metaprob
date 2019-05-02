@@ -4,7 +4,7 @@
             [metaprob.examples.multimixture-dsl :as mmix]
             [metaprob.prelude :as prelude]
             [metaprob.trace :as trace]
-            [metaprob.examples.data :refer [nyt-data]]
+            [metaprob.examples.data :as data]
             [taoensso.tufte :as tufte :refer [defnp p profiled profile]]))
 
 (defn- kli [p-in q-in]
@@ -64,11 +64,8 @@
                   (prelude/exp score))))
          (normalize))))
 
-(def memoized-probability-distribution-on-cluster
-  (memoize probability-distribution-on-cluster))
-
 (defnp rowwise-similarity [cgpm view example-pfca row emphasis]
-  (kl example-pfca (memoized-probability-distribution-on-cluster cgpm row view)))
+  (kl example-pfca (probability-distribution-on-cluster cgpm row view)))
 
 (defnp search
   [cgpm rows example emphasis]
@@ -79,25 +76,38 @@
                         [index (rowwise-similarity (:proc cgpm) view example-pfca row emphasis)]))
          (sort-by second))))
 
-(comment
+(defnp cached-search
+  [cgpm example emphasis]
+  (let [view (mmix/view-for-column emphasis)
+        example-pfca (probability-distribution-on-cluster (:proc cgpm) example emphasis)]
+    (->> data/pfcas
+         (map-indexed (fn [index pfca]
+                        [index (kl example-pfca pfca)]))
+         (sort-by second))))
 
-  (defn make-ex-row []
-    (zipmap [:percent_married_children
-             :percent_black
-             :percent_college
-             :percap]
-            (generate-census-row)))
+(defn save-pfcas
+  [filename model rows emphasis]
+  (let [fix-table (fn fix-table [t]
+                    (map
+                     #(dissoc % :geo_fips :district_name)
+                     (clojure.walk/keywordize-keys t)))
+        data (pr-str (mapv #(probability-distribution-on-cluster model % emphasis)
+                           rows))]
+    (spit filename data)))
+
+(comment
 
   (let [fix-table (fn fix-table [t]
                     (map
                      #(dissoc % :geo_fips :district_name)
                      (clojure.walk/keywordize-keys t)))]
-    (tufte/add-basic-println-handler! {})
-    (tufte/profile
-     {}
-     (search nyt/census-cgpm
-             (fix-table nyt-data)
-             {:percent_black 0.90}
-             :cluster-for-percap)))
+    (save-pfcas "pfcas.edn"
+                (:proc nyt/census-cgpm)
+                (fix-table data/nyt-data)
+                "percent_black"))
+
+  (cached-search nyt/census-cgpm
+                 {:percent_black 0.90}
+                 :cluster-for-percap)
 
   )

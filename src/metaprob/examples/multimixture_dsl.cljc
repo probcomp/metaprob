@@ -57,30 +57,31 @@
     (with-custom-proposal-attached
       sampler
       (fn [observations]
-        (gen [] (p :scorer
-                   (let [score-cluster
-                         (fn [idx]
-                           (let [new-obs (trace-set-value observations cluster-addr idx)
-                                 ;; Score should not depend on any of the stochastic
-                                 ;; choices made by infer-and-score, so we leave this
-                                 ;; untraced.
-                                 [_ _ s]
-                                 (infer-and-score
-                                  :procedure sampler
-                                  :observation-trace new-obs)]
-                             s))
+        (gen []
+          (p :scorer
+             (let [score-cluster
+                   (fn [idx]
+                     (let [new-obs (trace-set-value observations cluster-addr idx)
+                           ;; Score should not depend on any of the stochastic
+                           ;; choices made by infer-and-score, so we leave this
+                           ;; untraced.
+                           [_ _ s]
+                           (infer-and-score
+                            :procedure sampler
+                            :observation-trace new-obs)]
+                       s))
 
-                         cluster-scores
-                         (map score-cluster (range (count cluster-probs)))
+                   cluster-scores
+                   (map score-cluster (range (count cluster-probs)))
 
-                         chosen-cluster
-                         (at cluster-addr log-categorical cluster-scores)]
+                   chosen-cluster
+                   (at cluster-addr log-categorical cluster-scores)]
 
-                     ;; Fill in the rest of the choices
-                     (at '() infer-and-score
-                         :procedure sampler
-                         :observation-trace
-                         (trace-set-value observations cluster-addr chosen-cluster))))))
+               ;; Fill in the rest of the choices
+               (at '() infer-and-score
+                   :procedure sampler
+                   :observation-trace
+                   (trace-set-value observations cluster-addr chosen-cluster))))))
 
       ;; Only use the custom proposal when we don't already know the cluster ID
       (fn [tr] (not (trace-has-value? tr cluster-addr))))))
