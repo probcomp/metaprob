@@ -91,9 +91,13 @@
                     (map
                      #(dissoc % :geo_fips :district_name)
                      (clojure.walk/keywordize-keys t)))
-        data (pr-str (mapv #(probability-distribution-on-cluster model % emphasis)
-                           rows))]
-    (spit filename data)))
+        data (mapv #(probability-distribution-on-cluster model % emphasis)
+                   rows)
+
+        sexp (with-out-str
+               (pr '(ns metaprob.examples.pfcas))
+               (pr `(~'def ~'pfcas ~data)))]
+    (spit filename sexp)))
 
 (comment
 
@@ -101,7 +105,7 @@
                     (map
                      #(dissoc % :geo_fips :district_name)
                      (clojure.walk/keywordize-keys t)))]
-    (save-pfcas "pfcas.edn"
+    (save-pfcas "pfcas.cljc"
                 (:proc nyt/census-cgpm)
                 (fix-table data/nyt-data)
                 "percent_black"))
@@ -109,5 +113,10 @@
   (cached-search nyt/census-cgpm
                  {:percent_black 0.90}
                  :cluster-for-percap)
+
+  (search nyt/census-cgpm
+          data/nyt-data
+          {:percent_black 0.1}
+          :percent_black)
 
   )

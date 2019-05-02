@@ -39,20 +39,15 @@
                        (let [cluster-idx (at cluster-addr categorical cluster-probs)
                              params      (nth cluster-params cluster-idx)]
 
-                         (p :set-cluster
-                            (doseq [v var-names]
-                              (at (column-cluster-address v)
-                                  exactly cluster-idx)))
+                         (doseq [v var-names]
+                           (at (column-cluster-address v)
+                               exactly cluster-idx))
 
-                         (p :do-sample
-                            (let [a (make-array Double/TYPE (count var-names))]
-                              (doseq [v var-names]
-                                (loop [i 0]
-                                  (aset-double a i
-                                               (apply-at
-                                                v
-                                                (get vars-and-dists v)
-                                                (get params v))))))))))]
+                         (mapv (fn [v]
+                                 (apply-at v
+                                           (get vars-and-dists v)
+                                           (get params v)))
+                               var-names))))]
 
     (with-custom-proposal-attached
       sampler
