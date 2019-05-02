@@ -4,7 +4,9 @@
     [metaprob.prelude :as prelude :refer [map]]
     [metaprob.distributions]
     [metaprob.examples.cgpm-utils :as utils]
-    [metaprob.inference]))
+    [metaprob.inference]
+    [taoensso.tufte :as tufte :refer (defnp p profiled profile)]
+    ))
 
 ; ----------------------
 ; STATISTICAL DATA TYPES
@@ -95,38 +97,44 @@
 
 (def r-a-v-memo (memoize utils/rekey-addrs-vals))
 (def i-a-s-memo (memoize prelude/infer-and-score))
+
 (defn cgpm-logpdf
   [cgpm target-addrs-vals constraint-addrs-vals input-addrs-vals]
   ;; Error checking on the arguments.
   ;; (validate-cgpm-logpdf
   ;;   cgpm target-addrs-vals constraint-addrs-vals input-addrs-vals)
   ;; Convert target, constraint, and input addresses from CGPM to inf.
-  (let [target-addrs-vals' (r-a-v-memo
-                               (get cgpm :output-address-map)
-                               target-addrs-vals)
-        constraint-addrs-vals' (r-a-v-memo
+  (let [target-addrs-vals' (utils/rekey-addrs-vals
+                            (get cgpm :output-address-map)
+                            target-addrs-vals)
+        constraint-addrs-vals' (utils/rekey-addrs-vals
                                 (get cgpm :output-address-map)
                                 constraint-addrs-vals)
         target-constraint-addrs-vals (merge target-addrs-vals'
                                             constraint-addrs-vals')
-        input-args (utils/extract-input-list (get cgpm :input-address-map)
-                                             input-addrs-vals)
+
+        input-args (utils/extract-input-list
+                    (get cgpm :input-address-map)
+                    input-addrs-vals)
+
         ;; Run infer to obtain probabilities.
-        [retval trace log-weight-numer] (i-a-s-memo
-                                         :procedure (:proc cgpm)
-                                         :inputs input-args
-                                         :observation-trace
-                                         target-constraint-addrs-vals)
-        log-weight-denom
-        (if (empty? constraint-addrs-vals')
-          ;; There are no constraints: log weight is zero.
-          0
-          ;; There are constraints: find marginal probability of constraints.
-          (let [[retval trace weight] (i-a-s-memo
-                                       :procedure (:proc cgpm)
-                                       :inputs input-args
-                                       :observation-trace constraint-addrs-vals')]
-            weight))]
+        [retval trace log-weight-numer] (p :i-a-s
+                                           (prelude/infer-and-score
+                                            :procedure (:proc cgpm)
+                                            :inputs input-args
+                                            :observation-trace
+                                            target-constraint-addrs-vals))
+
+        log-weight-denom (if (empty? constraint-addrs-vals')
+                           ;; There are no constraints: log weight is zero.
+                           0
+                           ;; There are constraints: find marginal probability of constraints.
+                           (let [[retval trace weight] (p :i-a-s
+                                                          (prelude/infer-and-score
+                                                           :procedure (:proc cgpm)
+                                                           :inputs input-args
+                                                           :observation-trace constraint-addrs-vals'))]
+                             weight))]
     (- log-weight-numer log-weight-denom)))
 
 ;; SIMULATE

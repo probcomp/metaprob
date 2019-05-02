@@ -1,7 +1,12 @@
 (ns metaprob.examples.search-by-example
   (:require [metaprob.examples.cgpm :refer [cgpm-logpdf]]
             [metaprob.examples.nyt :refer [census-cgpm generate-census-row
-                                           cluster-data cluster-count]]))
+                                           cluster-data cluster-count]]
+            [metaprob.prelude :as prelude]
+            [metaprob.trace :as trace]
+            [metaprob.examples.data :refer [nyt-data]]
+            [taoensso.tufte :as tufte :refer (defnp p profiled profile)]
+            ))
 
 (defn kli [p_in q_in]
   (let [p (if (<= p_in 0) 0.00000000000000000001 p_in)
@@ -20,36 +25,89 @@
            :percap]
           (generate-census-row)))
 
+
 (defn probability-for-cluster-assignments [cgpm row emphasis]
   (let [probs (map (fn [ci]
                       (Math/exp
-                       (cgpm-logpdf cgpm
-                                    {emphasis ci}
-                                    row
-                                    {})))
+                       (p :logpdf
+                          (cgpm-logpdf
+                           cgpm
+                           {emphasis ci}
+                           row
+                           {}))))
                     (range cluster-count))]
     probs))
 
-(def pfca-memo (memoize probability-for-cluster-assignments))
 
-(defn rowwise-similarity [cgpm row-0 row-1 emphasis]
+(defn row-trace [tr row]
+  (reduce
+   (fn [t r]
+     (trace-set-value t )
+     )
+   tr
+   row))
+
+(let [[_ tr _] (prelude/infer-and-score
+                :procedure (:proc  census-cgpm))]
+  (trace/addresses-of tr))
+
+(defn probability-distribution-on-cluster
+  [model row view]
+  (let [;; First, constrain the row with the information we have:
+        constrained-trace    (construct-target  subset-row {})
+
+        ;; Get the possible cluster assignments given the view.
+        cluster-assignements (view-cluster-indices-mapping view)
+
+        ;; Define a a function that scores a trace given a specific
+        ;; cluster assignment.
+        assign-and-score-cluster (fn [cluster-assignment]
+                                   (let [assigned-trace (set-cluster-assignment
+                                                         constrained-trace
+                                                         view
+                                                         cluster-assignment)
+                                         [_ _ score] (infer
+                                                      :procedure model
+                                                      :target-trace assigned-trace)]
+                                     (exp score)))
+
+        ;; Take the defined function and score all the cluster
+        ;; assigments in the given context.
+        unnormalized-scores (map assign-and-score-cluster cluster-assignements)]
+
+    ;; The score is un-normalized -- but we know that it has to be
+    ;; assigned to some cluster -- thus the scores need to sum to one.
+    (normalize unnormalized-scores)))
+
+
+
+(defn rowwise-similarity [cgpm example-p-f-c-a row-1 emphasis]
   (kl
-   (time (doall (probability-for-cluster-assignments cgpm row-0 emphasis)))
-   (time (doall (probability-for-cluster-assignments cgpm row-1 emphasis)))))
+   example-p-f-c-a
+   (p :p-f-c-a (probability-for-cluster-assignments cgpm row-1 emphasis))))
 
 (defn search
   [cgpm rows example emphasis]
-  (->> rows
-       (map-indexed
-        (fn [i r]
-          (println "row.")
-          [i (rowwise-similarity cgpm example r emphasis)]))
-       (sort-by second)))
+  (let [example-p-f-c-a (probability-for-cluster-assignments cgpm example emphasis)]
+      (->> rows
+           (map-indexed
+            (fn [i r]
+              [i (rowwise-similarity cgpm example-p-f-c-a r emphasis)]))
+           (sort-by second))))
 
 (comment
-  (search
-   census-cgpm
-   [(make-ex-row)
-    (make-ex-row)]
-   {:percent_black 0.10}
-   :cluster-for-percap))
+  (tufte/add-basic-println-handler! {})
+
+  (defn fix-table [t]
+    (map
+     #(dissoc % :geo_fips :district_name)
+     (clojure.walk/keywordize-keys t)))
+
+  (profile {} (p :search (search
+                          census-cgpm
+                          (fix-table nyt-data)
+                          {:percent_black 0.10}
+                          :cluster-for-percap)))
+
+
+  )

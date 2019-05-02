@@ -2,7 +2,9 @@
   #?(:cljs (:require-macros [metaprob.generative-functions :refer [gen]]))
   (:require #?(:cljs [cljs.analyzer :as ana])
             [metaprob.code-handlers :as code]
-            [metaprob.trace :as trace]))
+            [metaprob.trace :as trace]
+            [taoensso.tufte :as tufte :refer (defnp p profiled profile)]
+            ))
 
 (defn at [& args] (assert false "Cannot invoke at outside of a (gen ...) form."))
 
@@ -39,13 +41,17 @@
       (generative-function-from-traced-code
         (fn [at apply-at]
           (fn [& args]
-            (let [score (atom 0)
-                  trace (atom {})
+            (let [score (volatile! 0.0M)
+                  trace (volatile! {})
                   apply-at-impl
                   (fn [addr gf args]
-                    (let [[v tr s] (apply-at addr (make-constrained-generator gf (trace/maybe-subtrace observations addr)) args)]
-                      (swap! score + s)
-                      (swap! trace trace/merge-subtrace addr tr)
+                    (let [[v tr s] (apply-at
+                                    addr
+                                    (make-constrained-generator
+                                     gf
+                                     (trace/maybe-subtrace observations addr)) args)]
+                      (vswap! score unchecked-add s)
+                      (vswap! trace trace/merge-subtrace addr tr)
                       v))
                   at-impl
                   (fn [addr gf & args] (apply-at-impl addr gf args))

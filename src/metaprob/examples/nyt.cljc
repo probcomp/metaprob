@@ -2,7 +2,9 @@
   (:require ;; [metaprob.examples.search-by-example :refer [search rowwise-similarity]]
             [metaprob.examples.multimixture-dsl :refer [multi-mixture view clusters]]
             [metaprob.examples.cgpm :refer [real-type integer-type make-cgpm]]
-            [metaprob.distributions :refer [gaussian]]))
+            [metaprob.distributions :refer [gaussian]]
+            [taoensso.tufte :as tufte :refer (defnp p profiled profile)]
+            ))
 
 (def cluster-data
   [0.130076 {"percent_married_children" [0.210838 0.038829],

@@ -4,7 +4,9 @@
   (:require #?(:clj [clojure.java.io :as io])
             [clojure.set :as set]
             [metaprob.trace :as trace]
-            [metaprob.generative-functions :refer [gen make-generative-function make-constrained-generator]])
+            [metaprob.generative-functions :refer [gen make-generative-function
+                                                   make-constrained-generator]]
+            [taoensso.tufte :as tufte :refer (defnp p profiled profile)])
   #?(:clj (:import [java.util Random])))
 
 
@@ -44,6 +46,10 @@
 (def map
   (gen [f l]
     (doall (map-indexed (fn [i x] (at i f x)) l))))
+
+(def map-xform
+  (gen [f]
+       (map-indexed (fn [i x] (at i f x)))))
 
 (def replicate
   (gen [n f]
@@ -101,4 +107,6 @@
 (def infer-and-score
   (gen [& {:keys [procedure inputs observation-trace]
            :or {inputs [], observation-trace {}}}]
-    (apply-at '() (make-constrained-generator procedure observation-trace) inputs)))
+       (apply-at '()
+                 (make-constrained-generator procedure observation-trace)
+                 inputs)))
