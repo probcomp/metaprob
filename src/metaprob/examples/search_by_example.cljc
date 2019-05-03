@@ -9,13 +9,9 @@
             [taoensso.tufte :as tufte :refer [defnp p profiled profile]]))
 
 (defn- kli [p-in q-in]
-  (assert (<= 0 p-in 1))
-  (assert (<= 0 q-in 1))
   (let [p (max 1E-300 p-in)
         q (max 1E-300 q-in)]
-    (* p (let [x (Math/log (/ p q))]
-           (println p-in q-in x)
-           x))))
+    (* p (Math/log (/ p q)))))
 
 (defnp kl [ps qs]
   "K-L divergence between two vectors of floating point numbers."
