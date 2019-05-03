@@ -9,15 +9,25 @@
             [taoensso.tufte :as tufte :refer [defnp p profiled profile]]))
 
 (defn- kli [p-in q-in]
-  (let [p (if (<= p-in 0) 0.00000000000000000001 p-in)
-        q (if (<= q-in 0) 0.00000000000000000001 q-in)]
-    (* p (Math/log (/ p q)))))
+  (assert (<= 0 p-in 1))
+  (assert (<= 0 q-in 1))
+  (let [p (max 1E-300 p-in)
+        q (max 1E-300 q-in)]
+    (* p (let [x (Math/log (/ p q))]
+           (println p-in q-in x)
+           x))))
 
 (defnp kl [ps qs]
   "K-L divergence between two vectors of floating point numbers."
   (apply +
          (map (fn [p q] (kli p q))
-              ps qs)))
+              ps
+              qs)))
+
+(defn symmetrized-kl
+  [ps qs]
+  (+ (kl ps qs)
+     (kl qs ps)))
 
 (defnp constrain-by-row
   "Constrains the given trace such that the values chosen for each column are the
@@ -83,16 +93,12 @@
         example-pfca (probability-distribution-on-cluster (:proc cgpm) example emphasis)]
     (->> pfcas/pfcas
          (map-indexed (fn [index pfca]
-                        [index (kl example-pfca pfca)]))
+                        [index (symmetrized-kl example-pfca pfca)]))
          (sort-by second))))
 
 #?(:clj (defn save-pfcas
           [filename model rows emphasis]
-          (let [fix-table (fn fix-table [t]
-                            (map
-                             #(dissoc % :geo_fips :district_name)
-                             (clojure.walk/keywordize-keys t)))
-                data (mapv #(probability-distribution-on-cluster model % emphasis)
+          (let [data (mapv #(probability-distribution-on-cluster model % emphasis)
                            rows)
 
                 sexp (with-out-str
@@ -104,16 +110,26 @@
 
   (let [fix-table (fn fix-table [t]
                     (map
-                     #(dissoc % :geo_fips :district_name)
-                     (clojure.walk/keywordize-keys t)))]
+                     #(dissoc % "geo_fips" "district_name")
+                     t))]
     (save-pfcas "pfcas.cljc"
                 (:proc nyt/census-cgpm)
                 (fix-table data/nyt-data)
                 "percent_black"))
 
   (cached-search nyt/census-cgpm
-                 {:percent_black 0.90}
-                 :cluster-for-percap)
+                 {"percent_black" 0.90}
+                 "cluster-for-percap")
+
+  (prelude/infer-and-score :procedure (:proc nyt/census-cgpm))
+
+  (:proc nyt/census-cgpm)
+
+  ((:proc nyt/census-cgpm))
+
+  (probability-distribution-on-cluster (:proc nyt/census-cgpm)
+                                       {:percent_black 0.1}
+                                       :percent_black)
 
   (search nyt/census-cgpm
           data/nyt-data

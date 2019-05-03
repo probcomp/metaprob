@@ -57,13 +57,7 @@
 ;; INITIALIZE
 
 (defn make-cgpm
-  [proc
-   output-addrs-types
-
-   input-addrs-types
-   output-address-map
-
-   input-address-map]
+  [proc output-addrs-types input-addrs-types output-address-map input-address-map]
     (let [output-addrs (set (keys output-addrs-types))
            input-addrs (set (keys input-addrs-types))]
 
