@@ -46,10 +46,6 @@
   (gen [f l]
     (doall (map-indexed (fn [i x] (at i f x)) l))))
 
-(def map-xform
-  (gen [f]
-       (map-indexed (fn [i x] (at i f x)))))
-
 (def replicate
   (gen [n f]
     (map (fn [i] (at i f)) (range n))))
