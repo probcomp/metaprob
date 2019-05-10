@@ -5,8 +5,7 @@
             [clojure.set :as set]
             [metaprob.trace :as trace]
             [metaprob.generative-functions :refer [gen make-generative-function
-                                                   make-constrained-generator]]
-            [taoensso.tufte :as tufte :refer (defnp p profiled profile)])
+                                                   make-constrained-generator]])
   #?(:clj (:import [java.util Random])))
 
 

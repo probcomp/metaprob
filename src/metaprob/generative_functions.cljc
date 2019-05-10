@@ -2,8 +2,7 @@
   #?(:cljs (:require-macros [metaprob.generative-functions :refer [gen]]))
   (:require #?(:cljs [cljs.analyzer :as ana])
             [metaprob.code-handlers :as code]
-            [metaprob.trace :as trace]
-            [taoensso.tufte :as tufte :refer [defnp p profiled profile]]))
+            [metaprob.trace :as trace]))
 
 (defn at [& args] (assert false "Cannot invoke at outside of a (gen ...) form."))
 

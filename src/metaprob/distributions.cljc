@@ -1,7 +1,6 @@
 (ns metaprob.distributions
   (:refer-clojure :exclude [apply map replicate reduce])
   (:require [metaprob.prelude :as mp :refer [map make-primitive]]
-            [taoensso.tufte :as tufte :refer (defnp p profiled profile)]
             #?(:clj [incanter.distributions :as distributions])))
 
 (def exactly
@@ -75,10 +74,10 @@
          (mp/log (nth probs i)))))))
 
 
-(defnp generate-gaussian [mu sigma]
+(defn generate-gaussian [mu sigma]
   (+ mu (* sigma (Math/sqrt (* -2 (Math/log (mp/sample-uniform)))) (Math/cos (* 2 Math/PI (mp/sample-uniform))))))
 (defn standard-gaussian-log-density [x] (* -0.5 (+ (Math/log (* 2 Math/PI)) (* x x))))
-(defnp score-gaussian [x [mu sigma]]
+(defn score-gaussian [x [mu sigma]]
   (- (standard-gaussian-log-density (/ (- x mu) sigma)) (Math/log sigma)))
 
 (def gaussian
