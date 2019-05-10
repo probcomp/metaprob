@@ -39,7 +39,7 @@
       (generative-function-from-traced-code
         (fn [at apply-at]
           (fn [& args]
-            (let [score (volatile! 0)
+            (let [score (volatile! 0.0M)
                   trace (volatile! {})
                   apply-at-impl
                   (fn [addr gf args]
