@@ -39,7 +39,7 @@
       (generative-function-from-traced-code
         (fn [at apply-at]
           (fn [& args]
-            (let [score (volatile! 0.0M)
+            (let [score (volatile! 0)
                   trace (volatile! {})
                   apply-at-impl
                   (fn [addr gf args]
@@ -48,8 +48,8 @@
                                     (make-constrained-generator
                                      gf
                                      (trace/maybe-subtrace observations addr)) args)]
-                      (p :vswap (vswap! score unchecked-add s))
-                      (p :vswap (vswap! trace trace/merge-subtrace addr tr))
+                      (vswap! score unchecked-add s)
+                      (vswap! trace trace/merge-subtrace addr tr)
                       v))
                   at-impl
                   (fn [addr gf & args] (apply-at-impl addr gf args))
