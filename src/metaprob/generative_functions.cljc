@@ -19,6 +19,8 @@
 
 ;; make-constrained-generator : generative function, observation trace -> generative function
 (defn make-constrained-generator [procedure observations]
+  ;; (println "procedure:" procedure)
+  ;; (println (get (meta procedure) :make-constrained-generator))
   ((or (get (meta procedure) :make-constrained-generator)
        (fn [observations]
          (fn [& args]

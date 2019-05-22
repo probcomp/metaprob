@@ -106,6 +106,7 @@
 (def infer-and-score
   (gen [& {:keys [procedure inputs observation-trace]
            :or {inputs [], observation-trace {}}}]
+       (println "Infer-and-score called.")
        (apply-at '()
                  (make-constrained-generator procedure observation-trace)
                  inputs)))

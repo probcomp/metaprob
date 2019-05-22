@@ -34,15 +34,26 @@
 (def categorical
   (make-primitive
    (fn [probs]
+     (println "in categorical sampler, PROBS" probs)
      (if (map? probs)
-       (nth (keys probs) (categorical (normalize-numbers (vals probs)))) ;; TODO: normalization not needed here?
+       ;; TODO: normalization not needed here?
+       (nth (keys probs) (categorical (normalize-numbers (vals probs))))
        (let [total (clojure.core/reduce + probs)
              r (* (mp/sample-uniform) total)]
          (loop [i 0, sum 0]
            (if (< r (+ (nth probs i) sum)) i (recur (inc i) (+ (nth probs i) sum)))))))
    (fn [i [probs]]
+     (println "in categorical _scorer_, PROBS" probs)
      (if (map? probs)
-       (if (not (contains? probs i)) mp/negative-infinity (- (mp/log (get probs i)) (mp/log (clojure.core/reduce + (vals probs)))))
+       (let [_ (println "***** probs" probs "i" i "contains?" (contains? probs i))
+             ;; _ (println "log-left" (mp/log (get probs i))
+             ;;            "log-right" (mp/log (clojure.core/reduce + (vals probs))))
+             res (if (not (contains? probs i))
+                   mp/negative-infinity
+                   (- (mp/log (get probs i))
+                      (mp/log (clojure.core/reduce + (vals probs)))))]
+         (println "FOUND categorical score to be" res)
+         res)
        (mp/log (nth probs i))))))
 
 (defn logsumexp [scores]
@@ -61,9 +72,13 @@
 (def log-categorical
   (make-primitive
    (fn [scores]
-     (let [probs
-           (if (map? scores) (into {} (clojure.core/map (fn [a b] [a b]) (keys scores) (log-scores-to-probabilities (vals scores))))
-               (log-scores-to-probabilities scores))]
+     (println "OKAY log-categorical!")
+     (let [probs  (if (map? scores)
+                    (into {} (clojure.core/map (fn [a b] [a b])
+                                               (keys scores)
+                                               (log-scores-to-probabilities (vals scores))))
+                    (do (println "going to call log-scores-to-probs of" scores)
+                        (log-scores-to-probabilities scores)))]
        (categorical probs)))
    (fn [i [scores]]
      (let [probs
