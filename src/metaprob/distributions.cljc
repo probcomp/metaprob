@@ -42,7 +42,9 @@
            (if (< r (+ (nth probs i) sum)) i (recur (inc i) (+ (nth probs i) sum)))))))
    (fn [i [probs]]
      (if (map? probs)
-       (if (not (contains? probs i)) mp/negative-infinity (- (mp/log (get probs i)) (mp/log (clojure.core/reduce + (vals probs)))))
+       (if (not (contains? probs i))
+         0
+         (- (mp/log (get probs i)) (mp/log (clojure.core/reduce + (vals probs)))))
        (mp/log (nth probs i))))))
 
 (defn logsumexp [scores]
@@ -70,7 +72,9 @@
            (if (map? scores) (into {} (clojure.core/map (fn [a b] [a b]) (keys scores) (log-scores-to-probabilities (vals scores))))
                (log-scores-to-probabilities scores))]
        (if (map? probs)
-         (if (not (contains? probs i)) mp/negative-infinity (- (mp/log (get probs i)) (mp/log (clojure.core/reduce + (vals probs)))))
+         (if (not (contains? probs i))
+           0
+           (- (mp/log (get probs i)) (mp/log (clojure.core/reduce + (vals probs)))))
          (mp/log (nth probs i)))))))
 
 
