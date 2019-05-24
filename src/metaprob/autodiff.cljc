@@ -1,10 +1,26 @@
 (ns metaprob.autodiff
   (:refer-clojure :exclude [+ * - / == < > <= >= zero? number? pos? neg?]))
 
-;; Dual numbers represent computations dependent on a value with respect to which we are differentiating.
-;; derivative contains the current derivative; value contains the current value; and tag is a special tag
-;; that helps distinguish between multiple "levels" of nested differentiations.
-(defn make-dual-number [tag value derivative]
+(defn value-with-derivative [tag value derivative]
+  "Create an object representing the value of a function and its derivative.
+
+  That is, create an object representing the values of `f(x)` and `f'(x)`,
+  where `f` is a differentiable function, `f'` denotes the derivative of `f`,
+  and `x` is a point in the domain of `f`
+
+  This type of object is useful in automatic differentiation and is sometimes
+  called a _dual number_:
+  https://en.wikipedia.org/wiki/Dual_number
+
+  The `tag` field of this object is an identifier used within the
+  implementation of automatic differentiation to distinguish between multiple
+  \"levels\" of nested differentiation.
+
+  # Fields
+  `value`: the value `f(x)`
+  `derivative`: the derivative `f'(x)`
+  `tag`: internal identifier indicating nesting level within the autodiff
+         computation"
   {:tag tag :value value :derivative derivative})
 
 (declare * + - /)
@@ -21,9 +37,9 @@
   (fn new-f [x]
     (if (bare-number? x)
       (f x)
-      (make-dual-number (:tag x)
-                        (new-f (:value x))
-                        (* (df-dx (:value x)) (:derivative x))))))
+      (value-with-derivative (:tag x)
+                             (new-f (:value x))
+                             (* (df-dx (:value x)) (:derivative x))))))
 
 ;; Lift a binary operation on numbers to work
 ;; with dual numbers. We have to consider several
@@ -36,19 +52,19 @@
       (f x1 x2)
       (or (and (map? x1) (bare-number? x2))
           (and (map? x1) (map? x2) (clojure.core/> (:tag x1) (:tag x2))))
-      (make-dual-number (:tag x1)
-                        (new-f (:value x1) x2)
-                        (* (df-dx1 (:value x1) x2) (:derivative x1)))
+      (value-with-derivative (:tag x1)
+                             (new-f (:value x1) x2)
+                             (* (df-dx1 (:value x1) x2) (:derivative x1)))
       (or (and (bare-number? x1) (map? x2))
           (and (map? x1) (map? x2) (clojure.core/< (:tag x1) (:tag x2))))
-      (make-dual-number (:tag x2)
-                        (new-f x1 (:value x2))
-                        (* (df-dx2 x1 (:value x2)) (:derivative x2)))
+      (value-with-derivative (:tag x2)
+                             (new-f x1 (:value x2))
+                             (* (df-dx2 x1 (:value x2)) (:derivative x2)))
       (and (map? x1) (map? x2) (= (:tag x1) (:tag x2)))
-      (make-dual-number (:tag x1)
-                        (new-f (:value x1) (:value x2))
-                        (+ (* (df-dx1 (:value x1) (:value x2)) (:derivative x1))
-                           (* (df-dx2 (:value x1) (:value x2)) (:derivative x2)))))))
+      (value-with-derivative (:tag x1)
+                             (new-f (:value x1) (:value x2))
+                             (+ (* (df-dx1 (:value x1) (:value x2)) (:derivative x1))
+                                (* (df-dx2 (:value x1) (:value x2)) (:derivative x2)))))))
 
 (defn lift-real*real*real->real
   [f df-dx1 df-dx2 df-dx3]
@@ -60,48 +76,48 @@
       (and (map? x1)
            (or (bare-number? x2)(clojure.core/< (:tag x2) (:tag x1)))
            (or (bare-number? x3) (clojure.core/< (:tag x3) (:tag x1))))
-      (make-dual-number (:tag x1)
-                        (new-f (:value x1) x2 x3)
-                        (* (df-dx1 (:value x1) x2 x3) (:derivative x1)))
+      (value-with-derivative (:tag x1)
+                             (new-f (:value x1) x2 x3)
+                             (* (df-dx1 (:value x1) x2 x3) (:derivative x1)))
 
       (and (map? x2)
            (or (bare-number? x1) (clojure.core/< (:tag x1) (:tag x2)))
            (or (bare-number? x3) (clojure.core/< (:tag x3) (:tag x2))))
-      (make-dual-number (:tag x2)
-                        (new-f x1 (:value x2) x3)
-                        (* (df-dx2 x1 (:value x2) x3) (:derivative x2)))
+      (value-with-derivative (:tag x2)
+                             (new-f x1 (:value x2) x3)
+                             (* (df-dx2 x1 (:value x2) x3) (:derivative x2)))
 
       (and (map? x3)
            (or (bare-number? x1) (clojure.core/< (:tag x1) (:tag x3)))
            (or (bare-number? x2) (clojure.core/< (:tag x2) (:tag x3))))
-      (make-dual-number (:tag x3)
-                        (new-f x1 x2 (:value x3))
-                        (* (df-dx3 x1 x2 (:value x3)) (:derivative x3)))
+      (value-with-derivative (:tag x3)
+                             (new-f x1 x2 (:value x3))
+                             (* (df-dx3 x1 x2 (:value x3)) (:derivative x3)))
 
       (and (map? x1) (map? x2) (= (:tag x1) (:tag x2)) (or (bare-number? x3) (clojure.core/< (:tag x3) (:tag x1))))
-      (make-dual-number (:tag x1)
-                        (new-f (:value x1) (:value x2) x3)
-                        (+ (* (df-dx1 (:value x1) (:value x2) x3) (:derivative x1))
-                           (* (df-dx2 (:value x1) (:value x2) x3) (:derivative x2))))
+      (value-with-derivative (:tag x1)
+                             (new-f (:value x1) (:value x2) x3)
+                             (+ (* (df-dx1 (:value x1) (:value x2) x3) (:derivative x1))
+                                (* (df-dx2 (:value x1) (:value x2) x3) (:derivative x2))))
 
       (and (map? x1) (map? x3) (= (:tag x1) (:tag x3)) (or (bare-number? x2) (clojure.core/< (:tag x2) (:tag x1))))
-      (make-dual-number (:tag x1)
-                        (new-f (:value x1) x2 (:value x3))
-                        (+ (* (df-dx1 (:value x1) x2 (:value x3)) (:derivative x1))
-                           (* (df-dx3 (:value x1) x2 (:value x3)) (:derivative x3))))
+      (value-with-derivative (:tag x1)
+                             (new-f (:value x1) x2 (:value x3))
+                             (+ (* (df-dx1 (:value x1) x2 (:value x3)) (:derivative x1))
+                                (* (df-dx3 (:value x1) x2 (:value x3)) (:derivative x3))))
 
       (and (map? x2) (map? x3) (= (:tag x2) (:tag x3)) (or (bare-number? x1) (clojure.core/< (:tag x1) (:tag x2))))
-      (make-dual-number (:tag x2)
-                        (new-f x1 (:value x2) (:value x3))
-                        (+ (* (df-dx2 x1 (:value x2) (:value x3)) (:derivative x2))
-                           (* (df-dx3 x1 (:value x2) (:value x3)) (:derivative x3))))
+      (value-with-derivative (:tag x2)
+                             (new-f x1 (:value x2) (:value x3))
+                             (+ (* (df-dx2 x1 (:value x2) (:value x3)) (:derivative x2))
+                                (* (df-dx3 x1 (:value x2) (:value x3)) (:derivative x3))))
 
       (and (map? x1) (map? x2) (map? x3) (= (:tag x1) (:tag x2) (:tag x3)))
-      (make-dual-number (:tag x2)
-                        (new-f (:value x1) (:value x2) (:value x3))
-                        (+ (* (df-dx1 (:value x1) (:value x2) (:value x3)) (:derivative x1))
-                           (* (df-dx2 (:value x1) (:value x2) (:value x3)) (:derivative x2))
-                           (* (df-dx3 (:value x1) (:value x2) (:value x3)) (:derivative x3)))))))
+      (value-with-derivative (:tag x2)
+                             (new-f (:value x1) (:value x2) (:value x3))
+                             (+ (* (df-dx1 (:value x1) (:value x2) (:value x3)) (:derivative x1))
+                                (* (df-dx2 (:value x1) (:value x2) (:value x3)) (:derivative x2))
+                                (* (df-dx3 (:value x1) (:value x2) (:value x3)) (:derivative x3)))))))
 
 ;; For functions like + and *, which can take multiple arguments
 (defn lift-real-n->real [f df-dx1 df-dx2]
@@ -217,7 +233,7 @@
 (defn forward-mode [apply-2 apply-1 f x x-deriv]
   ;; Based on R6RS-ad, thus doesn't support tangent vector mode
   (swap! e inc)
-  (let [y-forward (f (apply-2 (fn [x x-deriv] (make-dual-number @e x x-deriv)) x x-deriv))]
+  (let [y-forward (f (apply-2 (fn [x x-deriv] (value-with-derivative @e x x-deriv)) x x-deriv))]
     (swap! e dec)
     [(apply-1 (fn [y-forward]
                 (if (or (not (map? y-forward)) (clojure.core/< (:tag y-forward) @e))
