@@ -9,7 +9,7 @@
 
 (declare * + - /)
 
-(def non-dual? clojure.core/number?)
+(def bare-number? clojure.core/number?)
 
 ;; Take a unary operation f on numbers
 ;; and lift it to work with dual numbers.
@@ -19,7 +19,7 @@
 (defn lift-real->real
   [f df-dx]
   (fn new-f [x]
-    (if (non-dual? x)
+    (if (bare-number? x)
       (f x)
       (make-dual-number (:tag x)
                         (new-f (:value x))
@@ -32,14 +32,14 @@
   [f df-dx1 df-dx2]
   (fn new-f [x1 x2]
     (cond
-      (and (non-dual? x1) (non-dual? x2))
+      (and (bare-number? x1) (bare-number? x2))
       (f x1 x2)
-      (or (and (map? x1) (non-dual? x2))
+      (or (and (map? x1) (bare-number? x2))
           (and (map? x1) (map? x2) (clojure.core/> (:tag x1) (:tag x2))))
       (make-dual-number (:tag x1)
                         (new-f (:value x1) x2)
                         (* (df-dx1 (:value x1) x2) (:derivative x1)))
-      (or (and (non-dual? x1) (map? x2))
+      (or (and (bare-number? x1) (map? x2))
           (and (map? x1) (map? x2) (clojure.core/< (:tag x1) (:tag x2))))
       (make-dual-number (:tag x2)
                         (new-f x1 (:value x2))
@@ -54,43 +54,43 @@
   [f df-dx1 df-dx2 df-dx3]
   (fn new-f [x1 x2 x3]
     (cond
-      (and (non-dual? x1) (non-dual? x2) (non-dual? x3))
+      (and (bare-number? x1) (bare-number? x2) (bare-number? x3))
       (f x1 x2 x3)
 
       (and (map? x1)
-           (or (non-dual? x2)(clojure.core/< (:tag x2) (:tag x1)))
-           (or (non-dual? x3) (clojure.core/< (:tag x3) (:tag x1))))
+           (or (bare-number? x2)(clojure.core/< (:tag x2) (:tag x1)))
+           (or (bare-number? x3) (clojure.core/< (:tag x3) (:tag x1))))
       (make-dual-number (:tag x1)
                         (new-f (:value x1) x2 x3)
                         (* (df-dx1 (:value x1) x2 x3) (:derivative x1)))
 
       (and (map? x2)
-           (or (non-dual? x1) (clojure.core/< (:tag x1) (:tag x2)))
-           (or (non-dual? x3) (clojure.core/< (:tag x3) (:tag x2))))
+           (or (bare-number? x1) (clojure.core/< (:tag x1) (:tag x2)))
+           (or (bare-number? x3) (clojure.core/< (:tag x3) (:tag x2))))
       (make-dual-number (:tag x2)
                         (new-f x1 (:value x2) x3)
                         (* (df-dx2 x1 (:value x2) x3) (:derivative x2)))
 
       (and (map? x3)
-           (or (non-dual? x1) (clojure.core/< (:tag x1) (:tag x3)))
-           (or (non-dual? x2) (clojure.core/< (:tag x2) (:tag x3))))
+           (or (bare-number? x1) (clojure.core/< (:tag x1) (:tag x3)))
+           (or (bare-number? x2) (clojure.core/< (:tag x2) (:tag x3))))
       (make-dual-number (:tag x3)
                         (new-f x1 x2 (:value x3))
                         (* (df-dx3 x1 x2 (:value x3)) (:derivative x3)))
 
-      (and (map? x1) (map? x2) (= (:tag x1) (:tag x2)) (or (non-dual? x3) (clojure.core/< (:tag x3) (:tag x1))))
+      (and (map? x1) (map? x2) (= (:tag x1) (:tag x2)) (or (bare-number? x3) (clojure.core/< (:tag x3) (:tag x1))))
       (make-dual-number (:tag x1)
                         (new-f (:value x1) (:value x2) x3)
                         (+ (* (df-dx1 (:value x1) (:value x2) x3) (:derivative x1))
                            (* (df-dx2 (:value x1) (:value x2) x3) (:derivative x2))))
 
-      (and (map? x1) (map? x3) (= (:tag x1) (:tag x3)) (or (non-dual? x2) (clojure.core/< (:tag x2) (:tag x1))))
+      (and (map? x1) (map? x3) (= (:tag x1) (:tag x3)) (or (bare-number? x2) (clojure.core/< (:tag x2) (:tag x1))))
       (make-dual-number (:tag x1)
                         (new-f (:value x1) x2 (:value x3))
                         (+ (* (df-dx1 (:value x1) x2 (:value x3)) (:derivative x1))
                            (* (df-dx3 (:value x1) x2 (:value x3)) (:derivative x3))))
 
-      (and (map? x2) (map? x3) (= (:tag x2) (:tag x3)) (or (non-dual? x1) (clojure.core/< (:tag x1) (:tag x2))))
+      (and (map? x2) (map? x3) (= (:tag x2) (:tag x3)) (or (bare-number? x1) (clojure.core/< (:tag x1) (:tag x2))))
       (make-dual-number (:tag x2)
                         (new-f x1 (:value x2) (:value x3))
                         (+ (* (df-dx2 x1 (:value x2) (:value x3)) (:derivative x2))
@@ -118,7 +118,7 @@
           :else (reduce (lift-real*real->real f df-dx1 df-dx2) xs))))
 
 (defn value [x]
-  (if (non-dual? x) x (:value x)))
+  (if (bare-number? x) x (:value x)))
 
 
 (defn lift-real-n->boolean [f]
