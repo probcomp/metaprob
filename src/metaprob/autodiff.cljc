@@ -27,12 +27,16 @@
 
 (def bare-number? clojure.core/number?)
 
-;; Take a unary operation f on numbers
-;; and lift it to work with dual numbers.
-;; Note that df-dx should itself be a lifted
-;; function for computing the derivative of f
-;; at a point.
 (defn lift-real->real
+  "Lift a unary operation `f` on numbers to also support `value-with-derivative`s.
+
+  Note that `df-dx` should itself be a lifted function (i.e. must allow its
+  argument to be either a bare number or a `value-with-derivative`) that
+  computes the derivative of `f` at a point.
+
+  The returned function accepts either a bare number or a
+  `value-with-derivative` as its input, and produces an output of the same type
+  and the same nesting level (`:autodiff/tag`)."
   [f df-dx]
   (fn new-f [x]
     (if (bare-number? x)
