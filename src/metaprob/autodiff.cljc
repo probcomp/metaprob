@@ -213,13 +213,13 @@
                           (fn [x] (- (sin x)))))
 
 (def tan (lift-real->real #(Math/tan %)
-                          (fn [x] (+ 1 (** (cos x) 2)))))
+                          (fn [x] (+ 1 (#(* % %) (cos x))))))
 
 (def asin (lift-real->real #(Math/asin %)
-                           (fn [x] (/ 1 (sqrt (- 1 (** x 2)))))))
+                           (fn [x] (/ 1 (sqrt (- 1 (* x x)))))))
 
 (def acos (lift-real->real #(Math/acos %)
-                           (fn [x] (- (/ 1 (sqrt (- 1 (** x 2))))))))
+                           (fn [x] (- (/ 1 (sqrt (- 1 (* x x))))))))
 
 (def atan (lift-real->real #(Math/atan %)
                            (fn [x] (/ 1 (+ 1 (* x x))))))
@@ -233,7 +233,7 @@
 
 
 (def tanh (lift-real->real #(Math/tanh %)
-                           (fn [x] (- 1 (** (tanh x) 2)))))
+                           (fn [x] (- 1 (#(* % %) (tanh x))))))
 
 (def == (lift-real-n->boolean clojure.core/==))
 
