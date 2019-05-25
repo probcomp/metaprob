@@ -213,7 +213,7 @@
                           (fn [x] (- (sin x)))))
 
 (def tan (lift-real->real #(Math/tan %)
-                          (fn [x] (+ 1 (** (tan x) 2)))))
+                          (fn [x] (+ 1 (** (cos x) 2)))))
 
 (def asin (lift-real->real #(Math/asin %)
                            (fn [x] (/ 1 (sqrt (- 1 (** x 2)))))))
