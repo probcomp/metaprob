@@ -233,7 +233,7 @@
 
 
 (def tanh (lift-real->real #(Math/tanh %)
-                           (fn [x] (- 1 (#(* % %) (tanh x))))))
+                           (fn [x] (/ (#(* % %) (cosh x))))))
 
 (def == (lift-real-n->boolean clojure.core/==))
 
