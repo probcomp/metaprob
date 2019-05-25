@@ -19,9 +19,9 @@
   # Fields
   `value`: the value `f(x)`
   `derivative`: the derivative `f'(x)`
-  `tag`: internal identifier indicating nesting level within the autodiff
-         computation"
-  {:tag tag :value value :derivative derivative})
+  `autodiff/tag`: internal identifier indicating nesting level within the
+                  autodiff computation"
+  {::tag tag :value value :derivative derivative})
 
 (declare * + - /)
 
@@ -37,7 +37,7 @@
   (fn new-f [x]
     (if (bare-number? x)
       (f x)
-      (value-with-derivative (:tag x)
+      (value-with-derivative (::tag x)
                              (new-f (:value x))
                              (* (df-dx (:value x)) (:derivative x))))))
 
@@ -51,17 +51,17 @@
       (and (bare-number? x1) (bare-number? x2))
       (f x1 x2)
       (or (and (map? x1) (bare-number? x2))
-          (and (map? x1) (map? x2) (clojure.core/> (:tag x1) (:tag x2))))
-      (value-with-derivative (:tag x1)
+          (and (map? x1) (map? x2) (clojure.core/> (::tag x1) (::tag x2))))
+      (value-with-derivative (::tag x1)
                              (new-f (:value x1) x2)
                              (* (df-dx1 (:value x1) x2) (:derivative x1)))
       (or (and (bare-number? x1) (map? x2))
-          (and (map? x1) (map? x2) (clojure.core/< (:tag x1) (:tag x2))))
-      (value-with-derivative (:tag x2)
+          (and (map? x1) (map? x2) (clojure.core/< (::tag x1) (::tag x2))))
+      (value-with-derivative (::tag x2)
                              (new-f x1 (:value x2))
                              (* (df-dx2 x1 (:value x2)) (:derivative x2)))
-      (and (map? x1) (map? x2) (= (:tag x1) (:tag x2)))
-      (value-with-derivative (:tag x1)
+      (and (map? x1) (map? x2) (= (::tag x1) (::tag x2)))
+      (value-with-derivative (::tag x1)
                              (new-f (:value x1) (:value x2))
                              (+ (* (df-dx1 (:value x1) (:value x2)) (:derivative x1))
                                 (* (df-dx2 (:value x1) (:value x2)) (:derivative x2)))))))
@@ -74,46 +74,46 @@
       (f x1 x2 x3)
 
       (and (map? x1)
-           (or (bare-number? x2)(clojure.core/< (:tag x2) (:tag x1)))
-           (or (bare-number? x3) (clojure.core/< (:tag x3) (:tag x1))))
-      (value-with-derivative (:tag x1)
+           (or (bare-number? x2)(clojure.core/< (::tag x2) (::tag x1)))
+           (or (bare-number? x3) (clojure.core/< (::tag x3) (::tag x1))))
+      (value-with-derivative (::tag x1)
                              (new-f (:value x1) x2 x3)
                              (* (df-dx1 (:value x1) x2 x3) (:derivative x1)))
 
       (and (map? x2)
-           (or (bare-number? x1) (clojure.core/< (:tag x1) (:tag x2)))
-           (or (bare-number? x3) (clojure.core/< (:tag x3) (:tag x2))))
-      (value-with-derivative (:tag x2)
+           (or (bare-number? x1) (clojure.core/< (::tag x1) (::tag x2)))
+           (or (bare-number? x3) (clojure.core/< (::tag x3) (::tag x2))))
+      (value-with-derivative (::tag x2)
                              (new-f x1 (:value x2) x3)
                              (* (df-dx2 x1 (:value x2) x3) (:derivative x2)))
 
       (and (map? x3)
-           (or (bare-number? x1) (clojure.core/< (:tag x1) (:tag x3)))
-           (or (bare-number? x2) (clojure.core/< (:tag x2) (:tag x3))))
-      (value-with-derivative (:tag x3)
+           (or (bare-number? x1) (clojure.core/< (::tag x1) (::tag x3)))
+           (or (bare-number? x2) (clojure.core/< (::tag x2) (::tag x3))))
+      (value-with-derivative (::tag x3)
                              (new-f x1 x2 (:value x3))
                              (* (df-dx3 x1 x2 (:value x3)) (:derivative x3)))
 
-      (and (map? x1) (map? x2) (= (:tag x1) (:tag x2)) (or (bare-number? x3) (clojure.core/< (:tag x3) (:tag x1))))
-      (value-with-derivative (:tag x1)
+      (and (map? x1) (map? x2) (= (::tag x1) (::tag x2)) (or (bare-number? x3) (clojure.core/< (::tag x3) (::tag x1))))
+      (value-with-derivative (::tag x1)
                              (new-f (:value x1) (:value x2) x3)
                              (+ (* (df-dx1 (:value x1) (:value x2) x3) (:derivative x1))
                                 (* (df-dx2 (:value x1) (:value x2) x3) (:derivative x2))))
 
-      (and (map? x1) (map? x3) (= (:tag x1) (:tag x3)) (or (bare-number? x2) (clojure.core/< (:tag x2) (:tag x1))))
-      (value-with-derivative (:tag x1)
+      (and (map? x1) (map? x3) (= (::tag x1) (::tag x3)) (or (bare-number? x2) (clojure.core/< (::tag x2) (::tag x1))))
+      (value-with-derivative (::tag x1)
                              (new-f (:value x1) x2 (:value x3))
                              (+ (* (df-dx1 (:value x1) x2 (:value x3)) (:derivative x1))
                                 (* (df-dx3 (:value x1) x2 (:value x3)) (:derivative x3))))
 
-      (and (map? x2) (map? x3) (= (:tag x2) (:tag x3)) (or (bare-number? x1) (clojure.core/< (:tag x1) (:tag x2))))
-      (value-with-derivative (:tag x2)
+      (and (map? x2) (map? x3) (= (::tag x2) (::tag x3)) (or (bare-number? x1) (clojure.core/< (::tag x1) (::tag x2))))
+      (value-with-derivative (::tag x2)
                              (new-f x1 (:value x2) (:value x3))
                              (+ (* (df-dx2 x1 (:value x2) (:value x3)) (:derivative x2))
                                 (* (df-dx3 x1 (:value x2) (:value x3)) (:derivative x3))))
 
-      (and (map? x1) (map? x2) (map? x3) (= (:tag x1) (:tag x2) (:tag x3)))
-      (value-with-derivative (:tag x2)
+      (and (map? x1) (map? x2) (map? x3) (= (::tag x1) (::tag x2) (::tag x3)))
+      (value-with-derivative (::tag x2)
                              (new-f (:value x1) (:value x2) (:value x3))
                              (+ (* (df-dx1 (:value x1) (:value x2) (:value x3)) (:derivative x1))
                                 (* (df-dx2 (:value x1) (:value x2) (:value x3)) (:derivative x2))
@@ -236,12 +236,12 @@
   (let [y-forward (f (apply-2 (fn [x x-deriv] (value-with-derivative @e x x-deriv)) x x-deriv))]
     (swap! e dec)
     [(apply-1 (fn [y-forward]
-                (if (or (not (map? y-forward)) (clojure.core/< (:tag y-forward) @e))
+                (if (or (not (map? y-forward)) (clojure.core/< (::tag y-forward) @e))
                   y-forward
                   (:value y-forward)))
               y-forward)
      (apply-1 (fn [y-forward]
-                (if (or (not (map? y-forward)) (clojure.core/< (:tag y-forward) @e))
+                (if (or (not (map? y-forward)) (clojure.core/< (::tag y-forward) @e))
                   0
                   (:derivative y-forward)))
               y-forward)]))
