@@ -45,10 +45,21 @@
                              (new-f (:value x))
                              (* (df-dx (:value x)) (:derivative x))))))
 
-;; Lift a binary operation on numbers to work
-;; with dual numbers. We have to consider several
-;; cases here.
 (defn lift-real*real->real
+  "Like `lift-real->real`, but here the function `f` is a binary operation.
+
+  The argument `df-dx1` is a function that computes the partial derivative of
+  `(f x1 x2)` with respect to `x1`.  It takes two arguments, each of which may
+  be either a bare number or a `value-with-derivative`; these arguments
+  identify the point  at which to evaluate the derivative (often denoted `(x1,
+  x2)` in math notation, though this is a name collision).
+
+  Similarly, `df-dx2` computes the partial derivative of `(f x1 x2)` with
+  respect to `x2`.
+  
+  The returned function accepts either a bare number or a
+  `value-with-derivative` for each of its arguments, and produces an output...
+  TODO(bzinberg) what does it produce."
   [f df-dx1 df-dx2]
   (fn new-f [x1 x2]
     (cond
