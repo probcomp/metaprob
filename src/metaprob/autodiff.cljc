@@ -182,7 +182,9 @@
                           (fn [x1 x2] x1)))
 
 (declare log)
-(def ** (lift-real*real->real #(Math/pow %1 %2)
+(def **
+  "Power function, `pow(x1, x2) = x1**x2`. The base `x1` must be positive."
+  (lift-real*real->real #(Math/pow %1 %2)
                               (fn [x1 x2] (* x2 (** x1 (- x2 1))))
                               (fn [x1 x2] (* (log x1) (** x1 x2)))))
 
