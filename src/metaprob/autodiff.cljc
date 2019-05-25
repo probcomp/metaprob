@@ -148,12 +148,24 @@
           (empty? (rest xs)) ((lift-real->real f df-dx) (first xs))
           :else (reduce (lift-real*real->real f df-dx1 df-dx2) xs))))
 
-(defn value [x]
-  (if (bare-number? x) x (:value x)))
+(defn recursive-unnest-value [x]
+  "Recursively unnest the `value` field of a `value-with-derivative`.
+
+  The return value is `(:value (:value (... (:value x))))`, where the number of
+  nestings used is the smallest such that the return value is not a map.  In
+  particular, if `x` is already not a map, then the return value is `x`
+  itself." 
+  (if (map? x)
+    (recur (:value x))
+    x))
+
+(defn shallow-unnest-value [x]
+  "Return the `value` field. Acts as the identity if the argument is not a map."
+  (if (map? x) (:value x) x)
 
 
 (defn lift-real-n->boolean [f]
-  (fn [& xs] (apply f (map value xs))))
+  (fn [& xs] (apply f (map shallow-unnest-value xs))))
 
 
 (def + (lift-real-n->real clojure.core/+
