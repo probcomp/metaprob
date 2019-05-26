@@ -48,7 +48,7 @@
       y)))
 
 ; Guide
-(defn normal-normal-predicter
+(defn normal-normal-predictor
   [[a b sigma2]]
   (gen [obs]
     (let [y (trace/trace-value obs "y")]
@@ -57,7 +57,7 @@
           (ad/sqrt sigma2)))))
 
 ;; Amortized inference: minimize KL(model || guide)
-(defn train-normal-normal-predicter-amortized []
+(defn train-normal-normal-predictor-amortized []
   (let [final-params
         (time
           (last
@@ -66,17 +66,17 @@
                     (fn [params]
                       (infer/train-amortized-inference-program
                         :model normal-normal
-                        :guide normal-normal-predicter
+                        :guide normal-normal-predictor
                         :observation-addresses ["y"]
                         :step-size 0.01
                         :batch-size 10
                         :current-params params))
                     [1 1 1]))))]
     (println final-params)
-    (normal-normal-predicter final-params)))
+    (normal-normal-predictor final-params)))
 
 ;; Variational inference: minimize KL(guide || model)
-(defn train-normal-normal-predicter-variational []
+(defn train-normal-normal-predictor-variational []
   (let [final-params
         (time
           (last
@@ -85,16 +85,16 @@
                     (fn [params]
                       (infer/reparam-variational-inference
                         :model normal-normal
-                        :guide normal-normal-predicter
+                        :guide normal-normal-predictor
                         :observation-addresses ["y"]
                         :step-size 0.01
                         :current-params params))
                     [1 1 1]))))]
     (println final-params)
-    (normal-normal-predicter final-params)))
+    (normal-normal-predictor final-params)))
 
 ;; Score Variational inference: minimize KL(guide || model)
-(defn train-normal-normal-predicter-variational-score []
+(defn train-normal-normal-predictor-variational-score []
   (let [final-params
         (time
           (last
@@ -103,19 +103,19 @@
                     (fn [params]
                       (infer/score-func-variational-inference
                         :model normal-normal
-                        :guide normal-normal-predicter
+                        :guide normal-normal-predictor
                         :observation-addresses ["y"]
                         :step-size 0.0005
                         :current-params params))
                     [1 1 1]))))]
     (println final-params)
-    (normal-normal-predicter final-params)))
+    (normal-normal-predictor final-params)))
 
 
 (defn normal-normal-demo []
-  (train-normal-normal-predicter-amortized)
-  (train-normal-normal-predicter-variational)
-  (train-normal-normal-predicter-variational-score))
+  (train-normal-normal-predictor-amortized)
+  (train-normal-normal-predictor-variational)
+  (train-normal-normal-predictor-variational-score))
 
 
 (def mixture-model
@@ -125,13 +125,13 @@
                  (ad/+ (ad/* 0.5 (ad/exp (dist/score-gaussian x [-5 1])))
                        (ad/* 0.5 (ad/exp (dist/score-gaussian x [5 1]))))))))
 
-(defn mixture-predicter
+(defn mixture-predictor
   [[mu sigma]]
   (gen [obs]
     (at '() dist/gaussian mu sigma)))
 
 ;; Amortized inference: minimize KL(model || guide)
-(defn train-mixture-predicter-amortized []
+(defn train-mixture-predictor-amortized []
   (let [final-params
         (time
           (last
@@ -140,7 +140,7 @@
                     (fn [params]
                       (infer/train-amortized-inference-program
                         :model mixture-model
-                        :guide mixture-predicter
+                        :guide mixture-predictor
                         :observation-addresses []
                         :step-size 0.01
                         :batch-size 10
@@ -148,10 +148,10 @@
                     [2 1]))))]
     (println final-params)
 
-    (mixture-predicter final-params)))
+    (mixture-predictor final-params)))
 
 ;; Variational inference: minimize KL(guide || model)
-(defn train-mixture-predicter-variational []
+(defn train-mixture-predictor-variational []
   (let [final-params
         (time
           (last
@@ -160,17 +160,17 @@
                     (fn [params]
                       (infer/reparam-variational-inference
                         :model mixture-model
-                        :guide mixture-predicter
+                        :guide mixture-predictor
                         :observation-addresses []
                         :step-size 0.05
                         :current-params params))
                     [0 1]))))]
     (println final-params)
-    (mixture-predicter final-params)))
+    (mixture-predictor final-params)))
 
 
 ;; Variational inference: minimize KL(guide || model)
-(defn train-mixture-predicter-variational-score []
+(defn train-mixture-predictor-variational-score []
   (let [final-params
         (time
           (last
@@ -179,19 +179,19 @@
                     (fn [params]
                       (infer/score-func-variational-inference
                         :model mixture-model
-                        :guide mixture-predicter
+                        :guide mixture-predictor
                         :observation-addresses []
                         :step-size 0.05
                         :current-params params))
                     [0 1]))))]
     (println final-params)
-    (mixture-predicter final-params)))
+    (mixture-predictor final-params)))
 
 
 (defn mixture-demo []
-  (train-mixture-predicter-amortized)
-  (train-mixture-predicter-variational)
-  (train-mixture-predicter-variational-score))
+  (train-mixture-predictor-amortized)
+  (train-mixture-predictor-variational)
+  (train-mixture-predictor-variational-score))
 
 
 (defn -main []
