@@ -26,11 +26,16 @@ curve is steep if you haven't used emacs before.
 
 To get an interactive read-eval-print loop at the shell:
 
-    $ clj
+    $ lein repl
 
 This should be done with the working directory set to the directory that
 contains `deps.edn`, which in this setup would normally be the clone of the
 `metaprob` repository.
+
+One difference between running `lein repl` versus running `clj` is that `lein
+repl` will set the classpath according to the project's configuration.  Thus,
+if you simply use `clj`, you may get import errors when trying to import or run
+code.
 
 ### Using Clojure under Emacs
 
