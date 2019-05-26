@@ -262,15 +262,20 @@
 (defn forward-mode [apply-2 apply-1 f x x-deriv]
   ;; Based on R6RS-ad, thus doesn't support tangent vector mode
   (swap! e inc)
-  (let [y-forward (f (apply-2 (fn [x x-deriv] (value-with-derivative @e x x-deriv)) x x-deriv))]
+  (let [y-forward (f (apply-2
+                       (fn [x x-deriv] (value-with-derivative @e x x-deriv))
+                       x
+                       x-deriv))]
     (swap! e dec)
     [(apply-1 (fn [y-forward]
-                (if (or (not (map? y-forward)) (clojure.core/< (::tag y-forward) @e))
+                (if (or (not (map? y-forward))
+                        (clojure.core/< (::tag y-forward) @e))
                   y-forward
                   (:value y-forward)))
               y-forward)
      (apply-1 (fn [y-forward]
-                (if (or (not (map? y-forward)) (clojure.core/< (::tag y-forward) @e))
+                (if (or (not (map? y-forward))
+                        (clojure.core/< (::tag y-forward) @e))
                   0
                   (:derivative y-forward)))
               y-forward)]))
