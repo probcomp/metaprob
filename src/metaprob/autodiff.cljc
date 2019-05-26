@@ -161,7 +161,7 @@
 
 (defn shallow-unnest-value [x]
   "Return the `value` field. Acts as the identity if the argument is not a map."
-  (if (map? x) (:value x) x)
+  (if (map? x) (:value x) x))
 
 
 (defn lift-real-n->boolean [f]
