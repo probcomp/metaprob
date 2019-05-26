@@ -468,7 +468,7 @@
                 (mp/infer-and-score :procedure (guide params)
                                     :inputs [observed])
 
-                ;; TODO: double check that this is right, and doesn't need to be (map ad/value proposed-trace)
+                ;; TODO: double check that this is right, and doesn't need to be (map ad/shallow-unnest-value proposed-trace)
                 [_ _ guide-score]
                 (mp/infer-and-score :procedure (guide params)
                                     :inputs [observed]
@@ -506,7 +506,7 @@
         score-params
         (fn [params]
           (let [[_ proposed-trace _]
-                (mp/infer-and-score :procedure (guide (map ad/value params))
+                (mp/infer-and-score :procedure (guide (map ad/shallow-unnest-value params))
                                     :inputs [observed])
 
                 [_ _ guide-score]
@@ -520,7 +520,7 @@
 
             ;; Is this right? Seems like there's no reason to use score
             ;; for the `q` here: we know its derivative exactly!
-            (ad/* (- (ad/value model-score) (ad/value guide-score)) guide-score)))
+            (ad/* (- (ad/shallow-unnest-value model-score) (ad/shallow-unnest-value guide-score)) guide-score)))
 
         param-gradient
         ((ad/gradient score-params) current-params)
