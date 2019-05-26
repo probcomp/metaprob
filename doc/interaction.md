@@ -213,7 +213,7 @@ tests instead of the REPL.  The disadvantages of tests compared to the REPL are
 You can run tests either from the shell or from inside Clojure.  From
 the Clojure REPL: Run tests for all modules in the project:
 
-    (require 'metaprob.examples.all)
+    (require 'metaprob.all-tests)
     (require '[clojure.test :refer :all])
     (run-all-tests)
 

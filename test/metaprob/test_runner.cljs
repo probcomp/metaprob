@@ -1,15 +1,10 @@
 (ns metaprob.test-runner
   (:require [cljs.test :as test :include-macros true]
+            [metaprob.all-tests]
             [metaprob.autotrace]
             [metaprob.code-handlers]
-            [metaprob.compositional-test]
-            [metaprob.distributions-test]
             [metaprob.expander]
-            [metaprob.generative-functions]
-            [metaprob.inference-test]
-            [metaprob.prelude-test]
-            [metaprob.syntax-test]
-            [metaprob.trace-test]))
+            [metaprob.generative-functions]))
 
 (defn -main
   [& args]
