@@ -24,8 +24,16 @@
 
 (deftest compare-to-finite-differences
   (testing "compare autodiff to finite-differences approximation"
+    (def compare-single
+      "Compares the value of the derivative of `f` as computed by autodiff vs.
+      finite differences, at the point `x`."
+      (fn [f f-name x epsilon atol]
+        (is (< (absdiff ((diff f) x)
+                        (finite-difference f x epsilon))
+               atol)
+            (str "Autodiff disagrees with finite differences for " f-name))))
+
     (let [f-vars [
-                  #'autodiff/tanh
                   #'autodiff/sqrt
                   #'autodiff/exp
                   #'autodiff/log
@@ -44,12 +52,10 @@
           xs (repeat n 0.6)
           epsilons (repeat n 1e-4)
           atols (repeat n 1e-5)]
-      (doseq [f (map var-get f-vars)
-              f-name (map (comp :name meta) f-vars)
-              x xs
-              epsilon epsilons
-              atol atols]
-        (is (< (absdiff ((diff f) x)
-                        (finite-difference f x epsilon))
-               atol)
-            (str "Autodiff disagrees with finite differences for " f-name))))))
+      (doall (map #(apply compare-single %)
+                  (map vector
+                       (map var-get f-vars)
+                       (map (comp :name meta) f-vars)
+                       xs
+                       epsilons
+                       atols))))))
