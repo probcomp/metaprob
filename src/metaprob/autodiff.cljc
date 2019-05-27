@@ -257,35 +257,25 @@
 
 (def e (atom 0))
 
-;; Helper function used by `diff` and `gradient`.
 ;; Returns [(f x) (df-dx x)]
-(defn forward-mode [apply-2 apply-1 f x x-deriv]
+(defn forward-mode [f x x-deriv]
   ;; Based on R6RS-ad, thus doesn't support tangent vector mode
   (swap! e inc)
-  (let [y-forward (f (apply-2
-                       (fn [x x-deriv] (value-with-derivative @e x x-deriv))
-                       x
-                       x-deriv))]
+  (let [y-forward (f (value-with-derivative @e
+                                            x
+                                            x-deriv))]
     (swap! e dec)
-    [(apply-1 (fn [y-forward]
-                (if (or (not (map? y-forward))
-                        (clojure.core/< (::tag y-forward) @e))
-                  y-forward
-                  (:value y-forward)))
-              y-forward)
-     (apply-1 (fn [y-forward]
-                (if (or (not (map? y-forward))
-                        (clojure.core/< (::tag y-forward) @e))
-                  0
-                  (:derivative y-forward)))
-              y-forward)]))
+    [(if (or (not (map? y-forward))
+             (clojure.core/< (::tag y-forward) @e))
+       y-forward
+       (:value y-forward))
+     (if (or (not (map? y-forward))
+             (clojure.core/< (::tag y-forward) @e))
+       0
+       (:derivative y-forward)) ]))
 
-;; Our "map" functions just apply `f`.
 (defn diff [f]
-  (fn [x]
-    (second (forward-mode (fn [f x x-deriv] (f x x-deriv))
-                          (fn [f y-forward] (f y-forward))
-                          f x 1))))
+  (fn [x] (second (forward-mode f x 1))))
 
 ;; To get a gradient, we differentiate w.r.t. each variable.
 ;; Assumes f's argument is a vector of real numbers.
