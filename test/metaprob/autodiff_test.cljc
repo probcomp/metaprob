@@ -52,10 +52,9 @@
           xs (repeat n 0.6)
           epsilons (repeat n 1e-4)
           atols (repeat n 1e-5)]
-      (doall (map #(apply compare-single %)
-                  (map vector
-                       (map var-get f-vars)
-                       (map (comp :name meta) f-vars)
-                       xs
-                       epsilons
-                       atols))))))
+      (doall (map compare-single
+                  (map var-get f-vars)
+                  (map (comp :name meta) f-vars)
+                  xs
+                  epsilons
+                  atols)))))
