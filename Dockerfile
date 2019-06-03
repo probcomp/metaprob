@@ -79,6 +79,8 @@ COPY --chown=metaprob:metaprob ./deps.edn $METAPROB_DIR
 COPY --chown=metaprob:metaprob ./project.clj $METAPROB_DIR
 RUN clojure -e "(clojure-version)"
 
+RUN make node_modules
+
 # downgrade tornado.
 # see https://stackoverflow.com/questions/54963043/jupyter-notebook-no-connection-to-server-because-websocket-connection-fails
 
