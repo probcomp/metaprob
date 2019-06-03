@@ -1,4 +1,4 @@
-{:deps {org.clojure/clojure {:mvn/version "1.9.0"}
+{:deps {org.clojure/clojure {:mvn/version "1.10.0"}
         org.clojure/tools.cli {:mvn/version "0.4.1"}
         incanter/incanter-core {:mvn/version "1.9.3"}
         kixi/stats {:mvn/version "0.4.0"}}
@@ -6,16 +6,10 @@
  :aliases {:examples {:jvm-opts ["-Xss50M"]
                       :main-opts ["-m" "metaprob.examples.main"]}
            :test {:extra-paths ["test"]
-                  :extra-deps {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                                          :sha "028a6d41ac9ac5d5c405dfc38e4da6b4cc1255d5"}}
+                  :extra-deps {lambdaisland/kaocha {:mvn/version "0.0-418"}}
                   ;; Default stack size is 1MB or less, increase to 50. For more
                   ;; information on `java` options:
                   ;; https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html
-                  :jvm-opts ["-Xss50M"]
-                  :main-opts ["-m" "cognitect.test-runner"]}
-
-           :cljs {:extra-deps {org.clojure/clojurescript {:mvn/version "1.10.339"}}}
-           :cljstest {:extra-paths ["test"]
-                      :main-opts ["-m"  "cljs.main"
-                                  "-re" "node"
-                                  "-m"  "metaprob.test-runner"]}}}
+                  :jvm-opts ["-Xss50M"]}
+           :cljs {:extra-deps {org.clojure/clojurescript {:mvn/version "1.10.520"}}}
+           :cljs-test {:extra-deps {lambdaisland/kaocha-cljs {:mvn/version "0.0-32"}}}}}

@@ -101,8 +101,8 @@
                  "c" {:value {"d" {:value 71}}}}
           ;; sites (sequence/sequence-to-seq (addresses-of tr))
           sites (trace/addresses-of tr)
-          vals  (map (fn [site] (trace/trace-value tr site)) sites)
-          has? (fn [val] (some (fn [x] (= x val)) vals))]
+          vals  (map #(trace/trace-value tr %) sites)
+          has? #(is (some? (some #{%} vals)))]
       (has? 17)
       (has? 31)
       (has? {"d" {:value 71}}))))
