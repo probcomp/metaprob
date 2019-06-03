@@ -163,7 +163,7 @@
       (importance-resampling
         :model earthquake-bayesian-network
         :obesrvation-trace alarm-went-off
-        n-particles))))
+        :n-particles n-particles))))
 
 
 ;; TBD: importance sampling
