@@ -90,7 +90,8 @@ docker-build:
 
 .PHONY: docker-test
 docker-test:
-	docker run --rm -t probcomp/metaprob-clojure:latest bash -c "make test"
+	docker run --rm -t probcomp/metaprob-clojure:latest bash -c "bin/kaocha"
+	docker run --rm -t probcomp/metaprob-clojure:latest bash -c "bin/test-self-host"
 
 .PHONY: docker-bash
 docker-bash:
