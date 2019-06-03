@@ -1,6 +1,13 @@
 #kaocha/v1
-{:tests [{:id :clj
-          :type :kaocha.type/clojure.test}
-         {:id :cljs
-          :type :kaocha.type/cljs
-          :cljs/repl-env cljs.repl.node/repl-env}]}
+{:tests [{:id         :clj
+          :type       :kaocha.type/clojure.test
+          :test-paths ["test"]}
+         {:id            :cljs
+          :type          :kaocha.type/cljs
+          :cljs/timeout  20000 ; milliseconds
+          :test-paths    ["test"]
+          :cljs/repl-env cljs.repl.node/repl-env}
+         {:id          :long
+          :type        :kaocha.type/clojure.test
+          :test-paths  []
+          :ns-patterns ["metaprob.examples.long-test"]}]}

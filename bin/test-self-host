@@ -1,0 +1,4 @@
+#!/bin/bash
+
+make node_modules
+plk -c`clojure -A:test:cljs -Spath` -m metaprob.test-runner

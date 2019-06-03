@@ -9,19 +9,6 @@
             [metaprob.prelude :as prelude])
   (:refer-clojure :exclude [assoc dissoc]))
 
-(deftest ^:kaocha/pending smoke-1
-  (testing "testing check-sampler"
-    (let [check-sampler (fn [f1 f2] :todo)
-          variance (check-sampler (fn [] (uniform 0 0.99))
-                                  (fn [x]      ;pdf
-                                    (if (and (> x 0) (< x 1))
-                                      1
-                                      0))
-                                  10
-                                  50)]
-      (print [variance])
-      (is (< variance 0.2)))))
-
 (deftest prior-density-1
   (testing "checking prior density"
     (is (> (prior-density 0) 0.01))))

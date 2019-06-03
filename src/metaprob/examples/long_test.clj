@@ -76,10 +76,10 @@
     (let [sampler (fn [i]
                     (tell-travis "Rejection")
                     (trace-value
-                      (rejection-sampling :model normal-normal
-                                          :observation-trace {"y" {:value 3}}
-                                          :log-bound 0.5)
-                      "x"))
+                     (rejection-sampling :model normal-normal
+                                         :observation-trace {"y" {:value 3}}
+                                         :log-bound 0.5)
+                     "x"))
           pdf target-density]
       (is (assay "r" sampler nsamples pdf nbins threshold)))))
 
@@ -88,21 +88,9 @@
     (let [sampler (fn [i]
                     (tell-travis "Importance")
                     (trace-value
-                      (importance-resampling :model normal-normal
-                                             :observation-trace {"y" {:value 3}}
-                                             :n-particles n-particles)
-                      "x"))
+                     (importance-resampling :model normal-normal
+                                            :observation-trace {"y" {:value 3}}
+                                            :n-particles n-particles)
+                     "x"))
           pdf target-density]
       (is (assay "i" sampler nsamples pdf nbins threshold)))))
-;
-;(deftest check-MH
-;  (testing "check M-H sampling"
-;    (let [sampler (fn [i]
-;                    (tell-travis "M-H")
-;                    (gaussian-sample-value
-;                     (lightweight-single-site-MH-sampling two-variable-gaussian-model
-;                                                          []
-;                                                          target-trace
-;                                                          n-mh-steps)))
-;          pdf target-density]
-;      (is (assay "m" sampler nsamples pdf nbins threshold)))))

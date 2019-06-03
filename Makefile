@@ -1,3 +1,6 @@
+YARNOPTS := install --no-progress --frozen-lockfile
+
+
 all: bin/lein .lein_classpath
 	@echo "Good to go!"
 
@@ -6,16 +9,13 @@ cljs:
 	clojure -Acljs -m cljs.main --repl-env nashorn --repl
 .PHONY: cljsrepl
 
-cljstest:
-	clojure -Acljs:cljstest
-.PHONY: cljstest
-
 cljsclean:
 	rm -Rf out
 
-cljsselftest:
-	plk -c`clojure -Acljs:test -Spath` -m metaprob.test-runner
-.PHONY: cljsselftest
+# Needed by Kaocha to run ClojureScript tests
+# https://github.com/lambdaisland/kaocha-cljs#quickstart
+node_modules: package.json yarn.lock
+	yarn $(YARNOPTS)
 
 # This target is referenced in README.md
 bin/lein:
@@ -31,18 +31,6 @@ bin/lein:
 # I got this hack from stackoverflow.
 .lein_classpath: bin/lein
 	bin/lein classpath > $@
-
-# Incudes long-running tests
-test: cljtest cljtestlong cljstest cljsselftest
-.PHONY: test
-
-cljtest:
-	clojure -Atest
-.PHONY: cljtest
-
-cljtestlong:
-	clojure -Atest -d src -n metaprob.examples.long-test
-.PHONY: cljtestlong
 
 # Create directory of .trace files from .vnts files.
 # Requires python-metaprob.
@@ -95,15 +83,16 @@ tags:
 	etags --language=lisp `find src -name "[a-z]*.clj"` `find test -name "[a-z]*.clj"`
 
 # Targets for manipulating Docker below.
+.PHONY: docker-build
 docker-build:
 	mkdir -p $(HOME)/.m2/repository
 	docker build -t probcomp/metaprob-clojure:latest .
-.PHONY: docker-build
 
+.PHONY: docker-test
 docker-test:
 	docker run --rm -t probcomp/metaprob-clojure:latest bash -c "make test"
-.PHONY: docker-test
 
+.PHONY: docker-bash
 docker-bash:
 	docker run \
 		-it \
@@ -111,8 +100,8 @@ docker-bash:
 		--mount type=bind,source=${CURDIR},destination=/home/metaprob/projects/metaprob-clojure \
 		probcomp/metaprob-clojure:latest \
 		bash
-.PHONY: docker-cider
 
+.PHONY: docker-repl
 docker-repl:
 	docker run \
 		-it \
@@ -122,8 +111,8 @@ docker-repl:
 		bash -c "sleep 1;clj"
 # For more information on why this sleep is necessary see this pull request:
 # https://github.com/sflyr/docker-sqlplus/pull/2
-.PHONY: docker-repl
 
+.PHONY: docker-notebook
 docker-notebook:
 	docker run \
 		-it \
@@ -137,4 +126,3 @@ docker-notebook:
 			--no-browser \
 			--NotebookApp.token= \
 			--notebook-dir ./tutorial"
-.PHONY: docker-notebook

@@ -13,6 +13,7 @@ RUN apt-get update -qq \
         cmake \
         curl \
         nodejs \
+        yarn \
         time \
         rlwrap \
         python3-pip \

@@ -3,13 +3,9 @@
         incanter/incanter-core {:mvn/version "1.9.3"}
         kixi/stats {:mvn/version "0.4.0"}}
 
- :aliases {:examples {:jvm-opts ["-Xss50M"]
-                      :main-opts ["-m" "metaprob.examples.main"]}
-           :test {:extra-paths ["test"]
-                  :extra-deps {lambdaisland/kaocha {:mvn/version "0.0-418"}}
-                  ;; Default stack size is 1MB or less, increase to 50. For more
-                  ;; information on `java` options:
-                  ;; https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html
-                  :jvm-opts ["-Xss50M"]}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps {lambdaisland/kaocha {:mvn/version "0.0-418"}
+                               lambdaisland/kaocha-cljs {:mvn/version "0.0-32"}}}
            :cljs {:extra-deps {org.clojure/clojurescript {:mvn/version "1.10.520"}}}
-           :cljs-test {:extra-deps {lambdaisland/kaocha-cljs {:mvn/version "0.0-32"}}}}}
+           :examples {:jvm-opts ["-Xss50M"]
+                      :main-opts ["-m" "metaprob.examples.main"]}}}

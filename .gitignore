@@ -23,6 +23,7 @@ parsings
 # ClojureScript
 /out/
 /nashorn_code_cache/
+/node_modules/
 
 # Leiningen
 .lein-deps-sum
