@@ -77,6 +77,9 @@ WORKDIR $METAPROB_DIR
 
 COPY --chown=metaprob:metaprob ./deps.edn $METAPROB_DIR
 COPY --chown=metaprob:metaprob ./project.clj $METAPROB_DIR
+COPY --chown=metaprob:metaprob ./Makefile $METAPROB_DIR
+COPY --chown=metaprob:metaprob ./package.json $METAPROB_DIR
+COPY --chown=metaprob:metaprob ./yarn.lock $METAPROB_DIR
 RUN clojure -e "(clojure-version)"
 
 RUN make node_modules
