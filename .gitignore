@@ -15,6 +15,7 @@ parsings
 *~
 .#*
 *#
+*.swp
 
 # Clojure
 *.jar

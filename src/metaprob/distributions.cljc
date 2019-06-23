@@ -1,7 +1,11 @@
 (ns metaprob.distributions
   (:refer-clojure :exclude [apply map replicate reduce])
   (:require [metaprob.prelude :as mp :refer [map make-primitive]]
-            #?(:clj [incanter.distributions :as distributions])))
+            [clojure.core.matrix :as m]
+            #?(:clj [incanter.distributions :as distributions])
+            ; #?(:clj [incanter.stats :as stats])
+            ; #?(:clj [incanter.core :as core])))
+            ))
 
 (def exactly
   (make-primitive
@@ -84,6 +88,21 @@
   (make-primitive
    generate-gaussian
    score-gaussian))
+
+(defn generate-multivariate-gaussian [mu sigma & {:keys [n] :or {n 1}}]
+    (stats/sample-mvn n :mean mu :sigma (core/matrix sigma))
+  )
+
+(defn score-multivariate-gaussian [x [mu sigma]]
+  (let [x-corrected (m/sub x mu)]
+    (* -0.5 (+ (Math/log (m/det sigma))
+               (m/mmul (m/mmul x-corrected (m/inverse sigma))
+                       (m/transpose x-corrected))))))
+
+(def multivariate-gaussian
+  (make-primitive
+   generate-multivariate-gaussian
+   score-multivariate-gaussian))
 
 (def geometric
   (make-primitive
