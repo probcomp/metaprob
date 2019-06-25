@@ -3,9 +3,6 @@
   (:require [metaprob.prelude :as mp :refer [map make-primitive]]
             [clojure.core.matrix :as m]
             #?(:clj [incanter.distributions :as distributions])
-            ; #?(:clj [incanter.stats :as stats])
-            ; #?(:clj [incanter.core :as core])))
-            ))
 
 (def exactly
   (make-primitive
@@ -89,16 +86,20 @@
    generate-gaussian
    score-gaussian))
 
-(defn generate-multivariate-gaussian [mu sigma & {:keys [n] :or {n 1}}]
-    (stats/sample-mvn n :mean mu :sigma (core/matrix sigma))
+(defn generate-multivariate-gaussian [mu sigma]
+    (first (stats/sample-mvn 1 :mean mu :sigma (core/matrix sigma)))
   )
 
 (defn score-multivariate-gaussian [x [mu sigma]]
-  (let [x-corrected (m/sub x mu)]
+  (let [x-corrected (m/sub x mu)
+        k (count x)]
     (* -0.5 (+ (Math/log (m/det sigma))
                (m/mmul (m/mmul x-corrected (m/inverse sigma))
-                       (m/transpose x-corrected))))))
+                       (m/transpose x-corrected))
+               (* k (Math/log (* 2 Math/PI)))))))
 
+(generate-multivariate-gaussian [0 0] [[1 0] [0 1]])
+(score-multivariate-gaussian [-5 0] [[0 0] [[1 0][0 1]]])
 (def multivariate-gaussian
   (make-primitive
    generate-multivariate-gaussian
