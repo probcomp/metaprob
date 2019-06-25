@@ -14,7 +14,6 @@
         (prelude/infer-and-score :procedure proc :inputs inputs :observation-trace tr)]
     score))
 
-
 (deftest flip-1
   (testing "flip smoke tests"
     (let [r (range 100)
@@ -37,25 +36,25 @@
       (is (number? score) score)
       (is (> score -0.1)))))
 
-; (deftest multivariate-gaussian-1
-;   (testing "multivariate gaussian smoke tests"
-;     (let [mu-1 [0 0]
-;           sigma-1 [[1 0] [0 1]]
-;           mu-2 [1.2 -0.7]
-;           sigma-2 [[2 -0.6][-0.6 0.2]]
-;           score-1 (get-score dist/multivariate-gaussian mu-1 sigma-1 [0 0])
-;           score-2 (get-score dist/multivariate-gaussian mu-2 sigma-2)]
-;       (is (number? score-1) score-1)
-;       (is (= (clojure.core.matrix/shape (dist/multivariate-gaussian mu-2 sigma-2)) [1 2])))))
+(deftest multivariate-gaussian-1
+  (testing "multivariate gaussian smoke tests"
+    (let [mu-1 [0 0]
+          sigma-1 [[1 0] [0 1]]
+          mu-2 [1.2 -0.7]
+          sigma-2 [[2 -0.6][-0.6 0.2]]
+          score-1 (get-score dist/multivariate-gaussian mu-1 sigma-1 [0 0])
+          score-2 (get-score dist/multivariate-gaussian mu-2 sigma-2)]
+      (is (number? score-1) score-1)
+      (is (= (clojure.core.matrix/shape (dist/multivariate-gaussian mu-2 sigma-2)) [1 2])))))
 
-; (deftest multivariate-gaussian-score-1
-;   (testing "multivariate gaussian score smoke tests"
-;     (let [mu-1 [0 0]
-;           sigma-1 [[1 0] [0 1]]
-;           mu-2 [1.2 -0.7]
-;           sigma-2 [[2 -0.6][-0.6 0.2]]]
-;       (is (= (clojure.core.matrix/shape (dist/multivariate-gaussian mu-1 sigma-1)) [1 2]))
-;       (is (= (clojure.core.matrix/shape (dist/multivariate-gaussian mu-2 sigma-2)) [1 2])))))
+(deftest multivariate-gaussian-score-1
+  (testing "multivariate gaussian score smoke tests"
+    (let [mu-1 [0 0]
+          sigma-1 [[1 0] [0 1]]
+          mu-2 [1.2 -0.7]
+          sigma-2 [[2 -0.6][-0.6 0.2]]]
+      (is (= (clojure.core.matrix/shape (dist/multivariate-gaussian mu-1 sigma-1)) [1 2]))
+      (is (= (clojure.core.matrix/shape (dist/multivariate-gaussian mu-2 sigma-2)) [1 2])))))
 
 (defn normalize [weights]
   (let [total (apply + weights)]
@@ -68,14 +67,14 @@
         probabilities (map second target-distribution)
         samples (map (fn [x] (generator)) (range reps))
         measured (normalize
-                   (map (fn [value]
-                          (apply +
-                                 (map (fn [sample]
-                                        (if (= sample value)
-                                          1
-                                          0))
-                                      samples)))
-                        values))
+                  (map (fn [value]
+                         (apply +
+                                (map (fn [sample]
+                                       (if (= sample value)
+                                         1
+                                         0))
+                                     samples)))
+                       values))
         abs (fn [x] (if (< x 0) (- 0 x) x))
         close? (fn [x y]
                  (if (if (= x 0)
@@ -128,6 +127,7 @@
                                             weights
                                             probabilities)
                           100000)))))
+
 
 (deftest log-categorical-1
   (testing "log-categorical"
