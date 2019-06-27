@@ -8,6 +8,7 @@
 
 (defn get-score
   [proc & inputs]
+  (println inputs)
   (let [[_ tr _]
         (prelude/infer-and-score :procedure proc :inputs inputs)
         [_ _ score]
@@ -39,22 +40,8 @@
 (deftest multivariate-gaussian-1
   (testing "multivariate gaussian smoke tests"
     (let [mu-1 [0 0]
-          sigma-1 [[1 0] [0 1]]
-          mu-2 [1.2 -0.7]
-          sigma-2 [[2 -0.6][-0.6 0.2]]
-          score-1 (get-score dist/multivariate-gaussian mu-1 sigma-1 [0 0])
-          score-2 (get-score dist/multivariate-gaussian mu-2 sigma-2)]
-      (is (number? score-1) score-1)
-      (is (= (clojure.core.matrix/shape (dist/multivariate-gaussian mu-2 sigma-2)) [1 2])))))
-
-(deftest multivariate-gaussian-score-1
-  (testing "multivariate gaussian score smoke tests"
-    (let [mu-1 [0 0]
-          sigma-1 [[1 0] [0 1]]
-          mu-2 [1.2 -0.7]
-          sigma-2 [[2 -0.6][-0.6 0.2]]]
-      (is (= (clojure.core.matrix/shape (dist/multivariate-gaussian mu-1 sigma-1)) [1 2]))
-      (is (= (clojure.core.matrix/shape (dist/multivariate-gaussian mu-2 sigma-2)) [1 2])))))
+          sigma-1 [[1 0] [0 1]]]
+      (is (= (clojure.core.matrix/shape (dist/multivariate-gaussian mu-1 sigma-1)) [2])))))
 
 (defn normalize [weights]
   (let [total (apply + weights)]
