@@ -87,14 +87,11 @@
    generate-gaussian
    score-gaussian))
 
-
 (defn generate-multivariate-gaussian [mu sigma]
       (vec 
         (double-array 
             (first (stats/sample-mvn 1 :mean mu :sigma (m/matrix sigma)))))
   )
-
-; (generate-multivariate-gaussian [0 0] [[1 0] [0 1]])
 
 (defn score-multivariate-gaussian [x [mu sigma]]
   (let [x-corrected (m/sub x mu)
@@ -104,8 +101,6 @@
                        (m/transpose x-corrected))
                (* k (Math/log (* 2 Math/PI)))))))
 
-; (generate-multivariate-gaussian [0 0] [[1 0] [0 1]])
-; (score-multivariate-gaussian [0 0] [[0 0] [[1 0][0 1]]])
 
 (def multivariate-gaussian
   (make-primitive

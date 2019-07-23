@@ -43,6 +43,13 @@
           sigma-1 [[1 0] [0 1]]]
       (is (= (clojure.core.matrix/shape (dist/multivariate-gaussian mu-1 sigma-1)) [2])))))
 
+(deftest multivariate-gaussian-2
+  (testing "multivariate gaussian score function"
+    (let [mu [0 0]
+          sigma [[1 0] [0 1]]
+          x [0 0]]
+      (is (= (* -1 (Math/log (* 2 Math/PI))) (dist/score-multivariate-gaussian x [mu sigma]))))))
+
 (defn normalize [weights]
   (let [total (apply + weights)]
     (map (fn [x] (/ x total)) weights)))
