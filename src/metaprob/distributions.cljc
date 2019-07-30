@@ -102,10 +102,10 @@
                (* k (Math/log (* 2 Math/PI)))))))
 
 
-(def multivariate-gaussian
+#?(:clj (def multivariate-gaussian
   (make-primitive
    generate-multivariate-gaussian
-   score-multivariate-gaussian))
+   score-multivariate-gaussian)))
 
 (def geometric
   (make-primitive
