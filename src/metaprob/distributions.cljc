@@ -40,7 +40,7 @@
              r (* (mp/sample-uniform) total)]
          (->> probs
               (reductions +)
-              (take-while #(< % r ))
+              (take-while #(< % r))
               count))))
    (fn [i [probs]]
      (if (map? probs)
