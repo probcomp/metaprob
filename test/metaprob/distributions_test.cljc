@@ -139,3 +139,25 @@
                                             weights
                                             probabilities)
                           100000)))))
+
+(deftest log-categorical-small-weights
+  (testing "log-categorical with very small probabilities (regression test for
+           precision loss issue
+           https://github.com/probcomp/metabprob/issues/157)"
+    (let [scores '(-746 -745)
+          weights (map prelude/exp scores)
+          naive-normalized-weights (normalize weights)
+          samples (into #{} (repeatedly 1000 #(dist/log-categorical scores)))]
+      (is (and
+            ;; Normalizing in weight space (not log-weight space aka "score"
+            ;; space) leads to one of the weights being exactly zero due to
+            ;; severe precision loss.
+            (== 0.0 (first naive-normalized-weights))
+            ;; As described in https://github.com/probcomp/metabprob/issues/157,
+            ;; this condition can fail for two reasons:
+            ;; 1) precision loss that causes a loop to run too long and
+            ;;    ultimately produces an index-out-of-bounds error,
+            ;; 2) precision loss that causes the categorical distribution to
+            ;;    assign zero probability mass to the value `0`; the weight
+            ;;    should instead be 1/11
+            (contains? samples 0))))))
