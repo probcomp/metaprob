@@ -38,8 +38,10 @@
        (nth (keys probs) (categorical (normalize-numbers (vals probs)))) ;; TODO: normalization not needed here?
        (let [total (clojure.core/reduce + probs)
              r (* (mp/sample-uniform) total)]
-         (loop [i 0, sum 0]
-           (if (< r (+ (nth probs i) sum)) i (recur (inc i) (+ (nth probs i) sum)))))))
+         (->> probs
+              (reductions +)
+              (take-while #(< % r ))
+              count))))
    (fn [i [probs]]
      (if (map? probs)
        (if (not (contains? probs i)) mp/negative-infinity (- (mp/log (get probs i)) (mp/log (clojure.core/reduce + (vals probs)))))
