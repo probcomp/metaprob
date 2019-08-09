@@ -1,5 +1,8 @@
 (defproject metaprob "0.1.0-SNAPSHOT"
-  :jvm-opts ["-Xss50M"] ; See `deps.edn` for an explanation of this setting
+  :jvm-opts [
+             "-Xss50M" ; See `deps.edn` for an explanation of this setting
+             "-Dhttps.protocols=TLSv1.2" ; See https://stackoverflow.com/a/50956622
+             ]
   :source-paths ["tutorial/src"]
   :resource-paths ["tutorial/resources"]
   :dependencies [[org.clojure/data.json "0.2.6"]
