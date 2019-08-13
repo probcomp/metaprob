@@ -31,6 +31,11 @@ RUN curl -O https://download.clojure.org/install/linux-install-${CLOJURE_VERSION
       && chmod +x linux-install-${CLOJURE_VERSION}.sh \
       && ./linux-install-${CLOJURE_VERSION}.sh
 
+# Work around a bug in the Ubuntu package `ca-certificates-java`
+# (https://stackoverflow.com/a/33440168)
+RUN dpkg --purge --force-depends ca-certificates-java \
+      && apt-get install ca-certificates-java
+
 # Install Planck so we can run our tests in self-hosted mode.
 
 RUN apt-get update \
