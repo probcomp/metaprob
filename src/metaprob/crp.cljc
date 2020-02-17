@@ -1,7 +1,8 @@
 (ns metaprob.crp
   (:refer-clojure :exclude [apply map replicate reduce])
-  (:require [metaprob.prelude :as mp :refer [map make-primitive]]
-            #?(:clj [incanter.distributions :as distributions])))
+  (:require [metaprob.generative-functions :as gen :refer [gen]]
+            [metaprob.prelude :as mp :refer [map make-primitive]]
+            [metaprob.distributions :as distributions]))
 
 ;; Note: in wikipedia, the parameter that we are calling 'alpha' is
 ;; called 'theta'.  The 'alpha' in wikipedia is assumed to be zero.
@@ -14,22 +15,15 @@
 ;; customer-count is not used at present, because categorical takes
 ;; care of normalization, so we should probably remove it.
 
-(defn empty-state [alpha]
-  [[] 0 alpha])
-
 (def sample
-  (gen [state]
-    (let [[table-counts customer-count alpha] state]
-      ;; Think about this.
-      (let [weights (concat table-counts [alpha])]
-        (categorical weights)))))
+  (gen [counts alpha]
+    (distributions/categorical (concat counts [alpha]))))
 
-(defn incorporate [state new-seating]
-  (let [[table-counts customer-count alpha] state]
-    [(if (>= new-seating (len table-counts))
-       (concat table-counts [1])
-       (assoc table-counts
-              new-seating
-              (+ (table-counts new-seating) 1)))
-     (+ customer-count 1)
-     alpha]))
+(defn incorporate [counts new-seating]
+  (if (>= new-seating (count counts))
+    (vec (concat counts
+                 (repeat (- new-seating (count counts)) 0)
+                 [1]))
+    (assoc counts
+           new-seating
+           (+ (counts new-seating) 1))))
