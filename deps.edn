@@ -1,7 +1,7 @@
-{:deps {org.clojure/clojure {:mvn/version "1.9.0"}
-        org.clojure/tools.cli {:mvn/version "0.4.1"}
-        incanter/incanter-core {:mvn/version "1.9.3"}
-        kixi/stats {:mvn/version "0.4.0"}}
+{:deps {kixi/stats {:mvn/version "0.4.0"}
+        org.apache.commons/commons-math3 {:mvn/version "3.6.1"}
+        org.clojure/clojure {:mvn/version "1.9.0"}
+        org.clojure/tools.cli {:mvn/version "0.4.1"}}
 
  :aliases {:examples {:jvm-opts ["-Xss50M" "-Dhttps.protocols=TLSv1.2"]
                       :main-opts ["-m" "metaprob.examples.main"]}
