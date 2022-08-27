@@ -1,7 +1,7 @@
 (ns metaprob.distributions
   (:refer-clojure :exclude [apply map replicate reduce])
-  (:require [metaprob.prelude :as mp :refer [map make-primitive]]
-            #?(:clj [incanter.distributions :as distributions])))
+  (:require [metaprob.prelude :as mp :refer [map make-primitive]])
+  #?(:clj (:import [org.apache.commons.math3.distribution BetaDistribution GammaDistribution])))
 
 (def exactly
   (make-primitive
@@ -95,19 +95,15 @@
 #?(:clj (def gamma
           (make-primitive
            (fn [shape scale]
-             (distributions/draw
-              (distributions/gamma-distribution shape scale)))
+             (.sample (GammaDistribution. shape scale)))
            (fn [x [shape scale]]
-             (mp/log (distributions/pdf
-                   (distributions/gamma-distribution shape scale)
-                   x))))))
+             (.logDensity (GammaDistribution. shape scale)
+                          x)))))
 
 #?(:clj (def beta
           (make-primitive
            (fn [alpha beta]
-             (distributions/draw
-              (distributions/beta-distribution alpha beta)))
+             (.sample (BetaDistribution. alpha beta)))
            (fn [x [alpha beta]]
-             (mp/log (distributions/pdf
-                   (distributions/beta-distribution alpha beta)
-                   x))))))
+             (.logDensity (BetaDistribution. alpha beta)
+                          x)))))
